@@ -15,6 +15,9 @@
 | [directory.md](./architecture/directory.md) | 完整目录结构（server/client/shared） | 创建新文件时 |
 | [player-modes.md](./architecture/player-modes.md) | 世界类型（历史/随机）× 操控方式（角色/上帝） | 实现模式切换时 |
 | [deployment.md](./architecture/deployment.md) | 安装、配置 Schema、手机访问 | 部署或配置时 |
+| [frontend-ui.md](./architecture/frontend-ui.md) | 前端 UI 设计规范（配色、字体、组件、动效、页面设计） | 设计/实现前端界面时 |
+| [frontend-conventions.md](./architecture/frontend-conventions.md) | 前端开发规范（组件、状态管理、WebSocket、样式） | 编写前端代码时 |
+| [backend-conventions.md](./architecture/backend-conventions.md) | 后端开发规范（代码风格、API、数据库、LLM 调用） | 编写后端代码时 |
 
 ### agent/ — Agent 系统
 
