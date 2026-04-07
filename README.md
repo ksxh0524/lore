@@ -1,6 +1,6 @@
 # Lore
 
-> 🌍 Open-source AI Life Simulation — AI 角色在一个虚拟世界里自主运行，你作为参与者进入其中
+> Open-source AI Life Simulation — AI characters live autonomously in a virtual world. You're part of it, not the center of it.
 
 [English](./README.md) | [中文](./README.zh-CN.md)
 
@@ -14,13 +14,17 @@ Each agent has their own life — career, relationships, personality, and memori
 
 ### Key Features
 
-- 🤖 **Autonomous AI Agents** — Each agent has their own personality, backstory, and behavior logic
-- 🌍 **Living World** — The world runs 24/7. Events happen, relationships change, lives unfold
-- 💬 **Deep Interaction** — Chat with agents, build relationships, influence events
-- 📱 **Social Feed** — Agents post on their "social media" (photos, thoughts, life updates)
-- 🎴 **Event-Driven** — Life events pop up as cards. Choose to intervene or watch from the sidelines
-- 🔒 **Privacy First** — All data stored locally. No cloud dependency.
-- 🔌 **Multi-LLM** — Works with OpenAI, Claude, DeepSeek, local models (Ollama), and more
+- **Autonomous AI Agents** — Every agent thinks with LLM. No scripted behavior. The delivery guy might quit and start a company
+- **Living World** — The world runs 24/7. World Agent handles natural disasters, economy, social changes
+- **Two World Types** — Random mode (set age, location, explore) or History mode (time-travel into a historical figure)
+- **Deep Interaction** — Chat, upload photos/videos, build relationships, get rejected, get flirted with
+- **Virtual Platforms** — Agents use simulated YouTube, TikTok, Twitter. Post selfies, browse content, react to your posts
+- **Unrestricted Agents** — Agents have complete lives. They can start businesses, compete with you, fall in love, disappear
+- **Event Cards** — Life events pop up as cards. Choose to intervene or watch from the sidelines
+- **God Mode** — Observe every agent's thought process, trigger world events, see the full picture
+- **Community Presets** — Historical eras, sci-fi worlds, custom scenarios — written in YAML, shared by the community
+- **Privacy First** — All data stored locally (SQLite). No cloud dependency
+- **Multi-LLM** — Works with OpenAI, Claude, DeepSeek, Kimi, local models, and more
 
 ## Quick Start
 
@@ -54,10 +58,10 @@ pnpm dev
 
 ### Tech Stack
 
-- **Frontend**: React 19 + TypeScript + Vite + shadcn/ui + Tailwind CSS
+- **Frontend**: React 19 + TypeScript + Vite + shadcn/ui + Tailwind CSS + zustand
 - **Backend**: Node.js + Fastify + WebSocket
 - **Database**: SQLite + Drizzle ORM + vec0 (vector search)
-- **AI**: OpenAI-compatible API (works with OpenAI, Claude, DeepSeek, Ollama...)
+- **AI**: Vercel AI SDK + OpenAI-compatible API (DeepSeek, Kimi, Qwen, Claude, Gemini...)
 - **Package**: pnpm monorepo
 
 ### Project Structure
@@ -65,25 +69,24 @@ pnpm dev
 ```
 lore/
 ├── packages/
-│   ├── server/       # Backend + World Engine
+│   ├── server/       # Backend + World Engine + Agent System
 │   ├── client/       # Frontend React PWA
 │   └── shared/       # Shared types
-├── docs/
-│   └── tech-design.md
+├── docs/             # Technical documentation
 └── README.md
 ```
 
-See [Technical Design Document](./docs/tech-design.md) for architecture details.
+See [Technical Documentation](./docs/INDEX.md) for architecture details.
 
 ## Roadmap
 
-- [x] Phase 0: Project scaffolding
-- [ ] Phase 1: Single agent + basic events + chat
-- [ ] Phase 2: Memory engine + multi-agent
-- [ ] Phase 3: Autonomous behavior + push notifications
-- [ ] Phase 4: External channels (Telegram, Feishu, Discord) + npm publish
-- [ ] Phase 5: Agent marketplace + community
-- [ ] Phase 6+: Open world (agent birth/death, user-created worlds)
+- [x] Phase 0: Project scaffolding + documentation
+- [ ] Phase 1: World initialization + single agent + basic sandbox + chat + basic economy (MVP)
+- [ ] Phase 2: Memory engine + multi-agent + relationships + virtual platforms + image generation
+- [ ] Phase 3: World Agent + autonomous behavior + god mode + push notifications
+- [ ] Phase 4: History mode + community presets + advanced sandbox + factions
+- [ ] Phase 5: Full economy + multi-modal + PWA + npm publish
+- [ ] Phase 6+: Multi-user worlds + community ecosystem + 10k+ agents
 
 ## Contributing
 
