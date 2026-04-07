@@ -22,16 +22,6 @@ Lore 不是聊天机器人。它是一个**有生命的 AI 世界**。
 - 🔒 **隐私优先** — 所有数据本地存储，无需云端
 - 🔌 **多模型支持** — 兼容 OpenAI、Claude、DeepSeek、本地模型（Ollama）等
 
-### 与其他项目的区别
-
-| | SillyTavern（酒馆） | AI Town | **Lore** |
-|---|---|---|---|
-| Agent 自主性 | ❌ 被动等待 | ✅ 基础行为 | ✅ 完整人生模拟 |
-| 多 Agent 世界 | ❌ | ✅ 25 个角色 | ✅ 无限制 |
-| 用户参与度 | 只能聊天 | 只能旁观 | 互动 + 影响 |
-| 记忆系统 | 仅会话内 | 无 | 长期记忆 + 语义检索 |
-| 视觉体验 | 纯文字 | 2D 地图 | 事件卡片 + 社交动态 |
-
 ## 快速开始
 
 ```bash
@@ -52,7 +42,7 @@ lore
 
 ```bash
 # 克隆
-git clone https://github.com/your-username/lore.git
+git clone https://github.com/ksxh0524/lore.git
 cd lore
 
 # 安装依赖

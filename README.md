@@ -22,16 +22,6 @@ Each agent has their own life — career, relationships, personality, and memori
 - 🔒 **Privacy First** — All data stored locally. No cloud dependency.
 - 🔌 **Multi-LLM** — Works with OpenAI, Claude, DeepSeek, local models (Ollama), and more
 
-### How It's Different
-
-| | SillyTavern | AI Town | **Lore** |
-|---|---|---|---|
-| Agent Autonomy | ❌ Passive | ✅ Basic | ✅ Full life simulation |
-| Multi-Agent World | ❌ | ✅ 25 agents | ✅ Unlimited |
-| User Participation | Chat only | Observe | Interact + influence |
-| Memory | Session-based | None | Long-term + semantic search |
-| Visual | Text only | 2D map | Event cards + social feed |
-
 ## Quick Start
 
 ```bash
@@ -52,7 +42,7 @@ First run will:
 
 ```bash
 # Clone
-git clone https://github.com/your-username/lore.git
+git clone https://github.com/ksxh0524/lore.git
 cd lore
 
 # Install dependencies
