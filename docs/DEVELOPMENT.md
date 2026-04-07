@@ -162,785 +162,109 @@
 
 ---
 
-## 三、架构设计（核心）
+## 三、架构设计
 
-### 3.1 整体架构
+> **底层框架的详细实现见 `docs/AGENT_FRAMEWORK.md`。** 那份文档写透了每个 class 的实现。这里只做概览。
+
+### 3.1 Lore 到底在干什么？
+
+**没有"世界引擎"。** 底层就是：
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                        世界引擎（自研）                        │
-│                                                              │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────────────────┐ │
-│  │ 时间系统  │  │ 事件引擎  │  │ 初始化 Agent               │ │
-│  │ (Clock)  │  │ (Events) │  │ (创建世界/NPC/关系)         │ │
-│  └────┬─────┘  └────┬─────┘  └────────────────────────────┘ │
-│       │              │                                      │
-│       ▼              ▼                                      │
-│  ┌──────────────────────────────────────────────┐           │
-│  │              Agent Pool（自研）               │           │
-│  │                                              │           │
-│  │  每个 Agent:                                 │           │
-│  │  ├── 角色定义（人格/背景/目标）               │           │
-│  │  ├── 行为引擎（规则 + LLM 决策）             │           │
-│  │  ├── 记忆系统（工作/近期/长期+向量）          │           │
-│  │  ├── 关系网络（与其他 Agent/用户的关系）       │           │
-│  │  ├── 社交行为（发动态/点赞/评论/加好友）      │           │
-│  │  └── 状态机（idle/active/sleeping/dead）      │           │
-│  │                                              │           │
-│  │  分层 LLM 调用策略：                         │           │
-│  │  ├── 核心 Agent（用户在聊的）→ 好模型         │           │
-│  │  ├── 活跃 Agent（最近有事件的）→ 中模型        │           │
-│  │  └── 背景 Agent（几十个）→ 规则引擎           │           │
-│  └──────────────────────────────────────────────┘           │
-│       │                                                      │
-│       ▼                                                      │
-│  ┌──────────────────────────────────────────────┐           │
-│  │       LLM 调用层（Vercel AI SDK）              │           │
-│  │  统一接口：streamText / generateText          │           │
-│  │  Provider: OpenAI/Claude/Gemini/国内厂商      │           │
-│  └──────────────────────────────────────────────┘           │
-└──────────────────────────────────────────────────────────────┘
+1. Fastify HTTP 服务器 → 提供页面 + REST API
+2. WebSocket → 前端和服务端实时通信
+3. setInterval 定时器 → 每隔 N 秒触发一个 tick
+4. N 个 AgentRuntime 实例 → 每个都是内存中的 TypeScript 对象
+5. SQLite 数据库 → 持久化
+6. EventEmitter → Agent 间通过事件通信
 ```
 
-### 3.2 世界引擎 — 步进式模拟循环
-
-参考 AI Town（a16z）的架构模式，核心是一个**步进式模拟循环**：
-
-```typescript
-// 世界引擎核心循环
-class WorldEngine {
-  private running = false;
-  private stepInterval: NodeJS.Timer | null = null;
-
-  /**
-   * 启动世界
-   * @param tickMs 每个 step 的间隔（毫秒），默认 1000
-   */
-  async start(tickMs = 1000): Promise<void> {
-    this.running = true;
-    this.stepInterval = setInterval(() => this.runStep(), tickMs);
-  }
-
-  /**
-   * 一个 step 的处理流程
-   * 这是整个世界运行的核心
-   */
-  private async runStep(): Promise<void> {
-    // 1. 推进时间
-    this.clock.tick();
-
-    // 2. 处理输入队列（用户操作 + 上一步的决策结果）
-    await this.processInputQueue();
-
-    // 3. 事件引擎：生成/处理当前时刻的事件
-    const events = await this.eventEngine.processTick(this.clock.now);
-
-    // 4. 遍历需要决策的 Agent，并行调 LLM
-    const agentsNeedingDecision = this.agentPool.getActiveAgents(events);
-    const decisions = await Promise.allSettled(
-      agentsNeedingDecision.map(agent => agent.decide(events))
-    );
-
-    // 5. 执行决策，生成新事件，更新状态
-    for (const result of decisions) {
-      if (result.status === 'fulfilled') {
-        await this.executeDecision(result.value);
-      }
-    }
-
-    // 6. 推送重要事件给在线用户
-    await this.pushEventsToUsers(events);
-
-    // 7. 持久化状态
-    await this.persist();
-  }
-
-  async stop(): Promise<void> {
-    this.running = false;
-    if (this.stepInterval) clearInterval(this.stepInterval);
-    await this.persist();
-  }
+每个 tick 做的事：
+```
+tick() {
+  1. 世界时间 +1
+  2. 生成规则事件（起床/上班/吃饭，不调 LLM）
+  3. 生成概率事件（随机偶遇，不调 LLM）
+  4. 遍历 Agent：有事做吗？
+     → 有 → 调 LLMScheduler.submit() → 排队 → 优先级执行 → 存记忆
+     → 没有 → 跳过
+  5. 重要事件推给前端
+  6. 定期持久化
 }
 ```
 
-### 3.3 时间系统
+### 3.2 核心组件
 
-```typescript
-class WorldClock {
-  /** 世界当前时间 */
-  now: Date;
-
-  /** 时间流速：1 现实秒 = N 世界分钟 */
-  speed: number = 1; // 默认 1:1，可调
-
-  /** 用户离线时自动加速到多少倍 */
-  offlineSpeed: number = 60; // 离线时 1 秒 = 1 小时
-
-  /**
-   * 推进一个 tick
-   * 根据 speed 和 tick 间隔计算世界时间应该前进多少
-   */
-  tick(tickMs: number = 1000): void {
-    const worldMsPassed = tickMs * this.speed * 60 * 1000; // speed 分钟/秒
-    this.now = new Date(this.now.getTime() + worldMsPassed);
-  }
-
-  /** 获取当前世界时间的可读描述 */
-  get timeDescription(): string {
-    // "Day 5, 14:30" 这样的格式
-    return `Day ${this.day}, ${this.hourString}`;
-  }
-
-  get day(): number { /* ... */ }
-  get hour(): number { /* ... */ }
-  get hourString(): string { return `${this.hour.toString().padStart(2, '0')}:00`; }
-}
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    TickScheduler (setInterval)                │
+│                                                             │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────────┐ │
+│  │ WorldClock   │  │ RuleEvents    │  │ RandomEvents     │ │
+│  │ (时间系统)    │  │ (规则事件)     │  │ (概率事件)        │ │
+│  └──────────────┘  └───────────────┘  └──────────────────┘ │
+│                                                             │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                   LLMScheduler                         │ │
+│  │  ┌──────────────────────────────────────────────────┐ │ │
+│  │  │ 优先级队列（系统自动计算，Agent 不参与）           │ │ │
+│  │  │   user-chat(160) > decision(80) > social(70)      │ │ │
+│  │  │   > memory(60) > creative(50) > batch(30)         │ │ │
+│  │  ├──────────────────────────────────────────────────┤ │ │
+│  │  │ 并发控制（用户可配 1-100）                        │ │ │
+│  │  │ 限流检测 → 自动降级 → 慢慢恢复                    │ │ │
+│  │  │ 超时保护（30s）                                   │ │ │
+│  │  └──────────────────────────────────────────────────┘ │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                             │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                 AgentManager                            │ │
+│  │  注册/创建/销毁/查询/持久化/恢复                        │ │
+│  │  Agent 类型: npc | system | user-avatar                │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                             │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │              N × AgentRuntime                           │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐               │ │
+│  │  │ 小美      │ │ 阿杰      │ │ 王姐      │  ...         │ │
+│  │  │ 人格     │ │ 人格     │ │ 人格     │               │ │
+│  │  │ 状态     │ │ 状态     │ │ 状态     │               │ │
+│  │  │ 记忆(三层)│ │ 记忆(三层)│ │ 记忆(三层)│              │ │
+│  │  │ 关系网络  │ │ 关系网络  │ │ 关系网络  │               │ │
+│  │  └──────────┘ └──────────┘ └──────────┘               │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                             │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  EventBus        ResourceTracker    MultimodalRegistry  │ │
+│  │  (Agent间通信)   (Token/成本统计)    (TTS/图片/视频)     │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 3.4 事件引擎
-
-```typescript
-// 事件类型
-type EventCategory = 'daily' | 'social' | 'romance' | 'career' | 'health' | 'random' | 'user';
-
-interface WorldEvent {
-  id: string;
-  category: EventCategory;
-  description: string;        // 事件描述文本
-  involvedAgents: string[];   // 涉及的 Agent ID
-  timestamp: Date;            // 世界时间
-  consequences: EventConsequence[];  // 后果列表
-  userActionable: boolean;    // 用户是否可以介入
-  userOptions?: string[];     // 用户可选的操作
-  priority: number;           // 优先级（决定是否推送给用户）
-}
-
-interface EventConsequence {
-  agentId: string;
-  statChanges: Partial<AgentStats>;  // 属性变化
-  relationshipChanges?: {
-    targetId: string;
-    intimacyDelta: number;
-    typeChange?: RelationshipType;
-  };
-  nextEventId?: string;  // 触发的下一个事件
-}
-
-class EventEngine {
-  /**
-   * 处理一个时间 tick，返回这个 tick 里发生的事件
-   * 
-   * 四类事件源：
-   * 1. 规则事件：日程表驱动（起床、上班、吃饭等），不需要 LLM
-   * 2. 概率事件：随机触发（10% 概率加班、5% 概率遇到熟人），不需要 LLM
-   * 3. LLM 驱动事件：关键社交决策、感情发展、用户互动，需要调 LLM
-   * 4. 用户触发事件：用户发消息、选择事件选项
-   */
-  async processTick(now: Date): Promise<WorldEvent[]> {
-    const events: WorldEvent[] = [];
-
-    // 1. 规则事件（纯逻辑，不调 LLM，省 token）
-    events.push(...this.generateDailyEvents(now));
-    events.push(...this.generateScheduledEvents(now));
-
-    // 2. 概率事件（纯随机，不调 LLM）
-    events.push(...this.generateRandomEvents(now));
-
-    // 3. LLM 驱动事件（关键决策点，需要调 LLM）
-    events.push(...await this.generateLLMEvents(now));
-
-    return events;
-  }
-}
-```
-
-### 3.5 Agent 模型
-
-```typescript
-// ========== 角色定义（静态，创建后基本不变）==========
-
-interface AgentProfile {
-  id: string;
-  name: string;
-  age: number;
-  gender: 'male' | 'female' | 'other';
-  
-  // 外在
-  appearance: string;       // 外貌描述（用于生成头像）
-  avatar?: string;          // 头像 URL
-  occupation: string;       // 职业
-  workplace: string;        // 工作地点
-  
-  // 内在（核心人格）
-  personality: string;      // 性格描述（给 LLM 的 system prompt 一部分）
-  backstory: string;        // 背景故事
-  values: string[];         // 价值观
-  speechStyle: string;      // 说话风格（口头禅、语气等）
-  
-  // 行为配置
-  behaviorConfig: {
-    proactiveness: number;   // 主动性 0-100（多久主动找人聊一次）
-    socialFrequency: number;  // 社交频率 0-100
-    postingFrequency: number; // 发动态频率 0-100（有些 Agent 天生不爱发）
-    workEthic: number;        // 工作态度 0-100
-    romanticTendency: number; // 浪漫倾向 0-100
-    riskTolerance: number;    // 冒险倾向 0-100
-  };
-}
-
-// ========== 动态状态（随事件变化）==========
-
-interface AgentStats {
-  mood: number;           // 心情 0-100
-  health: number;         // 健康 0-100
-  money: number;          // 金钱
-  energy: number;         // 精力 0-100
-  reputation: number;     // 声望 0-100
-  happiness: number;      // 幸福感 0-100
-}
-
-type RelationshipType = 'stranger' | 'acquaintance' | 'friend' | 'close_friend' | 'lover' | 'ex_lover' | 'colleague' | 'family' | 'enemy';
-
-interface Relationship {
-  targetId: string;       // 对方 Agent 或用户
-  type: RelationshipType;
-  intimacy: number;       // 亲密度 0-100
-  history: string;        // 关键事件摘要（LLM 生成）
-}
-
-type AgentStatus = 'idle' | 'active' | 'sleeping' | 'busy' | 'dead';
-
-interface AgentState {
-  agentId: string;
-  status: AgentStatus;
-  stats: AgentStats;
-  currentActivity: string;     // 当前正在做什么
-  currentLocation: string;     // 当前在哪里
-  relationships: Relationship[];
-  alive: boolean;
-}
-
-// ========== 完整 Agent ==========
-
-interface Agent {
-  profile: AgentProfile;
-  state: AgentState;
-  memory: AgentMemory;         // 记忆系统
-  lastDecisionTime: Date;      // 上次决策时间
-  pendingEvents: WorldEvent[]; // 待处理事件队列
-}
-```
-
-### 3.6 记忆系统
-
-**Agent 的记忆 = 它的人生经历。** 每个独立的 Agent 有独立的记忆库。
-
-```typescript
-interface AgentMemory {
-  /** 工作记忆：当前对话上下文，始终加载 */
-  workingMemory: Message[];
-
-  /** 近期记忆：最近 7 天的事件摘要，每次交互加载 */
-  recentMemory: MemoryEntry[];
-
-  /** 长期记忆：重要事件、人际关系、偏好，语义检索（向量 Top-K） */
-  longTermMemory: LongTermMemoryEntry[];
-}
-
-interface MemoryEntry {
-  id: string;
-  timestamp: Date;          // 世界时间
-  type: 'event' | 'conversation' | 'thought' | 'observation';
-  summary: string;          // 摘要文本
-  importance: number;       // 重要度 0-100
-  emotionalWeight: number;  // 情感权重 0-100
-  tags: string[];           // 标签（方便检索）
-}
-
-interface LongTermMemoryEntry extends MemoryEntry {
-  embedding?: number[];     // 向量（用于语义检索）
-}
-
-/**
- * 记忆管理器
- * 
- * 核心策略：
- * - 不是所有东西都记，只记"重要的"
- * - 重要性判断：LLM 在生成回复时顺带判断（prompt 里加 "判断这条信息是否值得长期记忆"）
- * - 日常流水账不存长期记忆，只存近期记忆（7 天自动过期）
- * - 与用户有长期关系的 Agent，记忆更详细
- * - 与用户没有长期关系的 Agent，记忆可以偷懒/省 token
- */
-class MemoryManager {
-  /**
-   * 为 Agent 构建上下文
-   * 根据当前场景，选择性地加载记忆
-   */
-  async buildContext(agent: Agent, situation: string): Promise<string> {
-    const parts: string[] = [];
-
-    // 1. 始终加载工作记忆（当前对话）
-    parts.push(this.formatWorkingMemory(agent.memory.workingMemory));
-
-    // 2. 加载近期记忆
-    parts.push(this.formatRecentMemory(agent.memory.recentMemory));
-
-    // 3. 语义检索长期记忆（Top-K）
-    const relevantMemories = await this.searchLongTerm(
-      agent.id, situation, 5
-    );
-    parts.push(this.formatLongTermMemories(relevantMemories));
-
-    return parts.join('\n');
-  }
-
-  /**
-   * 语义检索长期记忆
-   * 用 vec0 做向量搜索
-   */
-  async searchLongTerm(
-    agentId: string,
-    query: string,
-    topK: number
-  ): Promise<LongTermMemoryEntry[]> {
-    // 1. 生成 query 的 embedding
-    const queryEmbedding = await this.generateEmbedding(query);
-
-    // 2. 在 vec0 中搜索
-    return this.vectorStore.search(agentId, queryEmbedding, topK);
-  }
-
-  /**
-   * 判断是否值得长期记忆
-   * 根据 importance + emotionalWeight 判断
-   */
-  shouldStoreLongTerm(entry: MemoryEntry): boolean {
-    return entry.importance >= 60 || entry.emotionalWeight >= 70;
-  }
-}
-```
-
-### 3.7 Agent 行为引擎
-
-```typescript
-/**
- * Agent 行为引擎
- * 
- * 核心设计：规则引擎 + LLM 决策分层
- * - 日常行为（起床、上班、吃饭）→ 纯规则，不调 LLM
- * - 社交决策（聊什么、对谁主动）→ LLM 决策
- * - 感情决策（表白、分手）→ LLM 决策
- * - 用户互动 → LLM 决策（但优先级最高）
- */
-class BehaviorEngine {
-  /**
-   * Agent 在一个 step 里需要做什么
-   * 
-   * @param agent 当前 Agent
-   * @param events 当前 tick 的事件
-   * @returns 决策结果
-   */
-  async decide(agent: Agent, events: WorldEvent[]): Promise<AgentDecision> {
-    // 1. 过滤与该 Agent 相关的事件
-    const relevantEvents = events.filter(e =>
-      e.involvedAgents.includes(agent.profile.id)
-    );
-
-    // 2. 判断是否需要调 LLM
-    const needsLLM = this.shouldUseLLM(agent, relevantEvents);
-
-    if (!needsLLM) {
-      // 纯规则决策（日常行为）
-      return this.ruleBasedDecision(agent, relevantEvents);
-    }
-
-    // 3. 构建 LLM 上下文
-    const context = await this.buildLLMContext(agent, relevantEvents);
-
-    // 4. 调用 LLM
-    const decision = await this.callLLM(agent, context);
-
-    // 5. 顺带让 LLM 判断记忆重要性
-    const memoryImportance = this.extractMemoryImportance(decision);
-    if (memoryImportance) {
-      await this.memoryManager.store(agent, memoryImportance);
-    }
-
-    return decision;
-  }
-
-  /**
-   * 判断是否需要调 LLM
-   * 
-   * 核心省 token 策略：
-   * - 有用户消息 → 必须调 LLM
-   * - 有感情/社交相关事件 → 调 LLM
-   * - 纯日常（上班/吃饭）→ 不调，走规则
-   * - 背景 Agent（没有和用户建立长期关系）→ 能省则省
-   */
-  shouldUseLLM(agent: Agent, events: WorldEvent[]): boolean {
-    // 有用户相关事件，必须用 LLM
-    if (events.some(e => e.category === 'user')) return true;
-
-    // 有高重要性事件，用 LLM
-    if (events.some(e => e.priority >= 70)) return true;
-
-    // 感情/社交事件，用 LLM
-    if (events.some(e => ['social', 'romance'].includes(e.category))) return true;
-
-    // Agent 处于 sleeping/idle 且无重要事件，不走 LLM
-    if (agent.state.status === 'sleeping' && events.length === 0) return false;
-
-    return false;
-  }
-}
-
-interface AgentDecision {
-  agentId: string;
-  action: string;           // 决定的行动
-  response?: string;        // 如果是对话，回复内容
-  targetAgentId?: string;   // 如果是社交行动，目标 Agent
-  emotionChange?: number;   // 心情变化
-  statChanges?: Partial<AgentStats>;
-  memoryToStore?: MemoryEntry;  // 需要存储的记忆
-}
-```
-
-### 3.8 社交行为系统
-
-Agent 不只是和用户聊天，它们之间也有丰富的社交行为：
-
-```typescript
-/**
- * Agent 社交行为
- * 
- * 每个 Agent 根据自己的人格和关系网络，自主决定社交行为：
- * - 主动加好友 / 同意/拒绝好友请求
- * - 发动态（文字/图片），频率由 postingFrequency 控制
- * - 给其他 Agent/用户的动态点赞、评论
- * - 主动发起聊天
- * - 在视频区发评论（Phase 5+）
- */
-
-interface SocialAction {
-  type: 'add_friend' | 'accept_friend' | 'reject_friend'
-       | 'post' | 'like' | 'comment'
-       | 'initiate_chat' | 'unfriend';
-  agentId: string;
-  targetId?: string;         // 目标 Agent 或用户
-  content?: string;          // 动态内容 / 评论内容
-  postId?: string;           // 关联的动态 ID
-  timestamp: Date;
-}
-
-/**
- * 社交平台（内置的类微博系统）
- */
-interface SocialPost {
-  id: string;
-  authorId: string;          // Agent 或用户
-  content: string;           // 文字内容
-  images?: string[];         // 图片 URL 列表（AI 生成或用户上传）
-  videoId?: string;          // 视频引用（Phase 5+）
-  likes: number;
-  comments: PostComment[];
-  timestamp: Date;           // 世界时间
-  worldDay: number;
-}
-
-interface PostComment {
-  id: string;
-  authorId: string;
-  content: string;
-  timestamp: Date;
-}
-
-/**
- * 好友系统
- */
-interface FriendRequest {
-  id: string;
-  fromId: string;            // 发起者
-  toId: string;              // 接收者
-  status: 'pending' | 'accepted' | 'rejected';
-  timestamp: Date;
-}
-```
-
-### 3.9 初始化 Agent（世界创建）
-
-```typescript
-/**
- * 初始化 Agent
- * 
- * 世界第一次启动时，由一个特殊的"初始化 Agent"负责：
- * 1. 确定世界设定（城市/学校/职场）
- * 2. 创建初始 NPC（5-10 个，不是一次全部创建）
- * 3. 分配 NPC 之间的关系
- * 4. 设定初始状态
- * 
- * 后续随时间推进，可以动态创建新 NPC
- */
-class InitializationAgent {
-  /**
-   * 创建一个新世界
-   * @param userPrompt 用户对世界的描述（可选）
-   * @returns 创建好的世界和初始 Agent
-   */
-  async createWorld(userPrompt?: string): Promise<World> {
-    // 1. 确定/生成世界设定
-    const worldSetting = await this.generateWorldSetting(userPrompt);
-
-    // 2. 生成初始 NPC（5-10 个）
-    const agents = await this.generateInitialNPCs(worldSetting, {
-      count: 8,  // 默认创建 8 个初始 NPC
-      diversity: true,  // 职业、性格、性别多样化
-      ensureInteractions: true,  // 确保有些 NPC 之间有关系
-    });
-
-    // 3. 分配关系网络
-    const relationships = await this.generateRelationships(agents);
-
-    // 4. 创建世界
-    return {
-      id: generateId(),
-      setting: worldSetting,
-      agents,
-      relationships,
-      createdAt: new Date(),
-      day: 1,
-    };
-  }
-
-  /**
-   * 动态添加新 NPC
-   * 随着世界运行，可能需要新角色加入（新同事、新邻居等）
-   */
-  async addNewNPC(world: World, context: string): Promise<Agent> {
-    const npc = await this.generateNPC(world.setting, context);
-    world.agents.push(npc);
-    return npc;
-  }
-}
-```
-
-### 3.10 Agent 活动 Monitor
-
-```typescript
-/**
- * Agent 活动监控
- * 
- * 记录每个 Agent 的思考过程和行为日志
- * 用户可选择性查看，默认折叠
- * 开发调试时全开
- */
-interface AgentActivityLog {
-  id: string;
-  agentId: string;
-  worldTime: Date;
-  worldDay: number;
-  step: number;
-
-  // Agent 的思考过程
-  thoughtProcess?: string;     // LLM 返回的思考链（如果有）
-
-  // 决策
-  decision: AgentDecision;
-
-  // 资源消耗
-  tokensUsed: number;
-  modelUsed: string;
-  latencyMs: number;
-
-  // 状态变化
-  statChanges?: Record<string, { before: number; after: number }>;
-  relationshipChanges?: Record<string, { before: number; after: number }>;
-}
-
-/**
- * Monitor 服务
- * 提供 API 给前端查看
- */
-class AgentMonitor {
-  private logs: AgentActivityLog[] = [];
-
-  /** 记录一次 Agent 活动 */
-  log(activity: AgentActivityLog): void {
-    this.logs.push(activity);
-  }
-
-  /** 获取某个 Agent 的活动日志 */
-  getByAgent(agentId: string, limit = 50): AgentActivityLog[] {
-    return this.logs
-      .filter(l => l.agentId === agentId)
-      .slice(-limit);
-  }
-
-  /** 获取所有 Agent 的最新状态 */
-  getAllAgentStatus(): Record<string, AgentState> {
-    // ...
-  }
-
-  /** 获取 token 消耗统计 */
-  getTokenStats(): TokenStats {
-    // ...
-  }
-}
-```
-
-### 3.11 LLM 调用层
-
-```typescript
-/**
- * LLM Provider 统一接口
- * 
- * 所有 LLM 调用都通过这个接口，底层可以是不同厂商
- * Vercel AI SDK 提供统一接口 + 流式 + tool calling
- */
-interface LLMProvider {
-  /** 非流式生成 */
-  generate(messages: Message[], options?: GenerateOptions): Promise<string>;
-
-  /** 流式生成 */
-  stream(messages: Message[], options?: GenerateOptions): AsyncIterable<StreamChunk>;
-
-  /** 生成 embedding（用于记忆向量检索） */
-  embed(texts: string[]): Promise<number[][]>;
-}
-
-interface GenerateOptions {
-  model?: string;          // 模型名
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
-  tools?: Tool[];          // Tool calling
-}
-
-/**
- * Provider 工厂
- * 根据用户配置创建对应的 Provider 实例
- */
-class ProviderFactory {
-  /**
-   * 创建 Provider
-   * 
-   * type: 'openai-compatible' → 大部分国内厂商
-   * type: 'anthropic' → Claude
-   * type: 'google' → Gemini
-   * type: 'openai' → OpenAI 原生
-   */
-  static create(config: ProviderConfig): LLMProvider {
-    switch (config.type) {
-      case 'openai-compatible':
-        // 用 OpenAI SDK，改 baseURL
-        return new OpenAICompatibleProvider(config);
-      case 'anthropic':
-        return new AnthropicProvider(config);
-      case 'google':
-        return new GoogleProvider(config);
-      case 'openai':
-        return new OpenAIProvider(config);
-      default:
-        throw new Error(`Unknown provider type: ${config.type}`);
-    }
-  }
-}
-```
-
-### 3.12 分层 LLM 调用策略
-
-```typescript
-/**
- * 成本控制 — 分层调用策略
- * 
- * 不是所有 Agent 都用同一个模型
- * 核心 Agent（用户正在聊的）→ 好模型
- * 活跃 Agent（最近有事件）→ 中模型
- * 背景 Agent（几十个）→ 规则引擎 / 便宜模型
- * 
- * 与用户有长期关系的 Agent → 记忆详细，交互频繁
- * 没有长期关系的 Agent → 记忆简略，省 token
- */
-class CostController {
-  /**
-   * 为 Agent 选择合适的模型
-   */
-  selectModel(agent: Agent, context: DecisionContext): string {
-    const userRelation = agent.state.relationships.find(r => r.targetId === 'user');
-
-    // 用户正在和这个 Agent 聊天 → 最好的模型
-    if (context.isUserChatting) {
-      return this.config.premiumModel; // e.g. 'kimi-k2.5'
-    }
-
-    // 有长期关系（亲密度 > 50）→ 好模型
-    if (userRelation && userRelation.intimacy > 50) {
-      return this.config.premiumModel;
-    }
-
-    // 有一定关系（亲密度 > 20）→ 中等模型
-    if (userRelation && userRelation.intimacy > 20) {
-      return this.config.standardModel; // e.g. 'deepseek-v3'
-    }
-
-    // 最近有事件 → 中等模型
-    if (agent.state.status === 'active') {
-      return this.config.standardModel;
-    }
-
-    // 背景 Agent → 看情况
-    // 大部分走规则引擎，不需要调 LLM
-    // 如果必须调 LLM，用最便宜的模型
-    return this.config.cheapModel; // e.g. 'deepseek-v3'
-  }
-
-  /**
-   * Agent 记忆详细度
-   * 与用户有长期关系 → 记忆更详细
-   * 没有长期关系 → 记忆简略，省 token
-   */
-  getMemoryDetailLevel(agent: Agent): 'full' | 'normal' | 'minimal' {
-    const userRelation = agent.state.relationships.find(r => r.targetId === 'user');
-    if (userRelation && userRelation.intimacy > 50) return 'full';
-    if (userRelation && userRelation.intimacy > 20) return 'normal';
-    return 'minimal';
-  }
-}
-```
-
-### 3.13 WebSocket 协议
-
-```typescript
-// ========== 客户端 → 服务端 ==========
-
-type ClientMessage =
-  | { type: 'chat'; agentId: string; content: string }
-  | { type: 'event_action'; eventId: string; choice: string }
-  | { type: 'friend_request'; targetId: string }
-  | { type: 'friend_response'; requestId: string; accept: boolean }
-  | { type: 'post'; content: string; images?: string[] }
-  | { type: 'like_post'; postId: string }
-  | { type: 'comment_post'; postId: string; content: string }
-  | { type: 'subscribe'; channels: string[] }       // 订阅事件类型
-  | { type: 'get_agent_state'; agentId: string }
-  | { type: 'get_monitor'; agentId?: string; limit?: number };
-
-// ========== 服务端 → 客户端 ==========
-
-type ServerMessage =
-  | { type: 'chat_stream'; agentId: string; chunk: string }
-  | { type: 'chat_end'; agentId: string; fullMessage: string }
-  | { type: 'event'; event: WorldEvent }
-  | { type: 'agent_state_update'; agentId: string; state: Partial<AgentState> }
-  | { type: 'new_post'; post: SocialPost }
-  | { type: 'post_interaction'; postId: string; type: 'like' | 'comment'; data: any }
-  | { type: 'friend_request'; request: FriendRequest }
-  | { type: 'friend_update'; agentId: string; relationship: Relationship }
-  | { type: 'time_update'; timeDescription: string; day: number }
-  | { type: 'monitor_data'; logs: AgentActivityLog[] }
-  | { type: 'token_stats'; stats: TokenStats }
-  | { type: 'world_state'; agents: AgentState[]; day: number };
-```
+### 3.3 关键设计决策
+
+**为什么不用现成 Agent 框架？**
+- 2026-04 调研了 Mastra(22k stars)、ElizaOS(~20k)、LangGraph、Letta、CrewAI 等
+- 没有任何一个框架提供：持续运行的多 Agent + 时间系统 + 社交关系 + 推送
+- Lore 的核心差异就是这些，套框架反而受限
+- 做法自研核心 + 借鉴 Letta 的三层记忆架构 + 借鉴 ElizaOS 的人格系统
+
+**为什么要有 LLMScheduler？**
+- 所有 Agent 的 LLM 调用统一排队，避免 API 限流导致程序停滞
+- 优先级保证用户交互不卡
+- 限流自动降级，恢复后自动回升
+- 每个 Agent 的 Token/成本独立统计
+
+详细实现见 → [`docs/AGENT_FRAMEWORK.md`](./AGENT_FRAMEWORK.md)
+
+> **以下所有详细实现见 `docs/AGENT_FRAMEWORK.md`：**
+> - Agent 的事件系统、记忆系统、行为引擎、社交系统 → 第三、四、五章
+> - Agent 的类型定义（AgentProfile、AgentState、Relationship 等）→ 各章内联
+> - 初始化 Agent → AgentManager.createAgent()
+> - Agent Monitor → ResourceTracker + AgentMonitor
+> - LLM 调用层 → LLMScheduler + LLMProvider
+> - 分层调用策略 → LLMScheduler.calculatePriority()
+> - WebSocket 协议 → api/ws.ts + api/protocol.ts
 
 ---
 
