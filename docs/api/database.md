@@ -161,7 +161,7 @@ export const platforms = sqliteTable('platforms', {
 
 | 表名 | 说明 |
 |------|------|
-| `social_posts` | 社交动态（兼容旧版，Phase 2 迁移到 platform_posts） |
+| `platforms` | 虚拟平台（Phase 2+，Phase 1 用内置默认平台） |
 | `factions` | 势力（id, worldId, name, type, members JSON, resources JSON） |
 | `saves` | 存档（id, worldId, name, snapshot JSON, createdAt） |
 | `event_chains` | 事件链（id, worldId, type, state JSON, currentNodeId, participants JSON） |

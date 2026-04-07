@@ -22,7 +22,7 @@ export class AgentRuntime {
   memory: MemoryManager;
   relationships: Map<string, Relationship>;
 
-  constructor(id: string, worldId: string, type: AgentType, profile: AgentProfile) {
+  constructor(id: string, worldId: string, type: AgentType, profile: AgentProfile, db: Repository) {
     this.id = id;
     this.worldId = worldId;
     this.type = type;
@@ -34,7 +34,7 @@ export class AgentRuntime {
       lastActiveTick: 0,
     };
     this.stats = { mood: 70, health: 100, energy: 100, money: 1000 };
-    this.memory = new MemoryManager(id);
+    this.memory = new MemoryManager(id, db);
     this.relationships = new Map();
   }
 }
@@ -47,16 +47,18 @@ export class AgentRuntime {
 每个世界 tick 调用一次。**所有 Agent 都由 LLM 驱动思考**，只是频率不同。
 
 ```typescript
-async tick(worldState: WorldState, llmProvider: ILLMProvider): Promise<void> {
+async tick(worldState: WorldState, llmScheduler: LLMScheduler): Promise<void> {
   // 1. 更新基础状态（时间推进自动消耗精力等）
   this.updateStats(worldState);
 
   // 2. 判断本 tick 是否需要思考（根据频率分级）
   if (!this.shouldThink(worldState)) return;
 
-  // 3. 构建 prompt -> 调 LLM -> 解析结果
+  // 3. 构建 prompt -> 通过 LLMScheduler 调 LLM -> 解析结果
   const prompt = buildDecisionPrompt(this, worldState);
-  const result = await llmProvider.generateText({
+  const result = await llmScheduler.submit({
+    agentId: this.id,
+    callType: 'decision',
     model: this.getRequiredModel(),
     messages: prompt,
     tools: this.getAvailableTools(),
@@ -73,10 +75,13 @@ async tick(worldState: WorldState, llmProvider: ILLMProvider): Promise<void> {
 用户与 Agent 对话，流式返回。Agent 可以根据心情拒绝、冷淡回复、主动撩用户。
 
 ```typescript
-async *chat(userMessage: string, llmProvider: ILLMProvider): AsyncIterable<string> {
+async *chat(userMessage: string, llmScheduler: LLMScheduler): AsyncIterable<string> {
   const context = this.memory.getContext(2000);
   const messages = buildChatPrompt(this, userMessage, context);
-  const stream = llmProvider.streamText({
+
+  const stream = await llmScheduler.submitStream({
+    agentId: this.id,
+    callType: 'user-chat',
     model: this.getRequiredModel(),
     messages,
   });
@@ -128,34 +133,24 @@ static deserialize(data: SerializedAgent): AgentRuntime {
 
 ## 思考频率分级
 
+思考频率判断逻辑在 `BehaviorEngine` 中实现（见 [行为引擎](./behavior.md)）。AgentRuntime 提供 `getThoughtFrequencyLevel()` 方法供 BehaviorEngine 调用：
+
 ```typescript
 type ThoughtFrequency = 'high' | 'medium' | 'low' | 'minimal';
 
-private getThoughtFrequencyLevel(): ThoughtFrequency {
+getThoughtFrequencyLevel(): ThoughtFrequency {
   if (this.isUserInteracting()) return 'high';
   if (this.isCloseToUser()) return 'high';
   if (this.isKnownToUser()) return 'medium';
   if (this.isInUserNetwork()) return 'low';
   return 'minimal';
 }
-
-private shouldThink(worldState: WorldState): boolean {
-  const level = this.getThoughtFrequencyLevel();
-  const tick = worldState.currentTick;
-
-  switch (level) {
-    case 'high': return true;
-    case 'medium': return tick % 3 === 0;
-    case 'low': return tick % 8 === 0;
-    case 'minimal': return tick % 30 === 0;
-  }
-}
 ```
 
 ## 模型选择
 
 ```typescript
-private getRequiredModel(): string {
+getRequiredModel(): string {
   if (this.isUserInteracting()) {
     return config.llm.defaults.premiumModel;
   }

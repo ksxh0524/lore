@@ -141,7 +141,7 @@ society:
 ```yaml
 timeSpeed: 10
 tickIntervalMs: 3000
-defaultPlayerMode: normal
+defaultPlayerMode: character
 rules:
   - name: "早朝"
     condition:

@@ -512,4 +512,4 @@ Agent 正在思考时，显示三个跳动的点：
 
 ---
 
-> 相关文档：[前端开发规范](./frontend-conventions.md) | [项目概述](../architecture/overview.md) | [虚拟平台](../world/platform.md)
+> 相关文档：[前端开发规范](./frontend-conventions.md) | [项目概述](./overview.md) | [虚拟平台](../world/platform.md)

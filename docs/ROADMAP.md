@@ -211,22 +211,24 @@ export class AgentRuntime {
   memory: MemoryManager;
   relationships: Map<string, Relationship>;
 
-  constructor(id: string, worldId: string, type: AgentType, profile: AgentProfile) {
+  constructor(id: string, worldId: string, type: AgentType, profile: AgentProfile, db: Repository) {
     this.id = id;
     this.worldId = worldId;
     this.type = type;
     this.profile = profile;
     this.state = { status: 'idle', currentActivity: '', currentLocation: '', lastActiveTick: 0 };
     this.stats = { mood: 70, health: 100, energy: 100, money: 1000 };
-    this.memory = new MemoryManager(id);
+    this.memory = new MemoryManager(id, db);
     this.relationships = new Map();
   }
 
-  async tick(worldState: WorldState, llmProvider: ILLMProvider): Promise<void> {
+  async tick(worldState: WorldState, llmScheduler: LLMScheduler): Promise<void> {
     this.updateStats(worldState);
     if (!this.needsDecision(worldState)) return;
     const prompt = buildDecisionPrompt(this, worldState);
-    const result = await llmProvider.generateText({
+    const result = await llmScheduler.submit({
+      agentId: this.id,
+      callType: 'decision',
       model: this.getRequiredModel(),
       messages: prompt,
       tools: this.getAvailableTools(),
@@ -235,10 +237,15 @@ export class AgentRuntime {
     await this.memory.add(result.content, 'decision', 0.7);
   }
 
-  async *chat(userMessage: string, llmProvider: ILLMProvider): AsyncIterable<string> {
+  async *chat(userMessage: string, llmScheduler: LLMScheduler): AsyncIterable<string> {
     const context = this.memory.getContext(2000);
     const messages = buildChatPrompt(this, userMessage, context);
-    const stream = llmProvider.streamText({ model: this.getRequiredModel(), messages });
+    const stream = await llmScheduler.submitStream({
+      agentId: this.id,
+      callType: 'user-chat',
+      model: this.getRequiredModel(),
+      messages,
+    });
     let fullResponse = '';
     for await (const chunk of stream) {
       fullResponse += chunk;

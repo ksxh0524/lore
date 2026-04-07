@@ -232,4 +232,4 @@ presets/大明·建文元年/
 
 ---
 
-> 相关文档：[项目概述](./overview.md) | [玩家模式](./player-modes.md) | [预设系统](../world/presets.md) | [Agent 生命周期](../agent/lifecycle.md)
+> 相关文档：[项目概述](../architecture/overview.md) | [玩家模式](../architecture/player-modes.md) | [预设系统](./presets.md) | [Agent 生命周期](../agent/lifecycle.md)

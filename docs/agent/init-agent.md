@@ -25,24 +25,18 @@ InitAgent 不参与世界的日常 tick 循环。它只在创建世界时被调�
 
 ```typescript
 // packages/server/src/agent/init-agent.ts
-
-export type WorldType = 'history' | 'random';
-
-export interface RandomInitParams {
-  age: number;
-  location: string;
-  background: string;
-}
-
-export interface HistoryInitParams {
-  presetName: string;
-  targetCharacter?: string;
-}
+// WorldType 从 shared 包导入
+import type { WorldType } from '@lore/shared';
 
 export interface InitRequest {
   worldType: WorldType;
-  randomParams?: RandomInitParams;
-  historyParams?: HistoryInitParams;
+  // 随机模式参数
+  age?: number;
+  location?: string;
+  background?: string;
+  // 历史模式参数
+  historyPreset?: string;
+  targetCharacter?: string;
 }
 
 export interface AgentInitData {
@@ -84,13 +78,17 @@ export class InitAgent {
 
   async initialize(request: InitRequest): Promise<InitResult> {
     if (request.worldType === 'history') {
-      return this.initHistoryWorld(request.historyParams!);
+      return this.initHistoryWorld(request);
     }
-    return this.initRandomWorld(request.randomParams!);
+    return this.initRandomWorld(request);
   }
 
-  private async initRandomWorld(params: RandomInitParams): Promise<InitResult> {
-    const prompt = this.buildRandomWorldPrompt(params);
+  private async initRandomWorld(request: InitRequest): Promise<InitResult> {
+    const prompt = this.buildRandomWorldPrompt({
+      age: request.age!,
+      location: request.location!,
+      background: request.background!,
+    });
     const result = await this.llmScheduler.submit({
       agentId: 'init-agent',
       callType: 'creative',
@@ -98,12 +96,12 @@ export class InitAgent {
       messages: prompt,
       maxTokens: 8192,
     });
-    return this.parseRandomResult(result.content, params);
+    return this.parseRandomResult(result.content, request);
   }
 
-  private async initHistoryWorld(params: HistoryInitParams): Promise<InitResult> {
-    const preset = await this.loadPreset(params.presetName);
-    const prompt = this.buildHistoryWorldPrompt(preset, params.targetCharacter);
+  private async initHistoryWorld(request: InitRequest): Promise<InitResult> {
+    const preset = await this.loadPreset(request.historyPreset!);
+    const prompt = this.buildHistoryWorldPrompt(preset, request.targetCharacter);
     const result = await this.llmScheduler.submit({
       agentId: 'init-agent',
       callType: 'creative',
@@ -121,7 +119,7 @@ export class InitAgent {
 ### 随机模式
 
 ```typescript
-private buildRandomWorldPrompt(params: RandomInitParams): Array<{ role: string; content: string }> {
+private buildRandomWorldPrompt(params: { age: number; location: string; background: string }): Array<{ role: string; content: string }> {
   return [
     {
       role: 'system',

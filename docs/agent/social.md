@@ -17,14 +17,14 @@ export class SocialEngine {
   /** 发布社交动态到虚拟平台 */
   async postSocial(agent: AgentRuntime, content?: string): Promise<PlatformPost> {
     if (!content) {
-      if (Math.random() > agent.profile.behaviorConfig.socialMediaActivity) {
+      if (Math.random() > agent.behaviorConfig.socialMediaActivity) {
         return null;
       }
       content = await this.generatePostContent(agent);
     }
 
     const post = await this.platformEngine.post({
-      platformId: agent.preferredPlatform,
+      platformId: getDefaultPlatformId(agent.worldId),
       authorId: agent.id,
       authorType: 'agent',
       content,
@@ -73,27 +73,11 @@ Agent 会根据自己的人格和当前状态自主决定是否使用平台：
 
 ## 数据类型
 
-```typescript
-export interface SocialPost {
-  id: string;
-  agentId: string;
-  worldId: string;
-  content: string;
-  imageUrl?: string;
-  videoUrl?: string;
-  timestamp: Date;
-  likes: number;
-  comments: PostComment[];
-  views: number;
-}
+社交引擎使用虚拟平台的 `PlatformPost` 类型（定义在 [虚拟平台系统](../world/platform.md)），不单独定义 SocialPost。
 
-export interface PostComment {
-  id: string;
-  authorId: string;
-  authorType: 'agent' | 'user';
-  content: string;
-  timestamp: Date;
-}
+```typescript
+// 帖子和评论类型定义在 packages/shared/src/types/platform.ts
+// 详见 docs/world/platform.md
 
 export interface FriendRequest {
   id: string;

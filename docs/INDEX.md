@@ -65,6 +65,8 @@
 |------|------|-----------|
 | [providers.md](./llm/providers.md) | Provider 架构、统一接口、图片生成 | 接入 LLM 时 |
 | [scheduler.md](./llm/scheduler.md) | 优先级队列、并发控制、超载丢弃 | 实现调度器时 |
+| [cost-control.md](./llm/cost-control.md) | 模型分层、每日预算、降级策略 | 控制成本时 |
+| [resilience.md](./llm/resilience.md) | 熔断器、重试、降级链 | 处理 LLM 错误时 |
 
 ### 其他
 

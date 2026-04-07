@@ -91,8 +91,18 @@ export class OpenAICompatibleProvider implements ILLMProvider {
   }
 
   isModelSupported(model: string): boolean {
-    return true;
+    return true;  // 接受任何模型名
   }
+
+  async embed(text: string): Promise<number[]> {
+    const { embed } = await import('ai');
+    const { embedding } = await embed({
+      model: this.client.embedding('text-embedding-3-small'),
+      value: text,
+    });
+    return embedding;
+  }
+}
 }
 ```
 

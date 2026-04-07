@@ -61,7 +61,7 @@ const ConfigSchema = z.object({
     }),
   }),
   world: z.object({
-    defaultPlayerMode: z.enum(['normal', 'god']).default('normal'),
+    defaultPlayerMode: z.enum(['character', 'god']).default('character'),
     defaultTimeSpeed: z.number().min(0.1).max(100).default(1),
     defaultTickIntervalMs: z.number().int().min(500).max(60000).default(3000),
     maxAgents: z.number().int().min(1).max(1000).default(10),
