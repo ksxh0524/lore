@@ -163,6 +163,70 @@ export function registerRoutes(
     return { data: saves };
   });
 
+  app.post('/api/saves/:id/load', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const result = await worldPersistence.loadSnapshot(id);
+    if (!result) return reply.status(404).send({ error: { code: ErrorCode.WORLD_NOT_FOUND, message: 'Save not found' } });
+    await worldPersistence.restoreSnapshot(id);
+    setWorldId(result.worldId);
+    return { data: { success: true, worldId: result.worldId } };
+  });
+
+  app.delete('/api/saves/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    await repo.deleteSave(id);
+    return { data: { success: true } };
+  });
+
+  app.post('/api/worlds/:id/speed', async (req) => {
+    const { id } = req.params as { id: string };
+    const { speed } = z.object({ speed: z.number().min(0).max(100) }).parse(req.body);
+    worldClock.setTimeSpeed(speed);
+    return { data: { speed } };
+  });
+
+  // ── God Mode ──
+
+  app.get('/api/god/world/:id/agents', async (req) => {
+    const { id } = req.params as { id: string };
+    const agents = await agentManager.getWorldAgents(id);
+    return { data: agents.map(a => ({ ...a.serialize(), thoughtFrequency: a.getThoughtFrequency() })) };
+  });
+
+  app.get('/api/god/agent/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const agent = agentManager.get(id);
+    if (!agent) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Agent not found' } });
+    const rels = await repo.getAgentRelationships(id);
+    const memories = await repo.getAgentMemories(id, 20);
+    return { data: { ...agent.serialize(), relationships: rels, recentMemories: memories.map(m => ({ content: m.content, type: m.type, importance: m.importance })) } };
+  });
+
+  app.post('/api/god/trigger-event', async (req) => {
+    const { category, description, severity } = z.object({
+      category: z.enum(['natural_disaster', 'epidemic', 'economic', 'social', 'other']),
+      description: z.string().min(1),
+      severity: z.number().min(1).max(10).default(5),
+    }).parse(req.body);
+    const worldId = getWorldId() ?? '';
+    const { nanoid: nid } = await import('nanoid');
+    const event = {
+      id: nid(),
+      worldId,
+      type: 'world' as const,
+      category,
+      description,
+      involvedAgents: [],
+      consequences: [],
+      timestamp: new Date(),
+      processed: false,
+      priority: 50 + severity * 5,
+    };
+    await repo.createEvent(event);
+    pushManager.broadcast({ type: 'event', event });
+    return { data: event };
+  });
+
   // ── Agent ──
 
   app.get('/api/worlds/:id/agents', async (req) => {
@@ -287,6 +351,39 @@ export function registerRoutes(
     const worldId = getWorldId() ?? '';
     const post = await platformEngine.post({ platformId, worldId, authorId: 'user', authorType: 'user', content, imageUrl });
     return { data: post };
+  });
+
+  app.post('/api/posts/:id/like', async (req) => {
+    const { id } = req.params as { id: string };
+    const { agentId } = z.object({ agentId: z.string().optional() }).parse(req.body ?? {});
+    await platformEngine.likePost(agentId ?? 'user', id);
+    return { data: { success: true } };
+  });
+
+  app.post('/api/posts/:id/comment', async (req) => {
+    const { id } = req.params as { id: string };
+    const { authorId, content } = z.object({ authorId: z.string(), content: z.string().min(1) }).parse(req.body);
+    await platformEngine.commentPost(authorId, id, content);
+    return { data: { success: true } };
+  });
+
+  app.post('/api/agents/:id/posts', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { content, platformId } = z.object({ content: z.string().min(1), platformId: z.string().optional() }).parse(req.body);
+    const agent = agentManager.get(id);
+    if (!agent) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Agent not found' } });
+    const { SocialEngine } = await import('../agent/social.js');
+    const { RelationshipManager } = await import('../agent/relationships.js');
+    const rm = new RelationshipManager(repo);
+    const se = new SocialEngine(llmScheduler, platformEngine, rm);
+    const post = await se.postSocial(agent, content, platformId);
+    return { data: post };
+  });
+
+  app.get('/api/worlds/:id/platforms/all', async (req) => {
+    const { id } = req.params as { id: string };
+    const posts = await repo.getAllPlatforms(id);
+    return { data: posts };
   });
 
   // ── Mode ──

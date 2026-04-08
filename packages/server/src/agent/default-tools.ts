@@ -334,6 +334,95 @@ export function createStartBusinessTool(repo: Repository): AgentTool {
   };
 }
 
+export function createPostSocialTool(repo: Repository): AgentTool {
+  return {
+    name: 'post_social',
+    description: '在虚拟社交媒体平台发布动态',
+    parameters: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: '动态内容' },
+        platform: { type: 'string', description: '平台名称（可选）' },
+      },
+      required: ['content'],
+    },
+    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+      const content = String(args.content ?? '');
+      agent.state.currentActivity = '发动态';
+      return { success: true, message: `你在社交平台发布了："${content}"`, result: { content } };
+    },
+  };
+}
+
+export function createCheckRelationshipTool(repo: Repository): AgentTool {
+  return {
+    name: 'check_relationship',
+    description: '查看与某人的关系状态',
+    parameters: {
+      type: 'object',
+      properties: {
+        targetName: { type: 'string', description: '对方的名字' },
+      },
+      required: ['targetName'],
+    },
+    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+      const targetName = String(args.targetName ?? '某人');
+      const rels = await repo.getAgentRelationships(agent.id);
+      const rel = rels.find((r: any) => r.targetAgentId === targetName || r.type === targetName);
+      if (rel) {
+        return { success: true, message: `你和${targetName}的关系：${rel.type}，亲密度：${rel.intimacy}`, result: rel };
+      }
+      return { success: true, message: `你和${targetName}还不认识`, result: { type: 'stranger', intimacy: 0 } };
+    },
+  };
+}
+
+export function createSendFriendRequestTool(): AgentTool {
+  return {
+    name: 'send_friend_request',
+    description: '发送好友请求',
+    parameters: {
+      type: 'object',
+      properties: {
+        targetName: { type: 'string', description: '对方的名字' },
+        message: { type: 'string', description: '附加消息（可选）' },
+      },
+      required: ['targetName'],
+    },
+    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+      const targetName = String(args.targetName ?? '某人');
+      agent.stats.mood = Math.min(100, agent.stats.mood + 3);
+      return { success: true, message: `你向${targetName}发送了好友请求`, result: { targetName } };
+    },
+  };
+}
+
+export function createSearchMemoryTool(): AgentTool {
+  return {
+    name: 'search_memory',
+    description: '搜索自己的记忆',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: '搜索关键词' },
+      },
+      required: ['query'],
+    },
+    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+      const query = String(args.query ?? '');
+      const results = await agent.memory.search(query, 5);
+      if (results.length === 0) {
+        return { success: true, message: `没有找到关于"${query}"的记忆`, result: [] };
+      }
+      return {
+        success: true,
+        message: `找到${results.length}条相关记忆`,
+        result: results.map(r => ({ content: r.content, importance: r.importance })),
+      };
+    },
+  };
+}
+
 export function registerDefaultTools(registry: { register: (tool: AgentTool) => void }, repo: Repository): void {
   registry.register(createFindJobTool(repo));
   registry.register(createBuyItemTool(repo));
@@ -343,4 +432,8 @@ export function registerDefaultTools(registry: { register: (tool: AgentTool) => 
   registry.register(createSendMessageTool(repo));
   registry.register(createChangeLocationTool(repo));
   registry.register(createStartBusinessTool(repo));
+  registry.register(createPostSocialTool(repo));
+  registry.register(createCheckRelationshipTool(repo));
+  registry.register(createSendFriendRequestTool());
+  registry.register(createSearchMemoryTool());
 }

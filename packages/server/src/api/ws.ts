@@ -168,6 +168,38 @@ export function registerWebSocket(
         break;
       }
 
+      case 'agent_chat': {
+        const { fromAgentId, toAgentId, content } = msg;
+        const fromAgent = agentManager.get(fromAgentId);
+        const toAgent = agentManager.get(toAgentId);
+        if (!fromAgent || !toAgent) {
+          socket.send(JSON.stringify({ type: 'error', message: 'Agent not found' }));
+          break;
+        }
+        await repo.createMessage({ id: nanoid(), worldId: fromAgent.worldId, fromAgentId, toAgentId, content, type: 'chat' });
+        pushManager.broadcast({
+          type: 'agent_chat',
+          fromAgentId,
+          toAgentId,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+        break;
+      }
+
+      case 'platform_new_post': {
+        const { agentId, platformId, content } = msg;
+        const agent = agentManager.get(agentId);
+        if (!agent) {
+          socket.send(JSON.stringify({ type: 'error', message: `Agent ${agentId} not found` }));
+          break;
+        }
+        const postId = nanoid();
+        const post = await repo.createPlatformPost({ id: postId, platformId, worldId: agent.worldId, authorId: agentId, authorType: 'agent', content });
+        pushManager.broadcast({ type: 'platform_new_post', post });
+        break;
+      }
+
       default:
         socket.send(JSON.stringify({ type: 'error', message: `Unknown message type: ${msg.type}` }));
     }

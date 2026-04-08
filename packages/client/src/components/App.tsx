@@ -191,10 +191,19 @@ export function WorldPage() {
     addMessage('user', content);
     setSending(true);
     try {
-      const res = await api.sendMessage(selectedAgentId, content);
-      addMessage('agent', res.content);
-    } catch (err) {
-      addMessage('agent', `[错误] ${err instanceof Error ? err.message : 'Failed'}`);
+      let full = '';
+      for await (const chunk of api.streamChat(selectedAgentId, content)) {
+        full += chunk;
+        addMessage('agent_stream', chunk);
+      }
+      setSending(false);
+    } catch {
+      try {
+        const res = await api.sendMessage(selectedAgentId, content);
+        addMessage('agent', res.content);
+      } catch (err) {
+        addMessage('agent', `[错误] ${err instanceof Error ? err.message : 'Failed'}`);
+      }
     } finally {
       setSending(false);
     }

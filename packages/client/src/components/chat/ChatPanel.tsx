@@ -1,7 +1,7 @@
 import { ChatInput } from './ChatInput';
 
 interface Message {
-  role: 'user' | 'agent';
+  role: 'user' | 'agent' | 'agent_stream';
   content: string;
 }
 
@@ -34,7 +34,7 @@ export function ChatPanel({ agentName, agentOccupation, messages, onSend, sendin
               background: msg.role === 'user' ? '#6366f1' : '#1a1a25', color: '#f0f0f5',
               whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             }}>
-              {msg.content}
+              {msg.content}{msg.role === 'agent_stream' && <span style={{ opacity: 0.5 }}>▊</span>}
             </div>
           </div>
         ))}

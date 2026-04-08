@@ -96,4 +96,48 @@ export class AgentManager {
       this.agents.delete(id);
     }
   }
+
+  async lazyCreateAgent(worldId: string, type: AgentType, profile: AgentProfile): Promise<AgentRuntime> {
+    const { AgentRuntime: AR } = await import('./agent-runtime.js');
+    const existing = await this.repo.getWorldAgents(worldId);
+    const match = existing.find(a => (a.profile as AgentProfile).name === profile.name);
+    if (match) {
+      let agent = this.agents.get(match.id);
+      if (!agent) {
+        agent = AR.deserialize({
+          id: match.id, worldId: match.worldId, type: match.type,
+          profile: match.profile as AgentProfile,
+          state: match.state as AgentState,
+          stats: match.stats as AgentStats,
+          relationships: [],
+        }, this.repo, this.llmScheduler, this.config);
+        this.agents.set(match.id, agent);
+      }
+      return agent;
+    }
+    return this.createAgent(worldId, type, profile);
+  }
+
+  async persist(id: string): Promise<void> {
+    const agent = this.agents.get(id);
+    if (agent) {
+      await this.repo.updateAgent(id, { state: agent.state, stats: agent.stats });
+    }
+  }
+
+  async restore(id: string): Promise<AgentRuntime | null> {
+    if (this.agents.has(id)) return this.agents.get(id)!;
+    const row = await this.repo.getAgent(id);
+    if (!row) return null;
+    const { AgentRuntime: AR } = await import('./agent-runtime.js');
+    const agent = AR.deserialize({
+      id: row.id, worldId: row.worldId, type: row.type,
+      profile: row.profile as AgentProfile,
+      state: row.state as AgentState,
+      stats: row.stats as AgentStats,
+      relationships: [],
+    }, this.repo, this.llmScheduler, this.config);
+    this.agents.set(id, agent);
+    return agent;
+  }
 }

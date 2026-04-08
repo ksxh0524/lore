@@ -27,10 +27,37 @@ export class WorldPersistence {
   }
 
   async loadSnapshot(saveId: string): Promise<{ worldId: string; snapshot: any } | null> {
-    const rows = await this.repo.getSaves('');
-    const save = rows.find((s) => s.id === saveId);
+    const save = await this.repo.getSave(saveId);
     if (!save) return null;
     return { worldId: save.worldId, snapshot: save.snapshot };
+  }
+
+  async restoreSnapshot(saveId: string): Promise<void> {
+    const save = await this.repo.getSave(saveId);
+    if (!save) throw new Error('Save not found');
+
+    const data = typeof save.snapshot === 'string' ? JSON.parse(save.snapshot) : save.snapshot;
+
+    if (data.world) {
+      await this.repo.updateWorld(data.world.id, {
+        status: data.world.status,
+        currentTick: data.world.currentTick,
+        worldTime: data.world.worldTime ? new Date(data.world.worldTime) : new Date(),
+      });
+    }
+
+    if (data.agents && Array.isArray(data.agents)) {
+      for (const agentData of data.agents) {
+        try {
+          await this.repo.updateAgent(agentData.id, {
+            state: agentData.state,
+            stats: agentData.stats,
+          });
+        } catch (err) {
+          console.warn(`Failed to restore agent ${agentData.id}:`, err);
+        }
+      }
+    }
   }
 
   async listSnapshots(worldId: string) {

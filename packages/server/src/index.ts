@@ -13,6 +13,9 @@ import { TickScheduler } from './scheduler/tick-scheduler.js';
 import { EconomyEngine } from './world/economy-engine.js';
 import { PlatformEngine } from './world/platform-engine.js';
 import { WorldPersistence } from './world/persistence.js';
+import { EventEngine } from './world/event-engine.js';
+import { RelationshipManager } from './agent/relationships.js';
+import { SocialEngine } from './agent/social.js';
 import { ModeManager } from './modes/mode-manager.js';
 import { PushManager } from './scheduler/push-manager.js';
 import { Monitor } from './monitor/index.js';
@@ -47,6 +50,9 @@ async function main() {
   const economyEngine = new EconomyEngine(repo);
   const platformEngine = new PlatformEngine(repo);
   const worldPersistence = new WorldPersistence(repo, agentManager);
+  const eventEngine = new EventEngine(worldAgent, repo);
+  const relationshipManager = new RelationshipManager(repo);
+  const socialEngine = new SocialEngine(llmScheduler, platformEngine, relationshipManager);
   const modeManager = new ModeManager();
   const pushManager = new PushManager();
 
@@ -64,11 +70,13 @@ async function main() {
 
     monitor.resetTick();
 
-    const worldEvents = await worldAgent.think(worldState);
+    const aliveAgents = [...(agentManager as any).agents.values()]
+      .filter((a: any) => a.state.status !== 'dead');
+
+    const worldEvents = await eventEngine.generate(worldClock, aliveAgents, worldState);
     for (const event of worldEvents) {
-      if (currentWorldId) {
-        event.worldId = currentWorldId;
-        await repo.createEvent(event);
+      if (!event.processed) {
+        await eventEngine.applyConsequences(event, agentManager);
       }
       await pushManager.push(event, currentWorldId ?? '');
       monitor.recordEvent();
@@ -80,6 +88,7 @@ async function main() {
       await agentManager.persistAll();
       if (currentWorldId) {
         await worldPersistence.saveWorldState(currentWorldId);
+        await relationshipManager.decayInactive(currentWorldId);
       }
     }
 
@@ -103,6 +112,7 @@ async function main() {
     config, agentManager, initAgent, llmScheduler, repo,
     modeManager, pushManager, platformEngine, economyEngine,
     worldClock, tickScheduler, monitor, worldPersistence,
+    eventEngine, relationshipManager, socialEngine,
     getWorldId: () => currentWorldId,
     setWorldId: (id: string | null) => { currentWorldId = id; },
   };

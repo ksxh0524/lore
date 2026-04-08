@@ -45,6 +45,16 @@ export class AgentRuntime {
   get relationships(): Map<string, RelationshipType> { return this.relationshipsMap; }
   get toolRegistry(): ToolRegistry { return this.tools; }
 
+  applyStatChanges(changes: Partial<Record<'mood' | 'health' | 'energy' | 'money', number>>): void {
+    if (changes.mood !== undefined) this.stats.mood = Math.max(0, Math.min(100, this.stats.mood + changes.mood));
+    if (changes.health !== undefined) this.stats.health = Math.max(0, Math.min(100, this.stats.health + changes.health));
+    if (changes.energy !== undefined) this.stats.energy = Math.max(0, Math.min(100, this.stats.energy + changes.energy));
+    if (changes.money !== undefined) this.stats.money = Math.max(0, this.stats.money + changes.money);
+    if (this.stats.health <= 0) {
+      this.state.status = 'dead';
+    }
+  }
+
   getThoughtFrequency(): ThoughtFrequency {
     const rels = [...this.relationshipsMap.values()];
     if (rels.some(r => r.type !== 'stranger' && r.intimacy > 60)) return 'high';

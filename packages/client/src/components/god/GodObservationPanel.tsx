@@ -15,7 +15,7 @@ export function GodObservationPanel() {
     setObservingAgentId(agentId);
     setLoading(true);
     try {
-      const data = await api.godObserveAgent(agentId);
+      const data = await api.getGodAgent(agentId);
       setObservationData(data);
     } catch (err) {
       console.error('Failed to observe agent:', err);
@@ -27,11 +27,7 @@ export function GodObservationPanel() {
   const handleTriggerEvent = async () => {
     if (!worldId || !triggerDescription.trim()) return;
     try {
-      await api.godTriggerEvent(worldId, {
-        category: 'other',
-        description: triggerDescription.trim(),
-        severity: 5,
-      });
+      await api.godTriggerEvent('other', triggerDescription.trim(), 5);
       setTriggerDescription('');
     } catch (err) {
       console.error('Failed to trigger event:', err);

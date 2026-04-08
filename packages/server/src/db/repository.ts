@@ -229,4 +229,26 @@ export class Repository {
     await db.delete(s.memories)
       .where(and(eq(s.memories.agentId, agentId), lt(s.memories.expiresAt, cutoff)));
   }
+
+  async updateEventProcessed(id: string): Promise<void> {
+    await db.update(s.events).set({ processed: true }).where(eq(s.events.id, id));
+  }
+
+  async deleteSave(id: string): Promise<void> {
+    await db.delete(s.saves).where(eq(s.saves.id, id));
+  }
+
+  async getWorldEventsByType(worldId: string, type: string, limit = 50) {
+    return db.select().from(s.events)
+      .where(and(eq(s.events.worldId, worldId), eq(s.events.type, type)))
+      .orderBy(desc(s.events.timestamp))
+      .limit(limit);
+  }
+
+  async getAllPlatforms(worldId: string) {
+    return db.select().from(s.platformPosts)
+      .where(eq(s.platformPosts.worldId, worldId))
+      .orderBy(desc(s.platformPosts.timestamp))
+      .limit(100);
+  }
 }

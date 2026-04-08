@@ -22,6 +22,34 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ content }),
     }),
+  streamChat: async function* (agentId: string, content: string): AsyncGenerator<string> {
+    const res = await fetch(`${BASE}/agents/${agentId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.body) throw new Error('No stream body');
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const match = line.match(/^data: (.+)$/);
+        if (match && match[1]) {
+          try {
+            const parsed = JSON.parse(match[1]);
+            if (parsed.chunk) yield parsed.chunk;
+            if (parsed.done) return;
+          } catch {}
+        }
+      }
+    }
+  },
   initWorld: (params: any) =>
     request<any>('/worlds/init', {
       method: 'POST',
@@ -37,6 +65,38 @@ export const api = {
   getEvents: (worldId: string) => request<any[]>(`/worlds/${worldId}/events`),
   getMonitor: (worldId: string) => request<any>(`/worlds/${worldId}/monitor`),
   getPlatforms: (worldId: string) => request<any[]>(`/worlds/${worldId}/platforms`),
+  getPlatformFeed: (platformId: string) => request<any[]>(`/platforms/${platformId}/feed`),
+  getAllPosts: (worldId: string) => request<any[]>(`/worlds/${worldId}/platforms/all`),
+  likePost: (postId: string, agentId?: string) =>
+    request<any>(`/posts/${postId}/like`, {
+      method: 'POST',
+      body: JSON.stringify({ agentId: agentId ?? 'user' }),
+    }),
+  commentPost: (postId: string, authorId: string, content: string) =>
+    request<any>(`/posts/${postId}/comment`, {
+      method: 'POST',
+      body: JSON.stringify({ authorId, content }),
+    }),
+  agentPost: (agentId: string, content: string, platformId?: string) =>
+    request<any>(`/agents/${agentId}/posts`, {
+      method: 'POST',
+      body: JSON.stringify({ content, platformId }),
+    }),
+  saveWorld: (worldId: string, name?: string) =>
+    request<any>(`/worlds/${worldId}/save`, {
+      method: 'POST',
+      body: JSON.stringify({ name: name ?? `save-${Date.now()}` }),
+    }),
+  getSaves: (worldId: string) => request<any[]>(`/worlds/${worldId}/saves`),
+  loadSave: (saveId: string) => request<any>(`/saves/${saveId}/load`, { method: 'POST' }),
+  deleteSave: (saveId: string) => request<any>(`/saves/${saveId}`, { method: 'DELETE' }),
+  getGodAgents: (worldId: string) => request<any[]>(`/god/world/${worldId}/agents`),
+  getGodAgent: (agentId: string) => request<any>(`/god/agent/${agentId}`),
+  godTriggerEvent: (category: string, description: string, severity?: number) =>
+    request<any>('/god/trigger-event', {
+      method: 'POST',
+      body: JSON.stringify({ category, description, severity: severity ?? 5 }),
+    }),
   chooseEventOption: (eventId: string, optionId: string) =>
     request<any>(`/events/${eventId}/choose`, {
       method: 'POST',
@@ -44,16 +104,11 @@ export const api = {
     }),
   switchMode: (mode: 'character' | 'god') =>
     request<any>('/mode/switch', { method: 'POST', body: JSON.stringify({ mode }) }),
-  createPost: (worldId: string, content: string, imageUrl?: string) =>
-    request<any>(`/worlds/${worldId}/posts`, {
+  createPost: (platformId: string, content: string, imageUrl?: string) =>
+    request<any>('/user/posts', {
       method: 'POST',
-      body: JSON.stringify({ content, imageUrl }),
+      body: JSON.stringify({ platformId, content, imageUrl: imageUrl ?? '' }),
     }),
-  godObserveAgent: (agentId: string) =>
-    request<any>(`/god/agents/${agentId}/observe`),
-  godTriggerEvent: (worldId: string, event: any) =>
-    request<any>(`/worlds/${worldId}/god/event`, {
-      method: 'POST',
-      body: JSON.stringify(event),
-    }),
+  getEconomy: (agentId: string) => request<any>(`/agents/${agentId}/economy`),
+  getAgentMessages: (agentId: string) => request<any[]>(`/agents/${agentId}/messages`),
 };
