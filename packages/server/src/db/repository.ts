@@ -1,4 +1,4 @@
-import { eq, desc, and, or, sql } from 'drizzle-orm';
+import { eq, desc, and, or, sql, lt } from 'drizzle-orm';
 import { db } from './index.js';
 import * as s from './schema.js';
 import type { WorldType, AgentType, AgentProfile, AgentState, AgentStats } from '@lore/shared';

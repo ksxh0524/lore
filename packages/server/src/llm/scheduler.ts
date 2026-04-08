@@ -28,6 +28,10 @@ export class LLMScheduler {
     this.monitor = monitor;
   }
 
+  getProvider(model: string): ILLMProvider {
+    return this.factory.getProvider(model);
+  }
+
   private async waitForSlot(): Promise<void> {
     while (this.active >= this.maxConcurrent) {
       await new Promise(r => setTimeout(r, 50));

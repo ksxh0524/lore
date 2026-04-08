@@ -36,7 +36,7 @@ export class AgentRuntime {
     this.profile = profile;
     this.state = { status: 'idle', currentActivity: '', currentLocation: '', lastActiveTick: 0 };
     this.stats = { mood: 70, health: 100, energy: 100, money: 1000 };
-    this.memoryInstance = new MemoryManager(id, repo, llmScheduler);
+    this.memoryInstance = new MemoryManager(id, repo, llmScheduler, config);
     this.repo = repo;
     registerDefaultTools(this.tools, repo);
   }
@@ -140,7 +140,8 @@ export class AgentRuntime {
   }
 
   async *chat(userMessage: string, llmScheduler: LLMScheduler, config: LoreConfig): AsyncGenerator<string> {
-    const context = this.memory.getContext(2000);
+    const ctx = await this.memory.getContext(2000);
+    const context = [...ctx.working, ...ctx.recent.map(r => r.content)];
     const messages = buildChatPrompt(this, userMessage, context);
     let fullResponse = '';
 
@@ -161,7 +162,8 @@ export class AgentRuntime {
   }
 
   async chatFull(userMessage: string, llmScheduler: LLMScheduler, config: LoreConfig): Promise<string> {
-    const context = this.memory.getContext(2000);
+    const ctx = await this.memory.getContext(2000);
+    const context = [...ctx.working, ...ctx.recent.map(r => r.content)];
     const messages = buildChatPrompt(this, userMessage, context);
     let fullResponse = '';
 

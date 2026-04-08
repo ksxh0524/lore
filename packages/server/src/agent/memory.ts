@@ -33,16 +33,16 @@ export class MemoryManager {
 
     const now = new Date();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
+    
     await this.repo.insertMemory({
       id: nanoid(),
       agentId: this.agentId,
       type: 'recent',
       content,
-      importance
+      importance,
       memoryType: type,
       timestamp: now,
-      expiresAt,
+      expiresAt
     });
 
     if (importance >= 0.7) {
@@ -54,9 +54,9 @@ export class MemoryManager {
             id: longTermId,
             agentId: this.agentId,
             type: 'long-term',
-            content
-            importance
-            memoryType: type
+            content,
+            importance,
+            memoryType: type,
             timestamp: now,
           });
           await storeEmbedding(longTermId, embedding);
@@ -81,9 +81,9 @@ export class MemoryManager {
       working: [],
       recent: [],
       longTerm: [],
-    } = MemoryContext;
+    };
 
-    const tokensUsed = 0;
+    let tokensUsed = 0;
 
     for (const entry of this.workingMemory) {
       const tokens = this.estimateTokens(entry);
@@ -92,7 +92,6 @@ export class MemoryManager {
       tokensUsed += tokens;
     }
 
-    
     const recent = await this.getRecent(50);
     for (const r of recent) {
       const tokens = this.estimateTokens(r.content);
@@ -135,4 +134,16 @@ export class MemoryManager {
     return Math.ceil(text.length / 4);
   }
 
+  private async generateEmbedding(text: string): Promise<number[]> {
+    try {
+      const provider = this.llmScheduler.getProvider('');
+      if (!provider) {
+        return [];
+      }
+      return await provider.embed(text);
+    } catch (err) {
+      console.warn(`Failed to generate embedding for agent ${this.agentId}:`, err);
+      return [];
+    }
+  }
 }
