@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import type { LoreConfig } from '../config/loader.js';
@@ -13,6 +13,7 @@ import type { EconomyEngine } from '../world/economy-engine.js';
 import type { WorldClock } from '../world/clock.js';
 import type { TickScheduler } from '../scheduler/tick-scheduler.js';
 import type { Monitor } from '../monitor/index.js';
+import type { WorldPersistence } from '../world/persistence.js';
 import { ErrorCode, LoreError } from '../errors.js';
 
 export function registerRoutes(
@@ -30,9 +31,12 @@ export function registerRoutes(
     worldClock: WorldClock;
     tickScheduler: TickScheduler;
     monitor: Monitor;
+    worldPersistence: WorldPersistence;
+    getWorldId: () => string | null;
+    setWorldId: (id: string | null) => void;
   },
 ) {
-  const { config, agentManager, initAgent, llmScheduler, repo, modeManager, pushManager, platformEngine, economyEngine, worldClock, tickScheduler, monitor } = deps;
+  const { config, agentManager, initAgent, llmScheduler, repo, modeManager, pushManager, platformEngine, economyEngine, worldClock, tickScheduler, monitor, worldPersistence, getWorldId, setWorldId } = deps;
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof LoreError) {
@@ -49,6 +53,12 @@ export function registerRoutes(
     worldType: z.enum(['history', 'random']),
     randomParams: z.object({ age: z.number(), location: z.string(), background: z.string() }).optional(),
     historyParams: z.object({ presetName: z.string(), targetCharacter: z.string().optional() }).optional(),
+  });
+
+  const worldUpdateSchema = z.object({
+    name: z.string().optional(),
+    status: z.enum(['initializing', 'running', 'paused', 'stopped']).optional(),
+    config: z.any().optional(),
   });
 
   // ── World ──
@@ -79,6 +89,8 @@ export function registerRoutes(
       pushManager.broadcast({ type: 'init_progress', stage: 'building_relationships', progress: 80 });
 
       await platformEngine.initWorldPlatforms(result.worldId);
+      setWorldId(result.worldId);
+      await repo.updateWorld(result.worldId, { status: 'running' });
       tickScheduler.start();
 
       pushManager.broadcast({ type: 'init_complete', worldId: result.worldId, agentCount: result.agents.length });
@@ -98,7 +110,8 @@ export function registerRoutes(
 
   app.put('/api/worlds/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const world = await repo.updateWorld(id, req.body as Record<string, any>);
+    const body = worldUpdateSchema.parse(req.body);
+    const world = await repo.updateWorld(id, body);
     if (!world) return reply.status(404).send({ error: { code: ErrorCode.WORLD_NOT_FOUND, message: 'World not found' } });
     return { data: world };
   });
@@ -109,7 +122,8 @@ export function registerRoutes(
     if (!world) return reply.status(404).send({ error: { code: ErrorCode.WORLD_NOT_FOUND, message: 'World not found' } });
     if (world.status === 'running') tickScheduler.stop();
     await repo.updateWorld(id, { status: 'stopped' });
-    return { data: { deleted: true } };
+    if (getWorldId() === id) setWorldId(null);
+    return { data: { id, status: 'stopped' } };
   });
 
   app.post('/api/worlds/:id/pause', async (req) => {
@@ -134,6 +148,19 @@ export function registerRoutes(
     if (!world) return { data: { stage: 'not_found', progress: 0 } };
     const progress = world.status === 'running' ? 100 : world.status === 'initializing' ? 50 : 0;
     return { data: { stage: world.status, progress } };
+  });
+
+  app.post('/api/worlds/:id/save', async (req) => {
+    const { id } = req.params as { id: string };
+    const { name } = z.object({ name: z.string().min(1) }).optional().default({ name: `save-${Date.now()}` }).parse(req.body);
+    const saveId = await worldPersistence.saveSnapshot(id, name);
+    return { data: { saveId } };
+  });
+
+  app.get('/api/worlds/:id/saves', async (req) => {
+    const { id } = req.params as { id: string };
+    const saves = await worldPersistence.listSnapshots(id);
+    return { data: saves };
   });
 
   // ── Agent ──
@@ -184,6 +211,31 @@ export function registerRoutes(
     return { data: { content: response } };
   });
 
+  app.post('/api/agents/:id/chat', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { content } = z.object({ content: z.string().min(1) }).parse(req.body);
+    const agent = agentManager.get(id);
+    if (!agent) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Agent not found' } });
+
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    });
+
+    let full = '';
+    for await (const chunk of agent.chat(content, llmScheduler, config)) {
+      full += chunk;
+      reply.raw.write(`data: ${JSON.stringify({ chunk, done: false })}\n\n`);
+    }
+    reply.raw.write(`data: ${JSON.stringify({ chunk: '', done: true })}\n\n`);
+
+    await repo.createMessage({ id: nanoid(), worldId: agent.worldId, fromAgentId: id, content, type: 'chat' });
+    await repo.createMessage({ id: nanoid(), worldId: agent.worldId, toAgentId: id, content: full, type: 'chat' });
+
+    reply.raw.end();
+  });
+
   // ── Events ──
 
   app.get('/api/worlds/:id/events', async (req) => {
@@ -197,7 +249,7 @@ export function registerRoutes(
   app.get('/api/agents/:id/economy', async (req, reply) => {
     const { id } = req.params as { id: string };
     const eco = await repo.getAgentEconomy(id);
-    if (!eco) return reply.status(404).send({ error: { message: 'Economy not found' } });
+    if (!eco) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Economy not found' } });
     return { data: eco };
   });
 
@@ -205,7 +257,7 @@ export function registerRoutes(
     const { id } = req.params as { id: string };
     const { amount, reason } = z.object({ amount: z.number().positive(), reason: z.string() }).parse(req.body);
     const ok = await economyEngine.spend(id, amount, reason);
-    if (!ok) return reply.status(400).send({ error: { message: 'Insufficient funds' } });
+    if (!ok) return reply.status(400).send({ error: { code: ErrorCode.VALIDATION_ERROR, message: 'Insufficient funds' } });
     return { data: { success: true } };
   });
 
@@ -232,7 +284,8 @@ export function registerRoutes(
     const { platformId, content, imageUrl } = z.object({
       platformId: z.string(), content: z.string(), imageUrl: z.string().optional(),
     }).parse(req.body);
-    const post = await platformEngine.post({ platformId, worldId: '', authorId: 'user', authorType: 'user', content, imageUrl });
+    const worldId = getWorldId() ?? '';
+    const post = await platformEngine.post({ platformId, worldId, authorId: 'user', authorType: 'user', content, imageUrl });
     return { data: post };
   });
 

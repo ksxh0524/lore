@@ -71,21 +71,34 @@ export class AgentRuntime {
   }
 
   updateStats(): void {
-    this.stats.energy = Math.max(0, this.stats.energy - 2);
+    if (this.state.status === 'sleeping') {
+      this.stats.energy = Math.min(100, this.stats.energy + 5);
+      if (this.stats.energy >= 80) {
+        this.state.status = 'idle';
+        this.state.currentActivity = '';
+      }
+      return;
+    }
+
+    this.stats.energy = Math.max(0, this.stats.energy - 0.5);
+    if (this.state.status === 'active') {
+      this.stats.energy = Math.max(0, this.stats.energy - 0.5);
+    }
+
     const moodBaseline = 50;
     if (this.stats.mood > moodBaseline) {
-      this.stats.mood = Math.max(moodBaseline, this.stats.mood - 1);
+      this.stats.mood = Math.max(moodBaseline, this.stats.mood - 0.3);
     } else if (this.stats.mood < moodBaseline) {
-      this.stats.mood = Math.min(moodBaseline, this.stats.mood + 0.5);
+      this.stats.mood = Math.min(moodBaseline, this.stats.mood + 0.2);
     }
-    if (this.state.status === 'active') {
-      this.stats.energy = Math.max(0, this.stats.energy - 1);
-    }
-    if (this.stats.energy <= 0) {
+
+    if (this.stats.energy <= 10) {
       this.state.status = 'sleeping';
       this.state.currentActivity = '休息中';
     }
+
     this.stats.mood = Math.round(this.stats.mood * 10) / 10;
+    this.stats.energy = Math.round(this.stats.energy * 10) / 10;
   }
 
   async tick(worldState: { currentTime: string; day: number; currentTick: number }, llmScheduler: LLMScheduler, config: LoreConfig): Promise<void> {
@@ -95,8 +108,8 @@ export class AgentRuntime {
 
     if (!this.shouldThink(worldState.currentTick)) return;
 
+    const prompt = buildDecisionPrompt(this, worldState, []);
     const toolDefs = this.tools.toFunctionDefinitions();
-    const prompt = buildDecisionPrompt(this, worldState, toolDefs);
 
     try {
       const result = await llmScheduler.submit({
@@ -104,6 +117,7 @@ export class AgentRuntime {
         callType: 'decision',
         model: this.getRequiredModel(config),
         messages: prompt,
+        tools: toolDefs,
       });
 
       if (result.toolCalls && result.toolCalls.length > 0) {
@@ -116,9 +130,9 @@ export class AgentRuntime {
         }
       } else {
         this.processDecision(result.content);
+        await this.memory.add(result.content, 'decision', 0.7);
       }
-      
-      await this.memory.add(result.content, 'decision', 0.7);
+
       this.lastThinkTick = worldState.currentTick;
     } catch (err) {
       console.error(`Agent ${this.id} tick failed:`, err);

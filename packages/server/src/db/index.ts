@@ -140,4 +140,23 @@ export function initTables() {
       updated_at INTEGER NOT NULL
     );
   `);
+
+  sqlite.exec(`
+    CREATE INDEX IF NOT EXISTS idx_agents_world_id ON agents(world_id);
+    CREATE INDEX IF NOT EXISTS idx_agents_alive ON agents(alive);
+    CREATE INDEX IF NOT EXISTS idx_memories_agent_id ON memories(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_memories_timestamp ON memories(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(memory_type);
+    CREATE INDEX IF NOT EXISTS idx_relationships_agent_id ON relationships(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_agent_id);
+    CREATE INDEX IF NOT EXISTS idx_events_world_id ON events(world_id);
+    CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_messages_to_agent ON messages(to_agent_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_from_agent ON messages(from_agent_id);
+    CREATE INDEX IF NOT EXISTS idx_economy_agent_id ON economy(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_platforms_world_id ON platforms(world_id);
+    CREATE INDEX IF NOT EXISTS idx_platform_posts_platform ON platform_posts(platform_id);
+    CREATE INDEX IF NOT EXISTS idx_platform_posts_world ON platform_posts(world_id);
+    CREATE INDEX IF NOT EXISTS idx_saves_world_id ON saves(world_id);
+  `);
 }

@@ -4,11 +4,15 @@ import type { AgentManager } from '../agent/agent-manager.js';
 
 export class WorldPersistence {
   private repo: Repository;
+  private agentManager: AgentManager;
 
-  constructor(repo: Repository) { this.repo = repo; }
+  constructor(repo: Repository, agentManager: AgentManager) {
+    this.repo = repo;
+    this.agentManager = agentManager;
+  }
 
-  async saveSnapshot(worldId: string, agentManager: AgentManager, name: string): Promise<string> {
-    const agents = await agentManager.getWorldAgents(worldId);
+  async saveSnapshot(worldId: string, name: string): Promise<string> {
+    const agents = await this.agentManager.getWorldAgents(worldId);
     const events = await this.repo.getWorldEvents(worldId);
     const world = await this.repo.getWorld(worldId);
     const snapshot = {

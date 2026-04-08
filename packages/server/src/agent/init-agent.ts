@@ -3,14 +3,17 @@ import { nanoid } from 'nanoid';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { Repository } from '../db/repository.js';
 import { buildRandomWorldPrompt } from '../llm/prompts.js';
+import type { LoreConfig } from '../config/loader.js';
 
 export class InitAgent {
   private llmScheduler: LLMScheduler;
   private repo: Repository;
+  private config: LoreConfig;
 
-  constructor(llmScheduler: LLMScheduler, repo: Repository) {
+  constructor(llmScheduler: LLMScheduler, repo: Repository, config: LoreConfig) {
     this.llmScheduler = llmScheduler;
     this.repo = repo;
+    this.config = config;
   }
 
   async initialize(request: InitRequest): Promise<InitResult> {
@@ -31,7 +34,7 @@ export class InitAgent {
       const result = await this.llmScheduler.submit({
         agentId: 'init-agent',
         callType: 'creative',
-        model: '',
+        model: this.config.llm.defaults.premiumModel,
         messages: prompt,
         maxTokens: 4096,
       });

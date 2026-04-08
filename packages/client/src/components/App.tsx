@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWorldStore } from '../stores/worldStore';
 import { api } from '../services/api';
+import { wsClient } from '../services/websocket';
 import type { FormEvent } from 'react';
 import { Sidebar } from './layout/Sidebar';
 import { ChatPanel } from './chat/ChatPanel';
@@ -12,6 +13,7 @@ export function InitPage() {
   const setRunning = useWorldStore((s) => s.setRunning);
   const setInitializing = useWorldStore((s) => s.setInitializing);
   const initializing = useWorldStore((s) => s.initializing);
+  const [location, setLocation] = useState('上海');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -19,7 +21,7 @@ export function InitPage() {
     try {
       const result = await api.initWorld({
         worldType: 'random',
-        randomParams: { age: 25, location: '上海', background: '程序员' },
+        randomParams: { age: 25, location, background: '程序员' },
       });
       setWorldId(result.worldId);
       const agents = await api.getAgents(result.worldId);
@@ -47,7 +49,7 @@ export function InitPage() {
           </div>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', color: '#8888a0', marginBottom: '0.5rem', fontSize: '0.9rem' }}>地点</label>
-            <input type="text" defaultValue="上海" disabled={initializing} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', background: '#1a1a25', color: '#f0f0f5', border: '1px solid #333', boxSizing: 'border-box' }} />
+            <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} disabled={initializing} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', background: '#1a1a25', color: '#f0f0f5', border: '1px solid #333', boxSizing: 'border-box' }} />
           </div>
           <button type="submit" disabled={initializing} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: initializing ? '#333' : '#6366f1', color: '#fff', border: 'none', cursor: initializing ? 'wait' : 'pointer', fontSize: '1rem' }}>
             {initializing ? '正在生成世界...' : '创建世界'}
@@ -64,7 +66,47 @@ export function WorldPage() {
   const selectedAgentId = useWorldStore((s) => s.selectedAgentId);
   const messages = useWorldStore((s) => s.messages);
   const addMessage = useWorldStore((s) => s.addMessage);
+  const setAgents = useWorldStore((s) => s.setAgents);
+  const setTick = useWorldStore((s) => s.setTick);
+  const addEvent = useWorldStore((s) => s.addEvent);
+  const setRunning = useWorldStore((s) => s.setRunning);
   const [sending, setSending] = useState(false);
+  const wsInitialized = useRef(false);
+
+  useEffect(() => {
+    if (wsInitialized.current) return;
+    wsInitialized.current = true;
+
+    wsClient.connect();
+
+    wsClient.on('world_state', (data) => {
+      if (data.tick) setTick(data.tick);
+      if (data.status === 'paused') setRunning(false);
+      if (data.status === 'running') setRunning(true);
+    });
+
+    wsClient.on('event', (data) => {
+      if (data.event) addEvent(data.event);
+    });
+
+    wsClient.on('agent_update', (data) => {
+      setAgents(agents.map(a => a.id === data.agentId ? { ...a, state: data.state, stats: data.stats } : a));
+    });
+
+    wsClient.on('init_complete', async (data) => {
+      if (data.worldId) {
+        const updatedAgents = await api.getAgents(data.worldId);
+        setAgents(updatedAgents);
+      }
+    });
+
+    wsClient.subscribe(['world_state', 'event', 'agent_update', 'init_complete']);
+
+    return () => {
+      wsClient.disconnect();
+      wsInitialized.current = false;
+    };
+  }, []);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
 

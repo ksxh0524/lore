@@ -1,4 +1,4 @@
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, or, sql } from 'drizzle-orm';
 import { db } from './index.js';
 import * as s from './schema.js';
 import type { WorldType, AgentType, AgentProfile, AgentState, AgentStats } from '@lore/shared';
@@ -126,7 +126,7 @@ export class Repository {
 
   async getAgentMessages(agentId: string, limit = 100) {
     return db.select().from(s.messages)
-      .where(eq(s.messages.toAgentId, agentId))
+      .where(or(eq(s.messages.toAgentId, agentId), eq(s.messages.fromAgentId, agentId)))
       .orderBy(desc(s.messages.timestamp))
       .limit(limit);
   }

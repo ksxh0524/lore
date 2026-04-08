@@ -1,22 +1,37 @@
 import type { WorldEvent } from '@lore/shared';
 
-export class PushManager {
-  private clients = new Set<{ send: (data: string) => void }>();
+interface Client {
+  send: (data: string) => void;
+  _subscribedEvents?: Set<string>;
+}
 
-  addClient(client: { send: (data: string) => void }) { this.clients.add(client); }
-  removeClient(client: { send: (data: string) => void }) { this.clients.delete(client); }
+export class PushManager {
+  private clients = new Set<Client>();
+
+  addClient(client: Client) { this.clients.add(client); }
+  removeClient(client: Client) { this.clients.delete(client); }
 
   async push(event: WorldEvent, _worldId: string): Promise<void> {
     const msg = JSON.stringify({ type: 'event', event });
+    const dead: Client[] = [];
     for (const client of this.clients) {
-      try { client.send(msg); } catch { this.clients.delete(client); }
+      if (client._subscribedEvents && !client._subscribedEvents.has('event') && !client._subscribedEvents.has('*')) {
+        continue;
+      }
+      try { client.send(msg); } catch { dead.push(client); }
     }
+    for (const c of dead) this.clients.delete(c);
   }
 
-  broadcast(message: any): void {
+  broadcast(message: Record<string, any>): void {
     const data = JSON.stringify(message);
+    const dead: Client[] = [];
     for (const client of this.clients) {
-      try { client.send(data); } catch { this.clients.delete(client); }
+      if (client._subscribedEvents && !client._subscribedEvents.has(message.type) && !client._subscribedEvents.has('*')) {
+        continue;
+      }
+      try { client.send(data); } catch { dead.push(client); }
     }
+    for (const c of dead) this.clients.delete(c);
   }
 }

@@ -9,6 +9,7 @@ const ProviderSchema = z.object({
   baseUrl: z.string().optional(),
   apiKey: z.string().optional(),
   models: z.array(z.string()),
+  embeddingModel: z.string().optional(),
 });
 
 export const ConfigSchema = z.object({
@@ -44,7 +45,9 @@ export function loadConfig(): LoreConfig {
   if (existsSync(configPath)) {
     try { 
       raw = JSON.parse(readFileSync(configPath, 'utf-8')); 
-    } catch { /* use defaults */ }
+    } catch (err) {
+      console.warn(`[Lore] Failed to parse config file ${configPath}:`, err instanceof Error ? err.message : err);
+    }
   }
   
   const config = ConfigSchema.parse(raw);

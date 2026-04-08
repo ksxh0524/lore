@@ -60,12 +60,10 @@ export class AgentManager {
 
   async tickAll(worldState: { currentTime: string; day: number; currentTick: number }, llmScheduler: LLMScheduler, config: LoreConfig): Promise<void> {
     const all = [...this.agents.values()].filter(a => a.state.status !== 'dead');
-    for (const agent of all) {
-      try {
-        await agent.tick(worldState, llmScheduler, config);
-      } catch (err) {
-        console.error(`Agent ${agent.id} tick failed:`, err);
-      }
+    const batchSize = 3;
+    for (let i = 0; i < all.length; i += batchSize) {
+      const batch = all.slice(i, i + batchSize);
+      await Promise.allSettled(batch.map(agent => agent.tick(worldState, llmScheduler, config)));
     }
   }
 
@@ -90,7 +88,11 @@ export class AgentManager {
     const agent = this.agents.get(id);
     if (agent) {
       agent.state.status = 'dead';
-      await this.repo.updateAgent(id, { state: agent.state });
+      await this.repo.updateAgent(id, {
+        state: agent.state,
+        alive: false,
+        diedAt: new Date(),
+      });
       this.agents.delete(id);
     }
   }

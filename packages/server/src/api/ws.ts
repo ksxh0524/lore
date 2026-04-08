@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { nanoid } from 'nanoid';
 import type { AgentManager } from '../agent/agent-manager.js';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { LoreConfig } from '../config/loader.js';
@@ -10,6 +11,14 @@ import type { Repository } from '../db/repository.js';
 
 const HEARTBEAT_INTERVAL = 30000;
 const HEARTBEAT_TIMEOUT = 60000;
+
+interface ClientSocket {
+  send: (data: string) => void;
+  _subscribedEvents?: Set<string>;
+  terminate: () => void;
+  ping: () => void;
+  on: (event: string, handler: (...args: any[]) => void) => void;
+}
 
 export function registerWebSocket(
   app: FastifyInstance,
@@ -26,13 +35,12 @@ export function registerWebSocket(
 ) {
   const { agentManager, llmScheduler, config, pushManager, modeManager, worldClock, tickScheduler, repo } = deps;
 
-  app.get('/ws', { websocket: true }, (socket: any) => {
+  app.get('/ws', { websocket: true }, (socket: ClientSocket) => {
     pushManager.addClient(socket);
     let lastPing = Date.now();
 
     socket.send(JSON.stringify({
       type: 'connected',
-      worldId: 'default',
       tick: tickScheduler.getTickNumber(),
       worldTime: worldClock.getTime().toISOString(),
       timeSpeed: worldClock.getTimeSpeed(),
@@ -69,22 +77,26 @@ export function registerWebSocket(
     });
   });
 
-  async function handleMessage(socket: any, msg: Record<string, any>) {
+  async function handleMessage(socket: ClientSocket, msg: Record<string, any>) {
     switch (msg.type) {
       case 'ping':
         socket.send(JSON.stringify({ type: 'pong' }));
         break;
 
-      case 'subscribe':
-        socket._subscribedEvents = new Set(msg.eventTypes || []);
-        socket.send(JSON.stringify({ type: 'subscribed', eventTypes: msg.eventTypes }));
+      case 'subscribe': {
+        const eventTypes = msg.eventTypes || [];
+        socket._subscribedEvents = new Set(eventTypes);
+        socket.send(JSON.stringify({ type: 'subscribed', eventTypes }));
         break;
+      }
 
-      case 'unsubscribe':
+      case 'unsubscribe': {
         if (socket._subscribedEvents) {
           for (const et of (msg.eventTypes || [])) socket._subscribedEvents.delete(et);
+          socket.send(JSON.stringify({ type: 'unsubscribed', eventTypes: msg.eventTypes }));
         }
         break;
+      }
 
       case 'pause':
         tickScheduler.pause();
@@ -120,6 +132,12 @@ export function registerWebSocket(
           socket.send(JSON.stringify({ type: 'chat_stream', agentId, chunk, done: false }));
         }
         socket.send(JSON.stringify({ type: 'chat_stream', agentId, chunk: '', done: true }));
+
+        await repo.createMessage({ id: nanoid(), worldId: agent.worldId, fromAgentId: 'user', toAgentId: agentId, content, type: 'chat' });
+        await repo.createMessage({ id: nanoid(), worldId: agent.worldId, fromAgentId: agentId, content: full, type: 'chat' });
+
+        await agent.memory.add(`User: ${content}`, 'chat', 0.5);
+        await agent.memory.add(`Me: ${full}`, 'chat', 0.5);
 
         pushManager.broadcast({
           type: 'agent_update',

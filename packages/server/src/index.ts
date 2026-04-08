@@ -38,16 +38,19 @@ async function main() {
 
   const repo = new Repository();
   const llmScheduler = new LLMScheduler(config);
+  const monitor = new Monitor();
+  llmScheduler.setMonitor(monitor);
   const agentManager = new AgentManager(repo, llmScheduler, config);
-  const initAgent = new InitAgent(llmScheduler, repo);
+  const initAgent = new InitAgent(llmScheduler, repo, config);
   const worldClock = new WorldClock(new Date(), config.world.defaultTimeSpeed);
   const worldAgent = new WorldAgent(llmScheduler);
   const economyEngine = new EconomyEngine(repo);
   const platformEngine = new PlatformEngine(repo);
-  const worldPersistence = new WorldPersistence(repo);
+  const worldPersistence = new WorldPersistence(repo, agentManager);
   const modeManager = new ModeManager();
   const pushManager = new PushManager();
-  const monitor = new Monitor();
+
+  let currentWorldId: string | null = null;
 
   const tickScheduler = new TickScheduler(config.world.defaultTickIntervalMs, async (tick) => {
     worldClock.advance(config.world.defaultTickIntervalMs);
@@ -56,13 +59,18 @@ async function main() {
       currentTime: worldClock.getTime().toISOString(),
       day: worldClock.getDay(),
       agentCount: agentManager.getAliveCount(),
+      worldId: currentWorldId,
     };
 
     monitor.resetTick();
 
     const worldEvents = await worldAgent.think(worldState);
     for (const event of worldEvents) {
-      await pushManager.push(event, '');
+      if (currentWorldId) {
+        event.worldId = currentWorldId;
+        await repo.createEvent(event);
+      }
+      await pushManager.push(event, currentWorldId ?? '');
       monitor.recordEvent();
     }
 
@@ -70,7 +78,9 @@ async function main() {
 
     if (tick % 10 === 0) {
       await agentManager.persistAll();
-      await worldPersistence.saveWorldState('default');
+      if (currentWorldId) {
+        await worldPersistence.saveWorldState(currentWorldId);
+      }
     }
 
     if (tick % 30 === 0) {
@@ -92,7 +102,9 @@ async function main() {
   const deps = {
     config, agentManager, initAgent, llmScheduler, repo,
     modeManager, pushManager, platformEngine, economyEngine,
-    worldClock, tickScheduler, monitor,
+    worldClock, tickScheduler, monitor, worldPersistence,
+    getWorldId: () => currentWorldId,
+    setWorldId: (id: string | null) => { currentWorldId = id; },
   };
 
   registerRoutes(app, deps);

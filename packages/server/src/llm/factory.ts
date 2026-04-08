@@ -16,21 +16,13 @@ export class ProviderFactory {
         continue;
       }
       
-      let provider: ILLMProvider;
-      switch (pc.type) {
-        case 'openai':
-        case 'deepseek':
-        case 'kimi':
-        case 'anthropic':
-        case 'google':
-        default:
-          provider = new OpenAICompatibleProvider({
-            name: pc.name,
-            baseUrl: pc.baseUrl,
-            apiKey: pc.apiKey,
-            models: pc.models,
-          });
-      }
+      const provider = new OpenAICompatibleProvider({
+        name: pc.name,
+        baseUrl: pc.baseUrl,
+        apiKey: pc.apiKey,
+        models: pc.models,
+        embeddingModel: pc.embeddingModel,
+      });
       
       for (const model of pc.models) {
         this.providers.set(model, provider);

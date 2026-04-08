@@ -6,11 +6,18 @@ export interface ILLMProvider {
   isModelSupported(model: string): boolean;
 }
 
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 export interface LLMCallRequest {
   model: string;
   messages: Array<{ role: string; content: string }>;
   maxTokens?: number;
   temperature?: number;
+  tools?: ToolDefinition[];
 }
 
 export interface LLMCallResult {
@@ -29,6 +36,7 @@ export interface LLMRequest {
   model: string;
   messages: Array<{ role: string; content: string }>;
   maxTokens?: number;
+  tools?: ToolDefinition[];
 }
 
 export interface LLMResult {

@@ -10,7 +10,7 @@ export class WorldAgent {
     this.llmScheduler = llmScheduler;
   }
 
-  async think(worldState: { currentTick: number; currentTime: string; day: number; agentCount: number }): Promise<WorldEvent[]> {
+  async think(worldState: { currentTick: number; currentTime: string; day: number; agentCount: number; worldId?: string | null }): Promise<WorldEvent[]> {
     if (worldState.currentTick - this.lastThinkTick < 10) return [];
     this.lastThinkTick = worldState.currentTick;
 
@@ -22,7 +22,7 @@ export class WorldAgent {
 
     events.push({
       id: nanoid(),
-      worldId: '',
+      worldId: worldState.worldId ?? '',
       type: 'world' as const,
       category: 'weather',
       description: desc,
