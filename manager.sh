@@ -391,6 +391,7 @@ show_status() {
     if [ -f "$config_file" ]; then
         local provider_count
         provider_count=$(grep -c '"apiKey"' "$config_file" 2>/dev/null || echo "0")
+        provider_count=$(echo "$provider_count" | head -1)
         if [ "$provider_count" -gt 0 ]; then
             echo -e "  ${GREEN}●${NC} LLM 配置 ${GREEN}已就绪${NC} ($provider_count 个 provider)"
         else
