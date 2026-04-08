@@ -1,0 +1,14 @@
+{
+  "name": "lore",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @lore/server --filter @lore/client run dev",
+    "build": "pnpm --filter @lore/shared build && pnpm --parallel --filter @lore/server --filter @lore/client run build"
+  },
+  "packageManager": "pnpm@10.30.2",
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+  }
+}
