@@ -201,10 +201,146 @@ export function createWorkTool(repo: Repository): AgentTool {
   };
 }
 
+export function createSendMessageTool(repo: Repository): AgentTool {
+  return {
+    name: 'send_message',
+    description: '给其他 Agent 发消息',
+    parameters: {
+      type: 'object',
+      properties: {
+        targetName: { type: 'string', description: '接收者名字' },
+        content: { type: 'string', description: '消息内容' },
+      },
+      required: ['targetName', 'content'],
+    },
+    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+      const targetName = String(args.targetName ?? '某人');
+      const content = String(args.content ?? '');
+      
+      agent.state.currentActivity = `给${targetName}发消息`;
+      agent.stats.energy = Math.max(0, agent.stats.energy - 5);
+      
+      const moodChange = Math.random() > 0.3 ? 5 : -3;
+      agent.stats.mood = Math.max(0, Math.min(100, agent.stats.mood + moodChange));
+      
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: agent.worldId,
+        type: 'message',
+        description: `${agent.profile.name}给${targetName}发了消息："${content.slice(0, 50)}..."`,
+        involvedAgents: [agent.id],
+        priority: 20,
+        timestamp: new Date(),
+      });
+      
+      return {
+        success: true,
+        message: `你给${targetName}发了一条消息："${content}"`,
+        result: { targetName, content, moodChange },
+      };
+    },
+  };
+}
+
+export function createChangeLocationTool(repo: Repository): AgentTool {
+  return {
+    name: 'change_location',
+    description: '改变当前位置，从一个地方移动到另一个位置',
+    parameters: {
+      type: 'object',
+      properties: {
+        targetLocation: { type: 'string', description: '目标位置' },
+        reason: { type: 'string', description: '移动原因（可选）' },
+      },
+      required: ['targetLocation'],
+    },
+    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+      const targetLocation = String(args.targetLocation ?? '某地');
+      const reason = args.reason ? String(args.reason) : '';
+      
+      const oldLocation = agent.state.currentLocation;
+      agent.state.currentLocation = targetLocation;
+      agent.state.currentActivity = `前往${targetLocation}`;
+      agent.stats.energy = Math.max(0, agent.stats.energy - 10);
+      
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: agent.worldId,
+        type: 'movement',
+        description: `${agent.profile.name}从${oldLocation || '某处'}移动到了${targetLocation}${reason ? `，原因：${reason}` : ''}`,
+        involvedAgents: [agent.id],
+        priority: 20,
+        timestamp: new Date(),
+      });
+      
+      return {
+        success: true,
+        message: `你从${oldLocation || '原地'}移动到了${targetLocation}`,
+        result: { oldLocation, newLocation: targetLocation, reason },
+      };
+    },
+  };
+}
+
+export function createStartBusinessTool(repo: Repository): AgentTool {
+  return {
+    name: 'start_business',
+    description: '开始创业，创建自己的事业',
+    parameters: {
+      type: 'object',
+      properties: {
+        businessName: { type: 'string', description: '企业名称' },
+        businessType: { type: 'string', description: '企业类型，如：餐饮、科技、服务等' },
+        capital: { type: 'number', description: '启动资金' },
+        description: { type: 'string', description: '创业描述' },
+      },
+      required: ['businessName', 'businessType', 'description'],
+    },
+    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+      const businessName = String(args.businessName ?? '我的企业');
+      const businessType = String(args.businessType ?? '服务');
+      const capital = Number(args.capital ?? 10000);
+      const description = String(args.description ?? '');
+      
+      if (agent.stats.money < capital) {
+        return {
+          success: false,
+          message: `资金不足！创业需要${capital}元，但你只有${agent.stats.money}元。`,
+          result: { started: false },
+        };
+      }
+      
+      agent.stats.money -= capital;
+      agent.state.currentActivity = `经营${businessName}`;
+      agent.stats.mood = Math.min(100, agent.stats.mood + 20);
+      agent.stats.energy = Math.max(0, agent.stats.energy - 30);
+      
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: agent.worldId,
+        type: 'business',
+        description: `${agent.profile.name}创办了${businessType}企业"${businessName}"，投入资金${capital}元。${description}`,
+        involvedAgents: [agent.id],
+        priority: 40,
+        timestamp: new Date(),
+      });
+      
+      return {
+        success: true,
+        message: `恭喜！你成功创办了${businessType}企业"${businessName}"，投入资金${capital}元。`,
+        result: { businessName, businessType, capital, started: true },
+      };
+    },
+  };
+}
+
 export function registerDefaultTools(registry: { register: (tool: AgentTool) => void }, repo: Repository): void {
   registry.register(createFindJobTool(repo));
   registry.register(createBuyItemTool(repo));
   registry.register(createSocializeTool(repo));
   registry.register(createRestTool());
   registry.register(createWorkTool(repo));
+  registry.register(createSendMessageTool(repo));
+  registry.register(createChangeLocationTool(repo));
+  registry.register(createStartBusinessTool(repo));
 }

@@ -219,8 +219,14 @@ export class Repository {
     return query;
   }
 
-  async getSave(id: string) {
+ async getSave(id: string) {
     const rows = await db.select().from(s.saves).where(eq(s.saves.id, id)).limit(1);
     return rows[0] ?? null;
+  }
+
+  
+  async deleteExpiredMemories(agentId: string, cutoff: Date): Promise<void> {
+    await db.delete(s.memories)
+      .where(and(eq(s.memories.agentId, agentId), lt(s.memories.expiresAt, cutoff)));
   }
 }
