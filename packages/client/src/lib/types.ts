@@ -14,10 +14,18 @@ export interface WorldInfo {
   worldTime: string | null;
 }
 
+export interface EventOption {
+  id: string;
+  text: string;
+}
+
 export interface EventInfo {
   id: string;
   type: string;
+  category?: string;
+  title?: string;
   description: string;
   priority: number;
   timestamp: string;
+  options?: EventOption[];
 }

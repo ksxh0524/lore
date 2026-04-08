@@ -29,9 +29,31 @@ export const api = {
     }),
   pause: (worldId: string) => request<any>(`/worlds/${worldId}/pause`, { method: 'POST' }),
   resume: (worldId: string) => request<any>(`/worlds/${worldId}/resume`, { method: 'POST' }),
+  setSpeed: (worldId: string, speed: number) =>
+    request<any>(`/worlds/${worldId}/speed`, {
+      method: 'POST',
+      body: JSON.stringify({ speed }),
+    }),
   getEvents: (worldId: string) => request<any[]>(`/worlds/${worldId}/events`),
   getMonitor: (worldId: string) => request<any>(`/worlds/${worldId}/monitor`),
   getPlatforms: (worldId: string) => request<any[]>(`/worlds/${worldId}/platforms`),
+  chooseEventOption: (eventId: string, optionId: string) =>
+    request<any>(`/events/${eventId}/choose`, {
+      method: 'POST',
+      body: JSON.stringify({ optionId }),
+    }),
   switchMode: (mode: 'character' | 'god') =>
     request<any>('/mode/switch', { method: 'POST', body: JSON.stringify({ mode }) }),
+  createPost: (worldId: string, content: string, imageUrl?: string) =>
+    request<any>(`/worlds/${worldId}/posts`, {
+      method: 'POST',
+      body: JSON.stringify({ content, imageUrl }),
+    }),
+  godObserveAgent: (agentId: string) =>
+    request<any>(`/god/agents/${agentId}/observe`),
+  godTriggerEvent: (worldId: string, event: any) =>
+    request<any>(`/worlds/${worldId}/god/event`, {
+      method: 'POST',
+      body: JSON.stringify(event),
+    }),
 };

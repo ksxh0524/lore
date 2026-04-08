@@ -11,6 +11,8 @@ interface WorldState {
   selectedAgentId: string | null;
   messages: Array<{ role: 'user' | 'agent'; content: string }>;
   initializing: boolean;
+  godMode: boolean;
+  speed: number;
 }
 
 interface WorldActions {
@@ -23,15 +25,25 @@ interface WorldActions {
   selectAgent: (id: string | null) => void;
   addMessage: (role: 'user' | 'agent', content: string) => void;
   setInitializing: (v: boolean) => void;
+  setGodMode: (v: boolean) => void;
+  setSpeed: (v: number) => void;
   reset: () => void;
 }
 
 type WorldStore = WorldState & WorldActions;
 
 const initial: WorldState = {
-  worldId: null, world: null, agents: [], events: [],
-  tick: 0, isRunning: false, selectedAgentId: null,
-  messages: [], initializing: false,
+  worldId: null,
+  world: null,
+  agents: [],
+  events: [],
+  tick: 0,
+  isRunning: false,
+  selectedAgentId: null,
+  messages: [],
+  initializing: false,
+  godMode: false,
+  speed: 1,
 };
 
 export const useWorldStore = create<WorldStore>((set) => ({
@@ -45,5 +57,7 @@ export const useWorldStore = create<WorldStore>((set) => ({
   selectAgent: (id) => set({ selectedAgentId: id, messages: [] }),
   addMessage: (role, content) => set((s) => ({ messages: [...s.messages, { role, content }] })),
   setInitializing: (v) => set({ initializing: v }),
+  setGodMode: (v) => set({ godMode: v }),
+  setSpeed: (v) => set({ speed: v }),
   reset: () => set(initial),
 }));
