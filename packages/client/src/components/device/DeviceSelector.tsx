@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { IPhone } from '../phone/PhoneHome';
-import { IMac } from './computer/MacDesktop';
+import { MacBookPro } from './computer/MacDesktop';
 
 type DeviceView = 'select' | 'phone' | 'computer';
+
+const bg = 'linear-gradient(145deg, #0a0a1a 0%, #1a1a2e 40%, #0f0f2a 100%)';
 
 const containerStyle: React.CSSProperties = {
   width: '100vw',
   height: '100vh',
-  background: '#0a0a0f',
+  background: bg,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -19,43 +21,51 @@ export function DeviceSelector() {
   const [device, setDevice] = useState<DeviceView>('select');
   const [hoveredDevice, setHoveredDevice] = useState<string | null>(null);
 
+  const backBtn = (
+    <div
+      onClick={() => setDevice('select')}
+      style={{
+        position: 'absolute', top: 24, left: 24, cursor: 'pointer',
+        color: 'rgba(255,255,255,0.45)', fontSize: 14, zIndex: 100,
+        padding: '6px 14px', borderRadius: 8,
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        transition: 'all 200ms',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+    >
+      ← 返回桌面
+    </div>
+  );
+
   if (device === 'phone') {
-    return (
-      <div style={{ ...containerStyle, background: 'linear-gradient(145deg, #0a0a1a 0%, #1a1a2e 40%, #0f0f2a 100%)' }}>
-        <div style={{ position: 'absolute', top: 20, left: 20, cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: 14, zIndex: 100 }} onClick={() => setDevice('select')}>
-          ← 返回桌面
-        </div>
-        <IPhone />
-      </div>
-    );
+    return <div style={containerStyle}>{backBtn}<IPhone /></div>;
   }
 
   if (device === 'computer') {
-    return (
-      <div style={{ ...containerStyle, background: 'linear-gradient(145deg, #0a0a1a 0%, #1a1a2e 40%, #0f0f2a 100%)' }}>
-        <div style={{ position: 'absolute', top: 20, left: 20, cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: 14, zIndex: 100 }} onClick={() => setDevice('select')}>
-          ← 返回桌面
-        </div>
-        <IMac />
-      </div>
-    );
+    return <div style={containerStyle}>{backBtn}<MacBookPro /></div>;
   }
 
   return (
-    <div style={{
-      ...containerStyle,
-      background: 'linear-gradient(145deg, #0a0a1a 0%, #1a1a2e 40%, #0f0f2a 100%)',
-      flexDirection: 'column',
-      gap: 48,
-    }}>
+    <div style={{ ...containerStyle, flexDirection: 'column', gap: 52 }}>
       <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontSize: 42, fontWeight: 300, color: '#f0f0f5', letterSpacing: -1, margin: 0 }}>
-          Lore <span style={{ fontWeight: 600, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>World</span>
+        <h1 style={{ fontSize: 44, fontWeight: 300, color: '#f0f0f5', letterSpacing: -1, margin: 0 }}>
+          Lore{' '}
+          <span style={{
+            fontWeight: 600,
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          }}>
+            World
+          </span>
         </h1>
-        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.4)', marginTop: 8, fontWeight: 300 }}>选择一个设备进入世界</p>
+        <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.35)', marginTop: 10, fontWeight: 300 }}>
+          选择一个设备进入世界
+        </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 48, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 52, alignItems: 'center' }}>
         <DeviceCard
           icon="📱"
           label="iPhone"
@@ -66,8 +76,8 @@ export function DeviceSelector() {
           onClick={() => setDevice('phone')}
         />
         <DeviceCard
-          icon="🖥️"
-          label="Mac"
+          icon="💻"
+          label="MacBook Pro"
           sublabel="浏览器 · 文件 · 监控"
           hovered={hoveredDevice === 'computer'}
           onHover={() => setHoveredDevice('computer')}
@@ -90,20 +100,25 @@ function DeviceCard({ icon, label, sublabel, hovered, onHover, onLeave, onClick 
       onClick={onClick}
       style={{
         width: 220,
-        padding: '40px 32px',
+        padding: '44px 32px',
         borderRadius: 24,
-        background: hovered ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
-        border: hovered ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.06)',
+        background: hovered ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.025)',
+        border: hovered ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.05)',
         cursor: 'pointer',
         textAlign: 'center',
-        transition: 'all 250ms cubic-bezier(0.175, 0.885, 0.32, 1.05)',
-        transform: hovered ? 'translateY(-4px) scale(1.02)' : 'none',
-        boxShadow: hovered ? '0 8px 40px rgba(99,102,241,0.15)' : 'none',
+        transition: 'all 300ms cubic-bezier(0.22, 1, 0.36, 1)',
+        transform: hovered ? 'translateY(-6px) scale(1.03)' : 'translateY(0) scale(1)',
+        boxShadow: hovered ? '0 12px 48px rgba(99,102,241,0.18)' : 'none',
       }}
     >
-      <div style={{ fontSize: 56, marginBottom: 16, filter: hovered ? 'none' : 'grayscale(0.3)', transition: 'filter 250ms' }}>{icon}</div>
-      <div style={{ fontSize: 20, fontWeight: 600, color: '#f0f0f5', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{sublabel}</div>
+      <div style={{
+        fontSize: 56, marginBottom: 16,
+        filter: hovered ? 'none' : 'grayscale(0.25) brightness(0.8)',
+        transition: 'filter 300ms',
+        transform: hovered ? 'scale(1.08)' : 'scale(1)',
+      }}>{icon}</div>
+      <div style={{ fontSize: 18, fontWeight: 600, color: '#f0f0f5', marginBottom: 6, letterSpacing: -0.3 }}>{label}</div>
+      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>{sublabel}</div>
     </div>
   );
 }
