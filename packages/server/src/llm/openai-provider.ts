@@ -51,4 +51,12 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       if (content) yield content;
     }
   }
+
+  async embed(text: string): Promise<number[]> {
+    const response = await this.client.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: text,
+    });
+    return response.data[0]?.embedding ?? [];
+  }
 }

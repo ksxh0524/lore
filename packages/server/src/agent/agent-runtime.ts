@@ -70,9 +70,30 @@ export class AgentRuntime {
     }
   }
 
+  updateStats(): void {
+    this.stats.energy = Math.max(0, this.stats.energy - 2);
+    const moodBaseline = 50;
+    if (this.stats.mood > moodBaseline) {
+      this.stats.mood = Math.max(moodBaseline, this.stats.mood - 1);
+    } else if (this.stats.mood < moodBaseline) {
+      this.stats.mood = Math.min(moodBaseline, this.stats.mood + 0.5);
+    }
+    if (this.state.status === 'active') {
+      this.stats.energy = Math.max(0, this.stats.energy - 1);
+    }
+    if (this.stats.energy <= 0) {
+      this.state.status = 'sleeping';
+      this.state.currentActivity = '休息中';
+    }
+    this.stats.mood = Math.round(this.stats.mood * 10) / 10;
+  }
+
   async tick(worldState: { currentTime: string; day: number; currentTick: number }, llmScheduler: LLMScheduler, config: LoreConfig): Promise<void> {
-    if (!this.shouldThink(worldState.currentTick)) return;
     if (this.state.status === 'dead') return;
+
+    this.updateStats();
+
+    if (!this.shouldThink(worldState.currentTick)) return;
 
     const toolDefs = this.tools.toFunctionDefinitions();
     const prompt = buildDecisionPrompt(this, worldState, toolDefs);

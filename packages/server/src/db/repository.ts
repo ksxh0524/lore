@@ -210,4 +210,17 @@ export class Repository {
     }).returning();
     return result[0]!;
   }
+
+  async getSaves(worldId: string) {
+    const query = db.select().from(s.saves);
+    if (worldId) {
+      return query.where(eq(s.saves.worldId, worldId));
+    }
+    return query;
+  }
+
+  async getSave(id: string) {
+    const rows = await db.select().from(s.saves).where(eq(s.saves.id, id)).limit(1);
+    return rows[0] ?? null;
+  }
 }

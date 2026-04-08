@@ -1,4 +1,5 @@
 import { useWorldStore } from '../../stores/worldStore';
+import { api } from '../../services/api';
 import { WorldClock } from '../world/WorldClock';
 
 function moodEmoji(mood: number): string {
@@ -17,7 +18,6 @@ export function Sidebar() {
   const tick = useWorldStore((s) => s.tick);
   const worldId = useWorldStore((s) => s.worldId);
   const setRunning = useWorldStore((s) => s.setRunning);
-  const { api } = require('../../services/api') as { api: any };
 
   const npcAgents = agents.filter((a: any) => a.profile.name !== '玩家');
 

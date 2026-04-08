@@ -2,6 +2,7 @@ export interface ILLMProvider {
   readonly name: string;
   generateText(request: LLMCallRequest): Promise<LLMCallResult>;
   streamText(request: LLMCallRequest): AsyncIterable<string>;
+  embed(text: string): Promise<number[]>;
   isModelSupported(model: string): boolean;
 }
 

@@ -25,5 +25,9 @@ export class MockLLMProvider implements ILLMProvider {
     }
   }
 
+  async embed(_text: string): Promise<number[]> {
+    return Array(1536).fill(0);
+  }
+
   isModelSupported(): boolean { return true; }
 }
