@@ -15,12 +15,24 @@ import { PlatformEngine } from './world/platform-engine.js';
 import { WorldPersistence } from './world/persistence.js';
 import { ModeManager } from './modes/mode-manager.js';
 import { PushManager } from './scheduler/push-manager.js';
+import { Monitor } from './monitor/index.js';
 import { registerRoutes } from './api/routes.js';
 import { registerWebSocket } from './api/ws.js';
 
 async function main() {
   const config = loadConfig();
-  console.log('[Lore] Starting...');
+
+  const app = Fastify({
+    logger: {
+      level: 'info',
+      transport: {
+        target: 'pino-pretty',
+        options: { colorize: true, translateTime: 'HH:MM:ss.l', ignore: 'pid,hostname' },
+      },
+    },
+  });
+
+  app.log.info('[Lore] Starting...');
 
   initTables();
 
@@ -35,6 +47,7 @@ async function main() {
   const worldPersistence = new WorldPersistence(repo);
   const modeManager = new ModeManager();
   const pushManager = new PushManager();
+  const monitor = new Monitor();
 
   const tickScheduler = new TickScheduler(config.world.defaultTickIntervalMs, async (tick) => {
     worldClock.advance(config.world.defaultTickIntervalMs);
@@ -42,29 +55,44 @@ async function main() {
       currentTick: tick,
       currentTime: worldClock.getTime().toISOString(),
       day: worldClock.getDay(),
-      agentCount: 0,
+      agentCount: agentManager.getAliveCount(),
     };
+
+    monitor.resetTick();
 
     const worldEvents = await worldAgent.think(worldState);
     for (const event of worldEvents) {
       await pushManager.push(event, '');
+      monitor.recordEvent();
     }
 
     await agentManager.tickAll(worldState, llmScheduler, config);
 
     if (tick % 10 === 0) {
       await agentManager.persistAll();
+      await worldPersistence.saveWorldState('default');
     }
+
+    if (tick % 30 === 0) {
+      pushManager.broadcast({
+        type: 'world_state',
+        tick,
+        worldTime: worldClock.getTime().toISOString(),
+        timeSpeed: worldClock.getTimeSpeed(),
+        monitor: monitor.getStats(),
+      });
+    }
+
+    app.log.debug({ tick, events: worldEvents.length }, 'Tick completed');
   });
 
-  const app = Fastify({ logger: { level: 'warn' } });
   await app.register(cors, { origin: true });
   await app.register(websocket);
 
   const deps = {
     config, agentManager, initAgent, llmScheduler, repo,
     modeManager, pushManager, platformEngine, economyEngine,
-    worldClock, tickScheduler,
+    worldClock, tickScheduler, monitor,
   };
 
   registerRoutes(app, deps);
@@ -72,9 +100,9 @@ async function main() {
 
   try {
     await app.listen({ port: config.server.port, host: config.server.host });
-    console.log(`[Lore] Server running at http://localhost:${config.server.port}`);
+    app.log.info(`[Lore] Server running at http://localhost:${config.server.port}`);
   } catch (err) {
-    console.error('[Lore] Failed to start:', err);
+    app.log.error(err, '[Lore] Failed to start');
     process.exit(1);
   }
 }

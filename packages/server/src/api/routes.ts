@@ -12,6 +12,8 @@ import type { PlatformEngine } from '../world/platform-engine.js';
 import type { EconomyEngine } from '../world/economy-engine.js';
 import type { WorldClock } from '../world/clock.js';
 import type { TickScheduler } from '../scheduler/tick-scheduler.js';
+import type { Monitor } from '../monitor/index.js';
+import { ErrorCode, LoreError } from '../errors.js';
 
 export function registerRoutes(
   app: FastifyInstance,
@@ -27,9 +29,21 @@ export function registerRoutes(
     economyEngine: EconomyEngine;
     worldClock: WorldClock;
     tickScheduler: TickScheduler;
+    monitor: Monitor;
   },
 ) {
-  const { config, agentManager, initAgent, llmScheduler, repo, modeManager, pushManager, platformEngine, economyEngine, worldClock, tickScheduler } = deps;
+  const { config, agentManager, initAgent, llmScheduler, repo, modeManager, pushManager, platformEngine, economyEngine, worldClock, tickScheduler, monitor } = deps;
+
+  app.setErrorHandler((err, _req, reply) => {
+    if (err instanceof LoreError) {
+      return reply.status(err.statusCode).send({ error: { code: err.code, message: err.message } });
+    }
+    if (err instanceof Error && 'validation' in err) {
+      return reply.status(400).send({ error: { code: ErrorCode.VALIDATION_ERROR, message: err.message } });
+    }
+    app.log.error(err);
+    return reply.status(500).send({ error: { code: ErrorCode.INTERNAL_ERROR, message: 'Internal server error' } });
+  });
 
   const initSchema = z.object({
     worldType: z.enum(['history', 'random']),
@@ -37,10 +51,21 @@ export function registerRoutes(
     historyParams: z.object({ presetName: z.string(), targetCharacter: z.string().optional() }).optional(),
   });
 
+  // ── World ──
+
+  app.post('/api/worlds', async (req) => {
+    const { name, type } = z.object({ name: z.string().min(1), type: z.enum(['history', 'random']) }).parse(req.body);
+    const world = await repo.createWorld({ id: nanoid(), name, type });
+    return { data: world };
+  });
+
   app.post('/api/worlds/init', async (req, reply) => {
     try {
       const body = initSchema.parse(req.body);
+      pushManager.broadcast({ type: 'init_progress', stage: 'generating', progress: 20 });
+
       const result = await initAgent.initialize(body);
+      pushManager.broadcast({ type: 'init_progress', stage: 'creating_agents', progress: 50 });
 
       for (const agentData of result.agents) {
         const agent = await agentManager.createAgent(result.worldId, 'npc', agentData.profile);
@@ -51,28 +76,47 @@ export function registerRoutes(
       const userAvatar = await agentManager.createAgent(result.worldId, 'user-avatar', result.userAvatar.profile);
       userAvatar.stats = result.userAvatar.initialStats;
       await economyEngine.initAgentEconomy(result.worldId, userAvatar.id, result.userAvatar.initialStats.money, 5000, 2000);
+      pushManager.broadcast({ type: 'init_progress', stage: 'building_relationships', progress: 80 });
 
       await platformEngine.initWorldPlatforms(result.worldId);
       tickScheduler.start();
 
+      pushManager.broadcast({ type: 'init_complete', worldId: result.worldId, agentCount: result.agents.length });
       return { data: result };
     } catch (err) {
-      console.error('Init failed:', err);
-      return reply.status(500).send({ error: { code: 6002, message: err instanceof Error ? err.message : 'Init failed' } });
+      app.log.error(err, 'World init failed');
+      return reply.status(500).send({ error: { code: ErrorCode.INIT_GENERATION_FAILED, message: err instanceof Error ? err.message : 'Init failed' } });
     }
   });
 
   app.get('/api/worlds/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const world = await repo.getWorld(id);
-    if (!world) return reply.status(404).send({ error: { code: 1001, message: 'World not found' } });
+    if (!world) return reply.status(404).send({ error: { code: ErrorCode.WORLD_NOT_FOUND, message: 'World not found' } });
     return { data: world };
+  });
+
+  app.put('/api/worlds/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const world = await repo.updateWorld(id, req.body as Record<string, any>);
+    if (!world) return reply.status(404).send({ error: { code: ErrorCode.WORLD_NOT_FOUND, message: 'World not found' } });
+    return { data: world };
+  });
+
+  app.delete('/api/worlds/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const world = await repo.getWorld(id);
+    if (!world) return reply.status(404).send({ error: { code: ErrorCode.WORLD_NOT_FOUND, message: 'World not found' } });
+    if (world.status === 'running') tickScheduler.stop();
+    await repo.updateWorld(id, { status: 'stopped' });
+    return { data: { deleted: true } };
   });
 
   app.post('/api/worlds/:id/pause', async (req) => {
     const { id } = req.params as { id: string };
     tickScheduler.pause();
     await repo.updateWorld(id, { status: 'paused' });
+    pushManager.broadcast({ type: 'world_state', tick: tickScheduler.getTickNumber(), worldTime: worldClock.getTime().toISOString(), status: 'paused' });
     return { data: { status: 'paused' } };
   });
 
@@ -80,8 +124,19 @@ export function registerRoutes(
     const { id } = req.params as { id: string };
     tickScheduler.resume();
     await repo.updateWorld(id, { status: 'running' });
+    pushManager.broadcast({ type: 'world_state', tick: tickScheduler.getTickNumber(), worldTime: worldClock.getTime().toISOString(), status: 'running' });
     return { data: { status: 'running' } };
   });
+
+  app.get('/api/worlds/:id/init-status', async (req) => {
+    const { id } = req.params as { id: string };
+    const world = await repo.getWorld(id);
+    if (!world) return { data: { stage: 'not_found', progress: 0 } };
+    const progress = world.status === 'running' ? 100 : world.status === 'initializing' ? 50 : 0;
+    return { data: { stage: world.status, progress } };
+  });
+
+  // ── Agent ──
 
   app.get('/api/worlds/:id/agents', async (req) => {
     const { id } = req.params as { id: string };
@@ -92,24 +147,52 @@ export function registerRoutes(
   app.get('/api/agents/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
     const agent = agentManager.get(id);
-    if (!agent) return reply.status(404).send({ error: { code: 2001, message: 'Agent not found' } });
+    if (!agent) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Agent not found' } });
     return { data: agent.serialize() };
+  });
+
+  app.post('/api/worlds/:id/agents', async (req) => {
+    const { id } = req.params as { id: string };
+    const { type, profile } = z.object({
+      type: z.enum(['npc', 'system', 'user-avatar']),
+      profile: z.object({
+        name: z.string(), age: z.number(), gender: z.string(), occupation: z.string(),
+        personality: z.string(), background: z.string(), speechStyle: z.string(),
+        likes: z.array(z.string()).default([]), dislikes: z.array(z.string()).default([]),
+      }),
+    }).parse(req.body);
+    const agent = await agentManager.createAgent(id, type, profile);
+    return { data: agent.serialize() };
+  });
+
+  // ── Chat ──
+
+  app.get('/api/agents/:id/messages', async (req) => {
+    const { id } = req.params as { id: string };
+    const messages = await repo.getAgentMessages(id);
+    return { data: messages };
   });
 
   app.post('/api/agents/:id/messages', async (req, reply) => {
     const { id } = req.params as { id: string };
     const { content } = z.object({ content: z.string().min(1) }).parse(req.body);
     const agent = agentManager.get(id);
-    if (!agent) return reply.status(404).send({ error: { code: 2001, message: 'Agent not found' } });
+    if (!agent) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Agent not found' } });
     const response = await agent.chatFull(content, llmScheduler, config);
+    await repo.createMessage({ id: nanoid(), worldId: agent.worldId, fromAgentId: id, content, type: 'chat' });
+    await repo.createMessage({ id: nanoid(), worldId: agent.worldId, toAgentId: id, content: response, type: 'chat' });
     return { data: { content: response } };
   });
+
+  // ── Events ──
 
   app.get('/api/worlds/:id/events', async (req) => {
     const { id } = req.params as { id: string };
     const events = await repo.getWorldEvents(id);
     return { data: events };
   });
+
+  // ── Economy ──
 
   app.get('/api/agents/:id/economy', async (req, reply) => {
     const { id } = req.params as { id: string };
@@ -133,6 +216,8 @@ export function registerRoutes(
     return { data: { success: true } };
   });
 
+  // ── Platform ──
+
   app.get('/api/worlds/:id/platforms', async (req) => {
     const { id } = req.params as { id: string };
     return { data: await platformEngine.getWorldPlatforms(id) };
@@ -151,24 +236,35 @@ export function registerRoutes(
     return { data: post };
   });
 
+  // ── Mode ──
+
   app.post('/api/mode/switch', async (req) => {
     const { mode } = z.object({ mode: z.enum(['character', 'god']) }).parse(req.body);
     await modeManager.switchMode(mode);
     return { data: { mode } };
   });
 
+  // ── Config ──
+
   app.get('/api/config', async () => {
     const safe = { world: config.world, server: config.server, dataDir: config.dataDir };
     return { data: { ...safe, llm: { ...config.llm, providers: config.llm.providers.map(p => ({ name: p.name, type: p.type, baseUrl: p.baseUrl, models: p.models, apiKey: '***' })) } } };
   });
 
+  app.put('/api/config', async () => {
+    return { data: { message: 'Config update not supported at runtime. Edit ~/.lore/config.json and restart.' } };
+  });
+
+  // ── Monitor ──
+
   app.get('/api/worlds/:id/monitor', async (req) => {
     const agents = await agentManager.getWorldAgents((req.params as { id: string }).id);
     return { data: {
       tick: tickScheduler.getTickNumber(),
-      worldTime: worldClock.getTime(),
+      worldTime: worldClock.getTime().toISOString(),
       agentCount: agents.length,
       isRunning: tickScheduler.isRunning(),
+      ...monitor.getStats(),
     }};
   });
 }

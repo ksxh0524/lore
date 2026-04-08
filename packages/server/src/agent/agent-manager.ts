@@ -82,6 +82,10 @@ export class AgentManager {
     }
   }
 
+  getAliveCount(): number {
+    return [...this.agents.values()].filter(a => a.state.status !== 'dead').length;
+  }
+
   async destroy(id: string): Promise<void> {
     const agent = this.agents.get(id);
     if (agent) {

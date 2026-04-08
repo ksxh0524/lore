@@ -1,41 +1,45 @@
-import { describe, it, expect, test } from 'vitest';
-import { createFindJobTool, from '../agent/default-tools';
-import type { AgentRuntime } from '../agent/agent-runtime';
+import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('../db/repository.js');
-vi.mock('../agent/agent-runtime.js');
-
-describe('Tools', () => {
-  let repo: any;
-  repo = { createEvent: vi.fn() };
-  
-  const tool = createFindJobTool(repo);
-  
-  it('should have correct name and description', () => {
+describe('Default Tools', () => {
+  it('should create find_job tool', async () => {
+    const { createFindJobTool } = await import('../../src/agent/default-tools.js');
+    const repo: any = {};
+    const tool = createFindJobTool(repo);
     expect(tool.name).toBe('find_job');
-    expect(tool.description).toContain('找工作');
-  });
-  
-  it('should have parameters schema', () => {
-    expect(tool.parameters).toHaveProperty('type');
     expect(tool.parameters).toHaveProperty('properties');
-    expect(tool.parameters.properties).toHaveProperty('jobType');
-    expect(tool.parameters.properties.jobType).toHaveProperty('type', 'string');
-  });
-  
-  it('should execute and handle success', async () => {
-    const agent = { id: 'a1', worldId: 'w1', profile: {} } as any;
+    const agent: any = { id: 'a1', worldId: 'w1', profile: { name: 'Test' }, state: {}, stats: {} };
     const result = await tool.execute({ jobType: '程序员' }, agent);
-    
     expect(result).toHaveProperty('success');
     expect(result).toHaveProperty('message');
-    expect(result.message).toContain('程序员');
   });
-  
-  it('should execute and handle failure', async () => {
-    const agent = { id: 'a1', worldId: 'w1', profile: {} } as any;
-    const result = await tool.execute({ jobType: '程序员', company: '失败 company' }, agent);
-    
+
+  it('should create buy_item tool and reject insufficient funds', async () => {
+    const { createBuyItemTool } = await import('../../src/agent/default-tools.js');
+    const repo: any = {};
+    const tool = createBuyItemTool(repo);
+    const agent: any = { id: 'a1', worldId: 'w1', profile: { name: 'Test' }, state: {}, stats: { money: 10 } };
+    const result = await tool.execute({ item: 'iPhone', price: 9999 }, agent);
     expect(result.success).toBe(false);
+  });
+
+  it('should create rest tool and recover energy', async () => {
+    const { createRestTool } = await import('../../src/agent/default-tools.js');
+    const tool = createRestTool();
+    const agent: any = { id: 'a1', worldId: 'w1', profile: { name: 'Test' }, state: { status: 'idle' }, stats: { energy: 50 } };
+    const result = await tool.execute({ duration: 4, type: '睡觉' }, agent);
+    expect(result.success).toBe(true);
+    expect(agent.stats.energy).toBeGreaterThan(50);
+  });
+
+  it('should register all default tools', async () => {
+    const { registerDefaultTools } = await import('../../src/agent/default-tools.js');
+    const registered: string[] = [];
+    const registry = { register: (tool: any) => registered.push(tool.name) };
+    registerDefaultTools(registry, {} as any);
+    expect(registered).toContain('find_job');
+    expect(registered).toContain('buy_item');
+    expect(registered).toContain('socialize');
+    expect(registered).toContain('rest');
+    expect(registered).toContain('work');
   });
 });
