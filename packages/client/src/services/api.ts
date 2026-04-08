@@ -110,5 +110,12 @@ export const api = {
       body: JSON.stringify({ platformId, content, imageUrl: imageUrl ?? '' }),
     }),
   getEconomy: (agentId: string) => request<any>(`/agents/${agentId}/economy`),
+  getRelationships: (agentId: string) => request<any[]>(`/agents/${agentId}/relationships`),
   getAgentMessages: (agentId: string) => request<any[]>(`/agents/${agentId}/messages`),
+  getFactions: (worldId: string) => request<any[]>(`/worlds/${worldId}/factions`),
+  createFaction: (worldId: string, name: string, description: string, leaderId: string) =>
+    request<any>(`/worlds/${worldId}/factions`, {
+      method: 'POST',
+      body: JSON.stringify({ name, description, leaderId }),
+    }),
 };

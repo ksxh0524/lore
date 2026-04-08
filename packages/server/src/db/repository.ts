@@ -251,4 +251,64 @@ export class Repository {
       .orderBy(desc(s.platformPosts.timestamp))
       .limit(100);
   }
+
+  async createMonitorLog(data: {
+    id: string; worldId: string; tick: number;
+    eventType?: string; agentId?: string; message?: string; duration?: number;
+  }) {
+    const result = await db.insert(s.monitorLogs).values({
+      ...data,
+      timestamp: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getMonitorLogs(worldId: string, limit = 50) {
+    return db.select().from(s.monitorLogs)
+      .where(eq(s.monitorLogs.worldId, worldId))
+      .orderBy(desc(s.monitorLogs.timestamp))
+      .limit(limit);
+  }
+
+  async createEventChain(data: {
+    id: string; worldId: string; triggerEventId: string; nextEventId?: string;
+    condition?: string; delayTicks?: number; status: 'pending' | 'triggered' | 'expired';
+  }) {
+    const result = await db.insert(s.eventChains).values({
+      ...data,
+      createdAt: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getPendingEventChains(worldId: string) {
+    return db.select().from(s.eventChains)
+      .where(and(eq(s.eventChains.worldId, worldId), eq(s.eventChains.status, 'pending')));
+  }
+
+  async updateEventChain(id: string, data: Partial<typeof s.eventChains.$inferInsert>) {
+    const result = await db.update(s.eventChains).set(data).where(eq(s.eventChains.id, id)).returning();
+    return result[0] ?? null;
+  }
+
+  async createFaction(data: {
+    id: string; worldId: string; name: string; description?: string;
+    leaderId?: string; members?: string[];
+  }) {
+    const result = await db.insert(s.factions).values({
+      ...data,
+      members: data.members ?? [],
+      createdAt: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getWorldFactions(worldId: string) {
+    return db.select().from(s.factions).where(eq(s.factions.worldId, worldId));
+  }
+
+  async updateFaction(id: string, data: Partial<typeof s.factions.$inferInsert>) {
+    const result = await db.update(s.factions).set(data).where(eq(s.factions.id, id)).returning();
+    return result[0] ?? null;
+  }
 }

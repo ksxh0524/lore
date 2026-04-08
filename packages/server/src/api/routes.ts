@@ -14,6 +14,11 @@ import type { WorldClock } from '../world/clock.js';
 import type { TickScheduler } from '../scheduler/tick-scheduler.js';
 import type { Monitor } from '../monitor/index.js';
 import type { WorldPersistence } from '../world/persistence.js';
+import type { EventEngine } from '../world/event-engine.js';
+import type { EventChainEngine } from '../world/event-chain-engine.js';
+import type { FactionSystem } from '../world/faction-system.js';
+import type { RelationshipManager } from '../agent/relationships.js';
+import type { SocialEngine } from '../agent/social.js';
 import { ErrorCode, LoreError } from '../errors.js';
 
 export function registerRoutes(
@@ -32,11 +37,16 @@ export function registerRoutes(
     tickScheduler: TickScheduler;
     monitor: Monitor;
     worldPersistence: WorldPersistence;
+    eventEngine: EventEngine;
+    eventChainEngine: EventChainEngine;
+    factionSystem: FactionSystem;
+    relationshipManager: RelationshipManager;
+    socialEngine: SocialEngine;
     getWorldId: () => string | null;
     setWorldId: (id: string | null) => void;
   },
 ) {
-  const { config, agentManager, initAgent, llmScheduler, repo, modeManager, pushManager, platformEngine, economyEngine, worldClock, tickScheduler, monitor, worldPersistence, getWorldId, setWorldId } = deps;
+  const { config, agentManager, initAgent, llmScheduler, repo, modeManager, pushManager, platformEngine, economyEngine, worldClock, tickScheduler, monitor, worldPersistence, eventChainEngine, factionSystem, relationshipManager, socialEngine, getWorldId, setWorldId } = deps;
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof LoreError) {
@@ -416,5 +426,64 @@ export function registerRoutes(
       isRunning: tickScheduler.isRunning(),
       ...monitor.getStats(),
     }};
+  });
+
+  // ── Factions ──
+
+  app.get('/api/worlds/:id/factions', async (req) => {
+    const { id } = req.params as { id: string };
+    return { data: await factionSystem.getWorldFactions(id) };
+  });
+
+  app.post('/api/worlds/:id/factions', async (req) => {
+    const { id } = req.params as { id: string };
+    const { name, description, leaderId } = z.object({
+      name: z.string().min(1),
+      description: z.string().default(''),
+      leaderId: z.string().min(1),
+    }).parse(req.body);
+    const faction = await factionSystem.createFaction(id, name, description, leaderId);
+    return { data: faction };
+  });
+
+  app.post('/api/factions/:id/add-member', async (req) => {
+    const { id } = req.params as { id: string };
+    const { agentId } = z.object({ agentId: z.string().min(1) }).parse(req.body);
+    await factionSystem.addMember(id, agentId);
+    return { data: { success: true } };
+  });
+
+  app.post('/api/factions/:id/remove-member', async (req) => {
+    const { id } = req.params as { id: string };
+    const { agentId } = z.object({ agentId: z.string().min(1) }).parse(req.body);
+    await factionSystem.removeMember(id, agentId);
+    return { data: { success: true } };
+  });
+
+  // ── Relationships ──
+
+  app.get('/api/agents/:id/relationships', async (req) => {
+    const { id } = req.params as { id: string };
+    return { data: await relationshipManager.getAll(id) };
+  });
+
+  // ── Event Chains ──
+
+  app.post('/api/worlds/:id/event-chains', async (req) => {
+    const { id } = req.params as { id: string };
+    const { triggerEventId, nextEvent, condition, delayTicks } = z.object({
+      triggerEventId: z.string().min(1),
+      nextEvent: z.object({
+        description: z.string().min(1),
+        type: z.enum(['world', 'random', 'social', 'romantic', 'career', 'crisis', 'user', 'routine']).optional(),
+        category: z.string().optional(),
+        priority: z.number().optional(),
+        involvedAgents: z.array(z.string()).optional(),
+      }),
+      condition: z.record(z.any()).optional(),
+      delayTicks: z.number().default(0),
+    }).parse(req.body);
+    const chainId = await eventChainEngine.registerChain(id, triggerEventId, nextEvent, condition, delayTicks);
+    return { data: { chainId } };
   });
 }

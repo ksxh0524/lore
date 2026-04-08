@@ -1,6 +1,8 @@
 import { useWorldStore } from '../../stores/worldStore';
 import { api } from '../../services/api';
 import { WorldClock } from '../world/WorldClock';
+import { RelationshipPanel } from '../agent/RelationshipPanel';
+import { SaveManager } from '../world/SaveManager';
 
 function moodEmoji(mood: number): string {
   if (mood >= 80) return '😊';
@@ -61,9 +63,11 @@ export function Sidebar() {
                 <div style={{ fontSize: '0.75rem', color: '#8888a0' }}>{agent.profile.occupation} · {agent.state.currentActivity || '空闲'}</div>
               </div>
             </div>
+            {selectedAgentId === agent.id && <RelationshipPanel />}
           </div>
         ))}
       </div>
+      <SaveManager />
     </div>
   );
 }

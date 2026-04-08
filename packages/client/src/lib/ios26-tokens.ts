@@ -1,0 +1,93 @@
+export const ios26 = {
+  colors: {
+    glass: {
+      light: 'rgba(255, 255, 255, 0.45)',
+      medium: 'rgba(255, 255, 255, 0.65)',
+      heavy: 'rgba(255, 255, 255, 0.82)',
+      dark: 'rgba(30, 30, 30, 0.55)',
+      darkMedium: 'rgba(30, 30, 30, 0.72)',
+      darkHeavy: 'rgba(30, 30, 30, 0.88)',
+    },
+    background: {
+      primary: '#000000',
+      secondary: '#1c1c1e',
+      tertiary: '#2c2c2e',
+      elevated: '#3a3a3c',
+    },
+    text: {
+      primary: '#ffffff',
+      secondary: 'rgba(255, 255, 255, 0.7)',
+      tertiary: 'rgba(255, 255, 255, 0.45)',
+      quaternary: 'rgba(255, 255, 255, 0.25)',
+    },
+    system: {
+      blue: '#0a84ff',
+      green: '#30d158',
+      red: '#ff453a',
+      orange: '#ff9f0a',
+      yellow: '#ffd60a',
+      purple: '#bf5af2',
+      pink: '#ff375f',
+      teal: '#64d2ff',
+      indigo: '#5e5ce6',
+      mint: '#00c7be',
+    },
+    separator: 'rgba(84, 84, 88, 0.65)',
+    fill: {
+      primary: 'rgba(120, 120, 128, 0.36)',
+      secondary: 'rgba(120, 120, 128, 0.24)',
+      tertiary: 'rgba(120, 120, 128, 0.12)',
+    },
+  },
+  radius: {
+    small: 8,
+    medium: 14,
+    large: 20,
+    xl: 28,
+    capsule: 9999,
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 20,
+    xxl: 28,
+    xxxl: 36,
+  },
+  typography: {
+    largeTitle: { size: 34, weight: 700, tracking: 0.37 },
+    title1: { size: 28, weight: 700, tracking: 0.36 },
+    title2: { size: 22, weight: 700, tracking: 0.35 },
+    title3: { size: 20, weight: 600, tracking: 0.38 },
+    headline: { size: 17, weight: 600, tracking: -0.41 },
+    body: { size: 17, weight: 400, tracking: -0.41 },
+    callout: { size: 16, weight: 400, tracking: -0.32 },
+    subhead: { size: 15, weight: 400, tracking: -0.24 },
+    footnote: { size: 13, weight: 400, tracking: -0.08 },
+    caption1: { size: 12, weight: 400, tracking: 0 },
+    caption2: { size: 11, weight: 400, tracking: 0.07 },
+  },
+  blur: {
+    regular: 20,
+    prominent: 40,
+    ultraThin: 8,
+  },
+  shadow: {
+    card: '0 2px 16px rgba(0,0,0,0.12), 0 0 1px rgba(255,255,255,0.1) inset',
+    floating: '0 8px 32px rgba(0,0,0,0.24), 0 0 1px rgba(255,255,255,0.08) inset',
+    glass: '0 0 0 0.5px rgba(255,255,255,0.15) inset, 0 2px 12px rgba(0,0,0,0.15)',
+  },
+  animation: {
+    spring: 'cubic-bezier(0.175, 0.885, 0.32, 1.05)',
+    easeOut: 'cubic-bezier(0.25, 1, 0.5, 1)',
+    easeIn: 'cubic-bezier(0.5, 0, 0.75, 0)',
+    duration: {
+      fast: 150,
+      normal: 250,
+      slow: 350,
+    },
+  },
+} as const;
+
+export type IOS26DesignToken = typeof ios26;

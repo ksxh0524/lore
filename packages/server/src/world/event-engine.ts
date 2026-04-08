@@ -65,17 +65,13 @@ export class EventEngine {
     if (!event.consequences || event.processed) return;
 
     for (const c of event.consequences) {
-      const agent = agentManager.get(c.agentId);
+      const agent = agentManager.get(c.agentId) as any;
       if (!agent) continue;
 
       if (c.statChanges) {
-        const stats = { ...agent.stats };
-        if (c.statChanges.mood !== undefined) stats.mood = Math.max(0, Math.min(100, stats.mood + c.statChanges.mood));
-        if (c.statChanges.health !== undefined) stats.health = Math.max(0, Math.min(100, stats.health + c.statChanges.health));
-        if (c.statChanges.energy !== undefined) stats.energy = Math.max(0, Math.min(100, stats.energy + c.statChanges.energy));
-        agent.stats = stats;
+        agent.applyStatChanges(c.statChanges as any);
 
-        if (stats.health <= 0) {
+        if (agent.stats.health <= 0) {
           agent.state.status = 'dead';
           await agentManager.destroy(agent.id);
         }

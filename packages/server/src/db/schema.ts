@@ -118,3 +118,36 @@ export const config = sqliteTable('config', {
   value: text('value', { mode: 'json' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
+
+export const monitorLogs = sqliteTable('monitor_logs', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull(),
+  tick: integer('tick').notNull(),
+  eventType: text('event_type'),
+  agentId: text('agent_id'),
+  message: text('message'),
+  duration: integer('duration'),
+  timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
+});
+
+export const eventChains = sqliteTable('event_chains', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull().references(() => worlds.id),
+  triggerEventId: text('trigger_event_id').notNull(),
+  nextEventId: text('next_event_id'),
+  condition: text('condition'),
+  delayTicks: integer('delay_ticks').default(0),
+  status: text('status', { enum: ['pending', 'triggered', 'expired'] }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const factions = sqliteTable('factions', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull().references(() => worlds.id),
+  name: text('name').notNull(),
+  description: text('description'),
+  leaderId: text('leader_id'),
+  members: text('members', { mode: 'json' }),
+  reputation: integer('reputation').default(50),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});

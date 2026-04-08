@@ -10,6 +10,7 @@ import { EventCardList } from './events/EventCardList';
 import { PlatformFeed } from './platform/PlatformFeed';
 import { Timeline } from './world/Timeline';
 import { Header } from './layout/Header';
+import { EconomyPanel } from './agent/EconomyPanel';
 
 type MainTab = 'events' | 'chat' | 'platform';
 
@@ -278,6 +279,7 @@ export function WorldPage() {
       </div>
 
       <MonitorPanel />
+      <EconomyPanel />
     </div>
   );
 }

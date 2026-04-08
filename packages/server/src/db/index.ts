@@ -139,6 +139,39 @@ export function initTables() {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS monitor_logs (
+      id TEXT PRIMARY KEY,
+      world_id TEXT NOT NULL,
+      tick INTEGER NOT NULL,
+      event_type TEXT,
+      agent_id TEXT,
+      message TEXT,
+      duration INTEGER,
+      timestamp INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS event_chains (
+      id TEXT PRIMARY KEY,
+      world_id TEXT NOT NULL REFERENCES worlds(id),
+      trigger_event_id TEXT NOT NULL,
+      next_event_id TEXT,
+      condition TEXT,
+      delay_ticks INTEGER DEFAULT 0,
+      status TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS factions (
+      id TEXT PRIMARY KEY,
+      world_id TEXT NOT NULL REFERENCES worlds(id),
+      name TEXT NOT NULL,
+      description TEXT,
+      leader_id TEXT,
+      members TEXT,
+      reputation INTEGER DEFAULT 50,
+      created_at INTEGER NOT NULL
+    );
   `);
 
   sqlite.exec(`
@@ -158,5 +191,9 @@ export function initTables() {
     CREATE INDEX IF NOT EXISTS idx_platform_posts_platform ON platform_posts(platform_id);
     CREATE INDEX IF NOT EXISTS idx_platform_posts_world ON platform_posts(world_id);
     CREATE INDEX IF NOT EXISTS idx_saves_world_id ON saves(world_id);
+    CREATE INDEX IF NOT EXISTS idx_monitor_logs_world_id ON monitor_logs(world_id);
+    CREATE INDEX IF NOT EXISTS idx_event_chains_world_id ON event_chains(world_id);
+    CREATE INDEX IF NOT EXISTS idx_event_chains_status ON event_chains(status);
+    CREATE INDEX IF NOT EXISTS idx_factions_world_id ON factions(world_id);
   `);
 }
