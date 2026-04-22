@@ -2,38 +2,22 @@
 > @lore/server@0.1.0 dev /Users/liuyang/codes/Lore/packages/server
 > tsx watch src/index.ts
 
-[11:35:56.991] [32mINFO[39m: [36m[Lore] Starting...[39m
-[11:35:57.007] [32mINFO[39m: [36mServer listening at http://127.0.0.1:3952[39m
-[11:35:57.007] [32mINFO[39m: [36mServer listening at http://192.168.31.15:3952[39m
-[11:35:57.007] [32mINFO[39m: [36m[Lore] Server running at http://localhost:3952[39m
-[11:35:57.265] [32mINFO[39m: [36mincoming request[39m
+[14:00:44.707] [32mINFO[39m: [36m[Lore] Starting...[39m
+[14:00:44.717] [32mINFO[39m: [36mServer listening at http://127.0.0.1:3952[39m
+[14:00:44.717] [32mINFO[39m: [36mServer listening at http://192.168.31.15:3952[39m
+[14:00:44.717] [32mINFO[39m: [36m[Lore] Server running at http://localhost:3952[39m
+[14:00:45.009] [32mINFO[39m: [36mincoming request[39m
     [35mreqId[39m: "req-1"
     [35mreq[39m: {
       "method": "GET",
       "url": "/api/config",
       "host": "localhost:3952",
       "remoteAddress": "127.0.0.1",
-      "remotePort": 59072
+      "remotePort": 59138
     }
-[11:35:57.270] [32mINFO[39m: [36mrequest completed[39m
+[14:00:45.013] [32mINFO[39m: [36mrequest completed[39m
     [35mreqId[39m: "req-1"
     [35mres[39m: {
       "statusCode": 200
     }
-    [35mresponseTime[39m: 5.18783400952816
-[11:36:08.045] [32mINFO[39m: [36mincoming request[39m
-    [35mreqId[39m: "req-2"
-    [35mreq[39m: {
-      "method": "GET",
-      "url": "/api/config",
-      "host": "localhost:3952",
-      "remoteAddress": "127.0.0.1",
-      "remotePort": 59082
-    }
-[11:36:08.046] [32mINFO[39m: [36mrequest completed[39m
-    [35mreqId[39m: "req-2"
-    [35mres[39m: {
-      "statusCode": 200
-    }
-    [35mresponseTime[39m: 0.447624996304512
-19:36:32 [tsx] Previous process hasn't exited yet. Force killing...
+    [35mresponseTime[39m: 3.670292019844055
