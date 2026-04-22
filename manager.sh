@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Lore 管理脚本
-# 版本: 1.0.0
-# 用法: ./manager.sh [start|stop|status|restart|logs|update|clean|test|build]
+# 版本: 2.0.0
+# 用法: ./manager.sh [start|stop|status|restart|logs|update|clean|test|build|config]
 
 set -euo pipefail
 
@@ -10,11 +10,14 @@ set -euo pipefail
 # 全局配置
 # ============================================================================
 
-readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_VERSION="2.0.0"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 readonly LOG_DIR="$SCRIPT_DIR/logs"
 readonly PID_DIR="$SCRIPT_DIR/.pids"
-readonly DATA_DIR="$HOME/.lore"
+
+# 默认端口配置 (10000+)
+readonly DEFAULT_SERVER_PORT=39527
+readonly DEFAULT_CLIENT_PORT=39528
 
 # 超时配置
 readonly MAX_START_WAIT=30
@@ -29,18 +32,61 @@ readonly BLUE='\033[0;34m'
 readonly CYAN='\033[0;36m'
 readonly NC='\033[0m'
 
-# 服务配置: name|port|display_name|workdir|start_cmd|health_path
-readonly SERVICES=(
-    "server|3952|Server (Fastify)|packages/server|pnpm run dev|/api/config"
-    "client|5173|Client (Vite)|packages/client|pnpm run dev|/"
-)
+# ============================================================================
+# 配置加载
+# ============================================================================
+
+# 加载 .env 文件
+load_env() {
+    local env_file=""
+    
+    # 查找 .env 文件
+    if [ -f "$SCRIPT_DIR/.env" ]; then
+        env_file="$SCRIPT_DIR/.env"
+    elif [ -f "$SCRIPT_DIR/../.env" ]; then
+        env_file="$SCRIPT_DIR/../.env"
+    elif [ -f "$HOME/.lore/.env" ]; then
+        env_file="$HOME/.lore/.env"
+    fi
+    
+    # 加载环境变量
+    if [ -n "$env_file" ] && [ -f "$$env_file" ]; then
+        set -a
+        source "$env_file" 2>/dev/null || true
+        set +a
+    fi
+}
+
+# 获取服务器端口
+get_server_port() {
+    local port="${LORE_SERVER_PORT:-$DEFAULT_SERVER_PORT}"
+    # 确保端口在有效范围内
+    if [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 10000 ] && [ "$port" -le 65535 ]; then
+        echo "$port"
+    else
+        echo "$DEFAULT_SERVER_PORT"
+    fi
+}
+
+# 获取客户端端口
+get_client_port() {
+    local port="${LORE_CLIENT_PORT:-$DEFAULT_CLIENT_PORT}"
+    # 确保端口在有效范围内
+    if [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 10000 ] && [ "$port" -le 65535 ]; then
+        echo "$port"
+    else
+        echo "$DEFAULT_CLIENT_PORT"
+    fi
+}
 
 # ============================================================================
 # 初始化
 # ============================================================================
 
 init() {
-    mkdir -p "$LOG_DIR" "$PID_DIR" "$DATA_DIR"
+    load_env
+    mkdir -p "$LOG_DIR" "$PID_DIR"
+    mkdir -p "${LORE_DATA_DIR:-$HOME/.lore}"
 }
 
 # ============================================================================
@@ -49,141 +95,87 @@ init() {
 
 log_info()    { echo -e "${BLUE}  $1${NC}"; }
 log_success() { echo -e "${GREEN}  ✓ $1${NC}"; }
-log_warning() { echo -e "${YELLOW}  $1${NC}"; }
+log_warning() { echo -e "${YELLOW}  ⚠ $1${NC}"; }
 log_error()   { echo -e "${RED}  ✗ $1${NC}"; }
 
-get_service_field() {
-    local service=$1
-    local field=$2
-    local idx
-    case "$field" in
-        name)    idx=0 ;;
-        port)    idx=1 ;;
-        display) idx=2 ;;
-        workdir) idx=3 ;;
-        cmd)     idx=4 ;;
-        health)  idx=5 ;;
-        *)       return 1 ;;
+# 获取服务配置
+get_service_info() {
+    local service_name="$1"
+    local field="$2"
+    local server_port=$(get_server_port)
+    local client_port=$(get_client_port)
+    
+    case "$service_name" in
+        server)
+            case "$field" in
+                port) echo "$server_port" ;;
+                name) echo "Server (Fastify)" ;;
+                dir) echo "packages/server" ;;
+                cmd) echo "pnpm run dev" ;;
+                health) echo "/api/config" ;;
+            esac
+            ;;
+        client)
+            case "$field" in
+                port) echo "$client_port" ;;
+                name) echo "Client (Vite)" ;;
+                dir) echo "packages/client" ;;
+                cmd) echo "pnpm run dev" ;;
+                health) echo "/" ;;
+            esac
+            ;;
     esac
-    for svc in "${SERVICES[@]}"; do
-        if [[ "$svc" == "$service|"* ]]; then
-            echo "$svc" | cut -d'|' -f$((idx + 1))
-            return 0
-        fi
-    done
-    return 1
 }
 
-has_command() {
-    command -v "$1" &> /dev/null
-}
-
+# 根据端口获取 PID
 get_pids_by_port() {
-    local port=$1
-    if has_command lsof; then
-        lsof -ti :"$port" 2>/dev/null || true
-    fi
+    local port="$1"
+    lsof -ti:$port 2>/dev/null || echo ""
 }
 
-# ============================================================================
-# 服务状态检查
-# ============================================================================
-
+# 检查服务是否运行
 is_service_running() {
-    local service=$1
-    local port
-    port=$(get_service_field "$service" port) || return 1
-    local pid_file="$PID_DIR/${service}.pid"
-
-    if [ -f "$pid_file" ]; then
-        local pid
-        pid=$(cat "$pid_file")
-        if kill -0 "$pid" 2>/dev/null; then
-            return 0
-        fi
-        rm -f "$pid_file"
-    fi
-
-    if curl -s -o /dev/null -m 2 "http://localhost:$port" 2>/dev/null; then
-        return 0
-    fi
-
-    return 1
+    local service_name="$1"
+    local port=$(get_service_info "$service_name" port)
+    local pids=$(get_pids_by_port "$port")
+    [ -n "$pids" ]
 }
 
-# ============================================================================
-# 健康检查
-# ============================================================================
-
+# 等待服务健康检查
 wait_for_health() {
-    local service=$1
-    local port health_path
-    port=$(get_service_field "$service" port) || return 1
-    health_path=$(get_service_field "$service" health) || health_path="/"
-
-    local count=0
-    while [ $count -lt $MAX_START_WAIT ]; do
-        local response
-        response=$(curl -s -o /dev/null -w "%{http_code}" -m 2 "http://localhost:${port}${health_path}" 2>/dev/null || echo "000")
-
-        if [ "$response" = "200" ]; then
+    local service_name="$1"
+    local port=$(get_service_info "$service_name" port)
+    local health_path=$(get_service_info "$service_name" health)
+    local max_wait="${2:-$MAX_START_WAIT}"
+    local waited=0
+    
+    while [ $waited -lt $max_wait ]; do
+        if curl -sf "http://localhost:$port$health_path" >/dev/null 2>&1; then
             return 0
         fi
-
-        # Vite dev server returns 200 or 304 for HTML pages
-        if [ "$service" = "client" ] && { [ "$response" = "200" ] || [ "$response" = "304" ]; }; then
-            return 0
-        fi
-
         sleep 1
-        count=$((count + 1))
+        ((waited++))
     done
     return 1
 }
 
-# ============================================================================
-# 配置检查
-# ============================================================================
-
-check_config() {
-    local config_file="$DATA_DIR/config.json"
-
-    if [ ! -f "$config_file" ]; then
-        log_warning "配置文件不存在: $config_file"
-        log_info "创建默认配置..."
-
-        cat > "$config_file" << 'EOF'
-{
-  "llm": {
-    "providers": [],
-    "defaults": {
-      "premiumModel": "gpt-4o",
-      "standardModel": "gpt-4o-mini",
-      "cheapModel": "gpt-3.5-turbo"
-    },
-    "limits": {
-      "maxConcurrent": 5,
-      "dailyBudget": null,
-      "timeoutMs": 30000
-    }
-  },
-  "world": {
-    "defaultTickIntervalMs": 3000,
-    "defaultTimeSpeed": 60
-  },
-  "server": {
-    "port": 3952,
-    "host": "0.0.0.0"
-  }
-}
-EOF
-        log_success "默认配置已创建: $config_file"
-        log_warning "如需使用真实 LLM，请编辑配置文件添加 provider"
-    fi
-
-    # 检查环境变量
-    if [ -z "${OPENAI_API_KEY:-}" ]; then
-        log_warning "未设置 OPENAI_API_KEY 环境变量，将使用 Mock Provider"
+# 检查 API Key 配置
+check_api_keys() {
+    local has_key=false
+    local key_count=0
+    
+    [ -n "${DASHSCOPE_API_KEY:-}" ] && ((key_count++))
+    [ -n "${OPENAI_API_KEY:-}" ] && ((key_count++))
+    [ -n "${GEMINI_API_KEY:-}" ] && ((key_count++))
+    [ -n "${ANTHROPIC_API_KEY:-}" ] && ((key_count++))
+    
+    if [ $key_count -eq 0 ]; then
+        log_warning "未检测到 API Key，将使用 Mock Provider"
+        log_info "请复制 .env.example 为 .env 并配置你的 API Keys"
+        return 1
+    else
+        log_success "检测到 $key_count 个 API Key"
+        return 0
     fi
 }
 
@@ -192,508 +184,331 @@ EOF
 # ============================================================================
 
 start_service() {
-    local service=$1
-    local port name workdir cmd
-    port=$(get_service_field "$service" port) || return 1
-    name=$(get_service_field "$service" display) || return 1
-    workdir=$(get_service_field "$service" workdir) || return 1
-    cmd=$(get_service_field "$service" cmd) || return 1
-
-    local pid_file="$PID_DIR/${service}.pid"
-    local log_file="$LOG_DIR/${service}.log"
-
-    if is_service_running "$service"; then
+    local service_name="$1"
+    local port=$(get_service_info "$service_name" port)
+    local name=$(get_service_info "$service_name" name)
+    local dir=$(get_service_info "$service_name" dir)
+    local cmd=$(get_service_info "$service_name" cmd)
+    
+    log_info "启动 $name (端口 $port)..."
+    
+    # 检查是否已在运行
+    if is_service_running "$service_name"; then
         log_warning "$name 已在运行 (端口 $port)"
         return 0
     fi
-
-    log_info "启动 $name..."
-
-    cd "$SCRIPT_DIR/$workdir"
-    nohup $cmd > "$log_file" 2>&1 &
-    echo $! > "$pid_file"
-    cd "$SCRIPT_DIR"
-
-    if wait_for_health "$service"; then
+    
+    # 检查端口占用
+    local existing_pids=$(get_pids_by_port "$port")
+    if [ -n "$existing_pids" ]; then
+        log_warning "端口 $port 被占用，尝试释放..."
+        kill -9 $existing_pids 2>/dev/null || true
+        sleep 1
+    fi
+    
+    # 启动服务
+    local log_file="$LOG_DIR/$service_name.log"
+    (
+        cd "$SCRIPT_DIR/$dir"
+        export LORE_SERVER_PORT=$(get_server_port)
+        export LORE_CLIENT_PORT=$(get_client_port)
+        $cmd > "$log_file" 2>&1 &
+    )
+    
+    # 等待服务启动
+    if wait_for_health "$service_name"; then
         log_success "$name 启动成功 (端口 $port)"
         return 0
     else
-        log_error "$name 启动失败"
-        log_warning "查看日志: tail -f $log_file"
+        log_error "$name 启动失败，查看日志: $log_file"
         return 1
     fi
 }
 
 stop_service() {
-    local service=$1
-    local port name
-    port=$(get_service_field "$service" port) || return 1
-    name=$(get_service_field "$service" display) || return 1
-    local pid_file="$PID_DIR/${service}.pid"
-
-    if ! is_service_running "$service"; then
+    local service_name="$1"
+    local port=$(get_service_info "$service_name" port)
+    local name=$(get_service_info "$service_name" name)
+    
+    log_info "停止 $name..."
+    
+    local pids=$(get_pids_by_port "$port")
+    if [ -z "$pids" ]; then
         log_info "$name 未运行"
-        rm -f "$pid_file" 2>/dev/null || true
         return 0
     fi
-
-    log_warning "停止 $name..."
-
-    local all_pids=""
-
-    if [ -f "$pid_file" ]; then
-        local file_pid
-        file_pid=$(cat "$pid_file")
-        if kill -0 "$file_pid" 2>/dev/null; then
-            all_pids="$file_pid"
-            local children
-            children=$(pgrep -P "$file_pid" 2>/dev/null || true)
-            [ -n "$children" ] && all_pids="$all_pids $children"
-        fi
-    fi
-
-    local port_pids
-    port_pids=$(get_pids_by_port "$port")
-    [ -n "$port_pids" ] && all_pids="$all_pids $port_pids"
-
-    all_pids=$(echo "$all_pids" | tr ' ' '\n' | sort -u | grep -v '^$' || true)
-
-    if [ -z "$all_pids" ]; then
-        log_success "$name 已停止"
-        rm -f "$pid_file" 2>/dev/null || true
-        return 0
-    fi
-
-    echo "$all_pids" | xargs kill -TERM 2>/dev/null || true
-
-    local count=0
-    while [ $count -lt $MAX_STOP_WAIT ]; do
-        local still_alive=false
-        for pid in $all_pids; do
-            if kill -0 "$pid" 2>/dev/null; then
-                still_alive=true
-                break
-            fi
-        done
-        if [ "$still_alive" = false ]; then
-            log_success "$name 已停止"
-            rm -f "$pid_file" 2>/dev/null || true
-            return 0
-        fi
+    
+    # 先尝试优雅停止
+    echo "$pids" | xargs kill 2>/dev/null || true
+    
+    # 等待停止
+    local waited=0
+    while [ $waited -lt $MAX_STOP_WAIT ]; do
+        pids=$(get_pids_by_port "$port")
+        [ -z "$pids" ] && break
         sleep 1
-        count=$((count + 1))
+        ((waited++))
     done
-
-    log_warning "强制停止 $name..."
-    echo "$all_pids" | xargs kill -9 2>/dev/null || true
-
-    local leftover
-    leftover=$(get_pids_by_port "$port")
-    [ -n "$leftover" ] && echo "$leftover" | xargs kill -9 2>/dev/null || true
-
-    rm -f "$pid_file" 2>/dev/null || true
-    log_success "$name 已强制停止"
-    return 0
+    
+    # 强制停止
+    pids=$(get_pids_by_port "$port")
+    if [ -n "$pids" ]; then
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+    fi
+    
+    log_success "$name 已停止"
 }
 
 # ============================================================================
 # 主命令
 # ============================================================================
 
-start_services() {
+cmd_start() {
     echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║       Lore 启动中... (v$SCRIPT_VERSION)            ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-
-    # 检查依赖
-    if ! has_command pnpm; then
-        log_error "未找到 pnpm，请先安装: npm install -g pnpm"
-        exit 1
+    echo
+    
+    check_api_keys
+    echo
+    
+    log_info "启动服务:"
+    echo
+    
+    local failed=0
+    
+    start_service "server" || ((failed++))
+    start_service "client" || ((failed++))
+    
+    echo
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"
+        echo -e "${GREEN}║       所有服务已启动                     ║${NC}"
+        echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
+        echo
+        log_info "后端服务: http://localhost:$(get_server_port)"
+        log_success "前端页面: http://localhost:$(get_client_port)"
+        log_info "数据目录: ${LORE_DATA_DIR:-$HOME/.lore}"
+        echo
+        log_info "查看日志: ./manager.sh logs"
+        log_info "停止服务: ./manager.sh stop"
+    else
+        echo -e "${RED}╔══════════════════════════════════════════╗${NC}"
+        echo -e "${RED}║       部分服务启动失败                   ║${NC}"
+        echo -e "${RED}╚══════════════════════════════════════════╝${NC}"
+        echo
+        log_info "查看日志: ./manager.sh logs"
+        return 1
     fi
-
-    if ! has_command node; then
-        log_error "未找到 Node.js，请先安装"
-        exit 1
-    fi
-
-    # 安装依赖
-    if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
-        log_warning "安装依赖..."
-        pnpm install
-    fi
-
-    # 配置检查
-    check_config
-
-    echo -e "${CYAN}启动服务:${NC}"
-    echo ""
-
-    # 先启动 server（client 依赖 server 的 proxy）
-    start_service "server" || exit 1
-    start_service "client" || exit 1
-
-    echo ""
-    echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║       所有服务已启动                     ║${NC}"
-    echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-    echo -e "  ${BLUE}Server:${NC}     http://localhost:3952"
-    echo -e "  ${GREEN}Client:${NC}     http://localhost:5173"
-    echo -e "  ${YELLOW}数据目录:${NC}   $DATA_DIR"
-    echo ""
-    echo -e "${CYAN}查看日志: ./manager.sh logs${NC}"
-    echo -e "${CYAN}停止服务: ./manager.sh stop${NC}"
-    echo ""
 }
 
-stop_services() {
+cmd_stop() {
     echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║       Lore 停止中...                     ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-
-    echo -e "${CYAN}停止服务:${NC}"
-    echo ""
-
-    for ((i=${#SERVICES[@]}-1; i>=0; i--)); do
-        local name
-        name=$(echo "${SERVICES[$i]}" | cut -d'|' -f1)
-        stop_service "$name"
-    done
-
-    echo ""
-    echo -e "${GREEN}所有服务已停止${NC}"
+    echo
+    
+    log_info "停止服务:"
+    echo
+    
+    stop_service "client"
+    stop_service "server"
+    
+    echo
+    log_success "所有服务已停止"
 }
 
-show_status() {
+cmd_restart() {
+    cmd_stop
+    echo
+    sleep 2
+    cmd_start
+}
+
+cmd_status() {
     echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║       Lore 服务状态 (v$SCRIPT_VERSION)            ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-
-    # 数据目录
-    if [ -d "$DATA_DIR" ]; then
-        local db_file="$DATA_DIR/lore.db"
-        if [ -f "$db_file" ]; then
-            local db_size
-            db_size=$(du -h "$db_file" | cut -f1)
-            echo -e "  ${GREEN}●${NC} SQLite ${GREEN}已就绪${NC} ($db_size)"
-        else
-            echo -e "  ${YELLOW}●${NC} SQLite ${YELLOW}未初始化${NC} (首次启动时自动创建)"
-        fi
+    echo
+    
+    local data_dir="${LORE_DATA_DIR:-$HOME/.lore}"
+    
+    # SQLite 状态
+    if [ -f "$data_dir/lore.db" ]; then
+        local db_size=$(du -h "$data_dir/lore.db" 2>/dev/null | cut -f1)
+        log_success "SQLite 已就绪 ($db_size)"
     else
-        echo -e "  ${YELLOW}●${NC} 数据目录 ${YELLOW}不存在${NC}"
+        log_info "SQLite 待初始化"
     fi
-
-    # 配置文件
-    local config_file="$DATA_DIR/config.json"
-    if [ -f "$config_file" ]; then
-        local provider_count
-        provider_count=$(grep -c '"apiKey"' "$config_file" 2>/dev/null || echo "0")
-        provider_count=$(echo "$provider_count" | head -1)
-        if [ "$provider_count" -gt 0 ]; then
-            echo -e "  ${GREEN}●${NC} LLM 配置 ${GREEN}已就绪${NC} ($provider_count 个 provider)"
-        else
-            echo -e "  ${YELLOW}●${NC} LLM 配置 ${YELLOW}使用 Mock Provider${NC}"
-        fi
+    
+    # API Key 状态
+    local key_count=0
+    [ -n "${DASHSCOPE_API_KEY:-}" ] && ((key_count++))
+    [ -n "${OPENAI_API_KEY:-}" ] && ((key_count++))
+    [ -n "${GEMINI_API_KEY:-}" ] && ((key_count++))
+    [ -n "${ANTHROPIC_API_KEY:-}" ] && ((key_count++))
+    
+    if [ $key_count -gt 0 ]; then
+        log_success "LLM 配置 $key_count 个 Provider"
     else
-        echo -e "  ${YELLOW}●${NC} 配置文件 ${YELLOW}不存在${NC} (首次启动时自动创建)"
+        log_warning "LLM 配置 使用 Mock Provider"
     fi
-
-    echo ""
-
-    # 应用服务
-    for svc in "${SERVICES[@]}"; do
-        local name port display pid_file
-        name=$(echo "$svc" | cut -d'|' -f1)
-        port=$(echo "$svc" | cut -d'|' -f2)
-        display=$(echo "$svc" | cut -d'|' -f3)
-        pid_file="$PID_DIR/${name}.pid"
-
-        if is_service_running "$name"; then
-            local pid=""
-            [ -f "$pid_file" ] && pid=$(cat "$pid_file")
-            [ -z "$pid" ] && pid=$(get_pids_by_port "$port" | head -1)
-
-            local uptime=""
-            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-                local start_time start_epoch
-                start_time=$(ps -p "$pid" -o lstart= 2>/dev/null || echo "")
-                if [ -n "$start_time" ]; then
-                    if [[ "$OSTYPE" == "darwin"* ]]; then
-                        start_epoch=$(date -j -f "%a %b %d %T %Y" "$start_time" "+%s" 2>/dev/null || echo "")
-                    else
-                        start_epoch=$(date -d "$start_time" "+%s" 2>/dev/null || echo "")
-                    fi
-                    if [ -n "$start_epoch" ]; then
-                        local now_epoch diff days hours mins
-                        now_epoch=$(date "+%s")
-                        diff=$((now_epoch - start_epoch))
-                        days=$((diff / 86400))
-                        hours=$(( (diff % 86400) / 3600 ))
-                        mins=$(( (diff % 3600) / 60 ))
-                        if [ $days -gt 0 ]; then
-                            uptime="${days}天${hours}小时"
-                        elif [ $hours -gt 0 ]; then
-                            uptime="${hours}小时${mins}分"
-                        else
-                            uptime="${mins}分钟"
-                        fi
-                    fi
-                fi
-            fi
-            echo -e "  ${GREEN}●${NC} $display ${GREEN}运行中${NC}"
-            [ -n "$uptime" ] && echo -e "    ${CYAN}http://localhost:$port${NC}  |  PID: ${CYAN}${pid}${NC}  |  运行时长: ${CYAN}${uptime}${NC}"
+    
+    echo
+    
+    # 服务状态
+    for service in server client; do
+        local name=$(get_service_info "$service" name)
+        local port=$(get_service_info "$service" port)
+        
+        if is_service_running "$service"; then
+            log_success "● $name 运行中 (端口 $port)"
         else
-            echo -e "  ${RED}○${NC} $display ${RED}未运行${NC}"
+            log_error "○ $name 未运行 (端口 $port)"
         fi
     done
-    echo ""
 }
 
-show_logs() {
+cmd_logs() {
     local service="${1:-}"
-
+    local lines="${2:-100}"
+    
     if [ -z "$service" ]; then
-        local log_files=()
-        for svc in "${SERVICES[@]}"; do
-            local name log_file
-            name=$(echo "$svc" | cut -d'|' -f1)
-            log_file="$LOG_DIR/${name}.log"
-            [ -f "$log_file" ] && log_files+=("$log_file")
+        log_info "可用日志:"
+        for svc in server client; do
+            local log_file="$LOG_DIR/$svc.log"
+            if [ -f "$log_file" ]; then
+                local size=$(du -h "$log_file" 2>/dev/null | cut -f1)
+                echo "  - $svc ($size): $log_file"
+            fi
         done
-
-        if [ ${#log_files[@]} -eq 0 ]; then
-            log_warning "没有日志文件，请先启动服务"
-            return
-        fi
-
-        echo -e "${CYAN}实时查看所有服务日志 (Ctrl+C 退出):${NC}"
-        tail -f "${log_files[@]}"
+        echo
+        log_info "用法: ./manager.sh logs <server|client> [行数]"
         return
     fi
-
-    local log_file="$LOG_DIR/${service}.log"
-    if [ ! -f "$log_file" ]; then
-        log_error "日志文件不存在: $log_file"
-        log_info "可用服务: server, client"
-        exit 1
-    fi
-
-    local lines="${2:-50}"
-    echo -e "${CYAN}查看 $service 最近 $lines 行日志 (Ctrl+C 退出):${NC}"
-    tail -n "$lines" -f "$log_file"
-}
-
-do_update() {
-    echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║       Lore 更新中...                     ║${NC}"
-    echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-
-    log_info "拉取最新代码..."
-    if git pull; then
-        log_success "git pull 成功"
+    
+    local log_file="$LOG_DIR/$service.log"
+    if [ -f "$log_file" ]; then
+        tail -n "$lines" -f "$log_file"
     else
-        log_error "git pull 失败"
-        exit 1
+        log_error "日志文件不存在: $log_file"
     fi
-
-    log_info "安装依赖..."
-    pnpm install
-    log_success "依赖安装完成"
-
-    echo ""
-    log_success "更新完成！"
-
-    for svc in "${SERVICES[@]}"; do
-        local name
-        name=$(echo "$svc" | cut -d'|' -f1)
-        if is_service_running "$name"; then
-            log_warning "检测到有服务正在运行，建议重启以应用更新"
-            echo -e "运行 ${CYAN}./manager.sh restart${NC} 重启所有服务"
-            break
-        fi
-    done
 }
 
-do_build() {
+cmd_config() {
     echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║       Lore 构建中...                     ║${NC}"
+    echo -e "${BLUE}║       Lore 配置                          ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-
-    if ! has_command pnpm; then
-        log_error "未找到 pnpm"
-        exit 1
+    echo
+    
+    load_env
+    
+    log_info "服务配置:"
+    echo "  Server 端口: $(get_server_port)"
+    echo "  Client 端口: $(get_client_port)"
+    echo "  数据目录: ${LORE_DATA_DIR:-$HOME/.lore}"
+    echo
+    
+    log_info "API Keys:"
+    [ -n "${DASHSCOPE_API_KEY:-}" ] && echo "  ✓ DashScope" || echo "  ✗ DashScope"
+    [ -n "${OPENAI_API_KEY:-}" ] && echo "  ✓ OpenAI" || echo "  ✗ OpenAI"
+    [ -n "${GEMINI_API_KEY:-}" ] && echo "  ✓ Gemini" || echo "  ✗ Gemini"
+    [ -n "${ANTHROPIC_API_KEY:-}" ] && echo "  ✓ Claude" || echo "  ✗ Claude"
+    echo
+    
+    log_info "配置文件位置:"
+    if [ -f "$SCRIPT_DIR/.env" ]; then
+        echo "  ✓ $SCRIPT_DIR/.env"
+    elif [ -f "$HOME/.lore/.env" ]; then
+        echo "  ✓ $HOME/.lore/.env"
+    else
+        echo "  ✗ 未找到 .env 文件"
+        echo "    请复制 .env.example 为 .env 并配置"
     fi
+}
 
+cmd_build() {
     log_info "构建所有包..."
+    cd "$SCRIPT_DIR"
     pnpm run build
     log_success "构建完成"
 }
 
-do_test() {
-    echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║       Lore 测试中...                     ║${NC}"
-    echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-
+cmd_test() {
     local target="${1:-all}"
-
+    log_info "运行测试: $target"
+    cd "$SCRIPT_DIR"
+    
     case "$target" in
         server)
-            log_info "运行 Server 测试..."
-            cd "$SCRIPT_DIR/packages/server"
-            pnpm run test || true
-            cd "$SCRIPT_DIR"
+            pnpm --filter @lore/server test
             ;;
-        all)
-            log_info "运行所有测试..."
-            cd "$SCRIPT_DIR/packages/server"
-            pnpm run test 2>/dev/null || true
-            cd "$SCRIPT_DIR"
-            log_success "测试完成"
+        all|*)
+            pnpm test
             ;;
+    esac
+}
+
+cmd_clean() {
+    log_info "清理旧日志..."
+    find "$LOG_DIR" -name "*.log" -mtime +$LOG_RETENTION_DAYS -delete 2>/dev/null || true
+    log_success "清理完成"
+}
+
+cmd_help() {
+    echo "Lore 管理脚本 v$SCRIPT_VERSION"
+    echo
+    echo "用法: ./manager.sh <command> [options]"
+    echo
+    echo "命令:"
+    echo "  start       启动所有服务 (后台运行)"
+    echo "  stop        停止所有服务"
+    echo "  restart     重启所有服务"
+    echo "  status      查看服务状态"
+    echo "  logs        查看日志 (可选: logs <server|client> [行数])"
+    echo "  config      显示当前配置"
+    echo "  build       构建所有包"
+    echo "  test        运行测试 (可选: test <all|server>)"
+    echo "  clean       清理旧日志"
+    echo ""
+    echo "配置:"
+    echo "  复制 .env.example 为 .env 并修改配置"
+    echo "  或设置环境变量 LORE_SERVER_PORT 和 LORE_CLIENT_PORT"
+    echo ""
+    echo "示例:"
+    echo "  ./manager.sh start              # 启动服务"
+    echo "  ./manager.sh config             # 查看配置"
+    echo "  ./manager.sh logs server        # 查看后端日志"
+}
+
+# ============================================================================
+# 主程序
+# ============================================================================
+
+main() {
+    init
+    
+    local cmd="${1:-help}"
+    shift || true
+    
+    case "$cmd" in
+        start)      cmd_start "$@" ;;
+        stop)       cmd_stop "$@" ;;
+        restart)    cmd_restart "$@" ;;
+        status)     cmd_status "$@" ;;
+        logs)       cmd_logs "$@" ;;
+        config)     cmd_config "$@" ;;
+        build)      cmd_build "$@" ;;
+        test)       cmd_test "$@" ;;
+        clean)      cmd_clean "$@" ;;
+        help|--help|-h) cmd_help "$@" ;;
         *)
-            log_error "未知测试目标: $target"
-            log_info "可用: all, server"
+            log_error "未知命令: $cmd"
+            echo
+            cmd_help
             exit 1
             ;;
     esac
 }
 
-do_typecheck() {
-    echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║       Lore 类型检查中...                 ║${NC}"
-    echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-
-    local has_error=false
-
-    log_info "检查 shared..."
-    cd "$SCRIPT_DIR/packages/shared"
-    pnpm run typecheck 2>&1 || has_error=true
-
-    log_info "检查 server..."
-    cd "$SCRIPT_DIR/packages/server"
-    pnpm run typecheck 2>&1 || has_error=true
-
-    log_info "检查 client..."
-    cd "$SCRIPT_DIR/packages/client"
-    pnpm run typecheck 2>&1 || has_error=true
-
-    cd "$SCRIPT_DIR"
-
-    if [ "$has_error" = true ]; then
-        echo ""
-        log_error "类型检查发现错误"
-        exit 1
-    else
-        echo ""
-        log_success "类型检查全部通过"
-    fi
-}
-
-do_clean() {
-    log_info "清理 $LOG_RETENTION_DAYS 天前的旧日志..."
-
-    if [ ! -d "$LOG_DIR" ] || [ -z "$(ls -A "$LOG_DIR" 2>/dev/null)" ]; then
-        log_warning "日志目录为空"
-        return
-    fi
-
-    local count
-    count=$(find "$LOG_DIR" -name "*.log" -type f -mtime +$LOG_RETENTION_DAYS 2>/dev/null | wc -l | tr -d ' ')
-
-    if [ "$count" -eq 0 ]; then
-        log_success "没有需要清理的旧日志"
-        return
-    fi
-
-    find "$LOG_DIR" -name "*.log" -type f -mtime +$LOG_RETENTION_DAYS -exec rm -v {} \;
-    log_success "已清理 $count 个旧日志文件"
-}
-
-do_dev() {
-    echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║       Lore 开发模式 (前台运行)           ║${NC}"
-    echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-    echo ""
-
-    check_config
-
-    log_info "启动 dev 模式 (Ctrl+C 退出)..."
-    echo ""
-    pnpm run dev
-}
-
-show_help() {
-    cat << EOF
-Lore 管理脚本 v$SCRIPT_VERSION
-
-用法: $0 <command> [options]
-
-命令:
-  start       启动所有服务 (后台运行)
-  stop        停止所有服务
-  restart     重启所有服务
-  status      查看服务状态
-  dev         开发模式 (前台运行 server + client)
-  logs        查看日志 (可选: logs <server|client> [行数])
-  build       构建所有包
-  test        运行测试 (可选: test <all|server>)
-  typecheck   类型检查所有包
-  update      拉取代码并安装依赖
-  clean       清理 $LOG_RETENTION_DAYS 天前的旧日志
-
-示例:
-  $0 start              # 启动所有服务
-  $0 dev                # 前台开发模式
-  $0 logs server        # 查看 server 日志
-  $0 logs client 100    # 查看 client 最近 100 行日志
-  $0 test server        # 运行 server 测试
-  $0 typecheck          # 类型检查
-  $0 update             # 更新代码+依赖
-
-数据目录: $DATA_DIR
-配置文件: $DATA_DIR/config.json
-EOF
-}
-
-# ============================================================================
-# 主入口
-# ============================================================================
-
-init
-
-case "${1:-}" in
-    start)     start_services ;;
-    stop)      stop_services ;;
-    restart)
-        stop_services
-        echo ""
-        sleep 2
-        start_services
-        ;;
-    status)    show_status ;;
-    dev)       do_dev ;;
-    logs)
-        shift || true
-        show_logs "$@"
-        ;;
-    build)     do_build ;;
-    test)
-        shift || true
-        do_test "$@"
-        ;;
-    typecheck) do_typecheck ;;
-    update)    do_update ;;
-    clean)     do_clean ;;
-    -h|--help|help) show_help ;;
-    *)
-        show_help
-        exit 1
-        ;;
-esac
+main "$@"
