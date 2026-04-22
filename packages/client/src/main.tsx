@@ -1,9 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DeviceSelector } from './app.js';
+import { App } from './App';
+import './styles/global.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <DeviceSelector />
+    <App />
   </StrictMode>,
 );

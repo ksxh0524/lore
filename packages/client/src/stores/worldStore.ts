@@ -9,7 +9,7 @@ interface WorldState {
   tick: number;
   isRunning: boolean;
   selectedAgentId: string | null;
-  messages: Array<{ role: 'user' | 'agent' | 'agent_stream'; content: string }>;
+  messages: Array<{ id: string; role: 'user' | 'agent' | 'agent_stream'; content: string; timestamp: string }>;
   initializing: boolean;
   godMode: boolean;
   speed: number;
@@ -40,7 +40,7 @@ const initial: WorldState = {
   tick: 0,
   isRunning: false,
   selectedAgentId: null,
-  messages: [],
+  messages: [] as Array<{ id: string; role: 'user' | 'agent' | 'agent_stream'; content: string; timestamp: string }>,
   initializing: false,
   godMode: false,
   speed: 1,
@@ -56,15 +56,17 @@ export const useWorldStore = create<WorldStore>((set) => ({
   setRunning: (r) => set({ isRunning: r }),
   selectAgent: (id) => set({ selectedAgentId: id, messages: [] }),
   addMessage: (role: 'user' | 'agent' | 'agent_stream', content: string) => set((s) => {
+    const id = Math.random().toString(36).substring(7);
+    const timestamp = new Date().toISOString();
     if (role === 'agent_stream') {
       const last = s.messages[s.messages.length - 1];
       if (last && last.role === 'agent_stream') {
-        return { messages: [...s.messages.slice(0, -1), { role: 'agent_stream', content: last.content + content }] };
+        return { messages: [...s.messages.slice(0, -1), { id: last.id, role: 'agent_stream', content: last.content + content, timestamp }] };
       }
-      return { messages: [...s.messages, { role: 'agent_stream', content }] };
+      return { messages: [...s.messages, { id, role: 'agent_stream', content, timestamp }] };
     }
     const filtered = s.messages.filter(m => m.role !== 'agent_stream');
-    return { messages: [...filtered, { role, content } as const] };
+    return { messages: [...filtered, { id, role, content, timestamp }] };
   }),
   setInitializing: (v) => set({ initializing: v }),
   setGodMode: (v) => set({ godMode: v }),

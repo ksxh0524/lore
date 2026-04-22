@@ -1,159 +1,123 @@
 import { useWorldStore } from '../../stores/worldStore';
-import type { EventInfo } from '../../lib/types';
+import type { CSSProperties } from 'react';
 
-interface TimelineProps {
-  events?: EventInfo[];
+interface TimelineEvent {
+  day: number;
+  title: string;
+  description?: string;
 }
 
-function formatTimelineDate(timestamp: string): string {
-  const d = new Date(timestamp);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-export function Timeline({}: TimelineProps) {
-  const events = useWorldStore((s) => s.events);
+export function Timeline() {
   const tick = useWorldStore((s) => s.tick);
+  const events = useWorldStore((s) => s.events);
 
-  const keyEvents = events.slice(0, 20).filter((e) => e.priority >= 60);
+  // Generate timeline events from actual events
+  const timelineEvents: TimelineEvent[] = events
+    .slice(0, 20)
+    .map((e, index) => ({
+      day: Math.max(1, tick - index * 3),
+      title: e.title || '事件',
+      description: e.description,
+    }));
 
-  if (keyEvents.length === 0) {
+  const containerStyles: CSSProperties = {
+    background: 'var(--bg-secondary)',
+    borderTop: '1px solid var(--border-subtle)',
+    padding: 'var(--space-md)',
+    maxHeight: '120px',
+    overflow: 'auto',
+  };
+
+  const timelineStyles: CSSProperties = {
+    display: 'flex',
+    gap: 'var(--space-md)',
+    position: 'relative',
+    paddingLeft: 'var(--space-sm)',
+  };
+
+  const eventStyles = (isLatest: boolean): CSSProperties => ({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    minWidth: '80px',
+    maxWidth: '120px',
+    flexShrink: 0,
+    opacity: isLatest ? 1 : 0.6,
+  });
+
+  const dotStyles = (isLatest: boolean): CSSProperties => ({
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    background: isLatest ? 'var(--accent-primary)' : 'var(--border-default)',
+    border: `2px solid ${isLatest ? 'var(--accent-primary)' : 'var(--bg-secondary)'}`,
+    boxShadow: isLatest ? '0 0 8px var(--accent-primary)' : 'none',
+    marginBottom: 'var(--space-sm)',
+    position: 'relative',
+    zIndex: 2,
+  });
+
+  const lineStyles: CSSProperties = {
+    position: 'absolute',
+    top: 4,
+    left: 'var(--space-md)',
+    right: 'var(--space-md)',
+    height: 2,
+    background: 'var(--border-subtle)',
+    zIndex: 1,
+  };
+
+  if (timelineEvents.length === 0) {
     return (
-      <div
-        style={{
-          height: '60px',
-          background: '#12121a',
-          borderTop: '1px solid #1a1a25',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#555570',
-          fontSize: '0.85rem',
-        }}
-      >
-        <span style={{ marginRight: '0.5rem' }}>📍</span>
-        时间线将在关键事件发生时显示
+      <div style={containerStyles}>
+        <div style={{ 
+          textAlign: 'center', 
+          color: 'var(--text-muted)',
+          fontSize: 'var(--text-sm)',
+          padding: 'var(--space-md)',
+        }}>
+          时间线将在事件发生后显示
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        height: '60px',
-        background: '#12121a',
-        borderTop: '1px solid #1a1a25',
-        padding: '0 1rem',
-        display: 'flex',
-        alignItems: 'center',
-        overflow: 'auto',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0',
-          minWidth: 'max-content',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '0.75rem',
-            color: '#8888a0',
-            marginRight: '1rem',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          TIMELINE
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
-          <div
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: '#6366f1',
-            }}
-          />
-
-          {keyEvents.map((event, i) => (
-            <div key={event.id} style={{ display: 'flex', alignItems: 'center' }}>
-              <div
-                style={{
-                  width: '60px',
-                  height: '2px',
-                  background: i === 0 ? '#6366f1' : '#333',
-                }}
-              />
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                }}
-                title={event.title || event.type}
-              >
-                <div
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: i === 0 ? '#22c55e' : '#555',
-                    border: i === 0 ? '2px solid #22c55e40' : 'none',
-                  }}
-                />
-                <div
-                  style={{
-                    fontSize: '0.65rem',
-                    color: i === 0 ? '#f0f0f5' : '#555570',
-                    marginTop: '0.25rem',
-                    maxWidth: '80px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    textAlign: 'center',
-                  }}
-                >
-                  {event.title || event.type}
-                </div>
+    <div style={containerStyles}>
+      <div style={{ 
+        fontSize: 'var(--text-xs)', 
+        color: 'var(--text-muted)',
+        marginBottom: 'var(--space-sm)',
+        fontWeight: 600,
+      }}>
+        时间线
+      </div>
+      <div style={timelineStyles}>
+        <div style={lineStyles} />
+        {timelineEvents.map((event, index) => {
+          const isLatest = index === 0;
+          return (
+            <div key={index} style={eventStyles(isLatest)}>
+              <div style={dotStyles(isLatest)} />
+              <div style={{
+                fontSize: 'var(--text-xs)',
+                color: isLatest ? 'var(--accent-primary)' : 'var(--text-muted)',
+                fontWeight: isLatest ? 600 : 400,
+                marginBottom: '2px',
+              }}>
+                Day {event.day}
+              </div>
+              <div style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-secondary)',
+                textAlign: 'center',
+                lineHeight: 1.3,
+              }}>
+                {event.title}
               </div>
             </div>
-          ))}
-
-          <div
-            style={{
-              width: '40px',
-              height: '2px',
-              background: '#333',
-            }}
-          />
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <div
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: '#8888a0',
-              }}
-            />
-            <div
-              style={{
-                fontSize: '0.65rem',
-                color: '#8888a0',
-                marginTop: '0.25rem',
-              }}
-            >
-              Tick {tick}
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
