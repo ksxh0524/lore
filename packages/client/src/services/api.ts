@@ -67,14 +67,15 @@ export const providerApi = {
 
 // World API
 export const api = {
-  initWorld: async (params: { worldType: 'random' | 'history'; randomParams?: { age: number; location: string; background: string }; historyParams?: { presetId: string | null } }): Promise<{ worldId: string }> => {
-    const response = await fetch('/api/worlds', {
+  initWorld: async (params: { worldType: 'random' | 'history'; randomParams?: { age: number; location: string; background: string }; historyParams?: { presetName: string; targetCharacter?: string } }): Promise<{ worldId: string }> => {
+    const response = await fetch('/api/worlds/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
     if (!response.ok) throw new Error('Failed to init world');
-    return response.json();
+    const data = await response.json();
+    return { worldId: data.data.worldId };
   },
   
   getAgents: async (worldId: string): Promise<Array<{ id: string; profile: { name: string; age: number; occupation: string }; stats: { mood: number; health: number; energy: number; money: number }; state: { status: string; currentActivity: string } }>> => {

@@ -19,7 +19,10 @@ export function InitPage() {
 
   const [mode, setMode] = useState<'random' | 'history'>('random');
   const [location, setLocation] = useState('上海');
+  const [age, setAge] = useState(25);
+  const [background, setBackground] = useState('上班族');
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [targetCharacter, setTargetCharacter] = useState('');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -29,10 +32,10 @@ export function InitPage() {
       const result = await api.initWorld({
         worldType: mode,
         randomParams: mode === 'random' 
-          ? { age: 25, location, background: '上班族' } 
+          ? { age, location, background } 
           : undefined,
-        historyParams: mode === 'history' 
-          ? { presetId: selectedPreset } 
+        historyParams: mode === 'history' && selectedPreset
+          ? { presetName: selectedPreset, targetCharacter: targetCharacter || undefined } 
           : undefined,
       });
       
@@ -126,33 +129,97 @@ export function InitPage() {
       <Card style={{ width: '100%', maxWidth: '480px' }}>
         <form onSubmit={handleSubmit}>
           {mode === 'random' && (
-            <div style={{ marginBottom: 'var(--space-lg)' }}>
-              <label style={{
-                display: 'block',
-                color: 'var(--text-secondary)',
-                marginBottom: 'var(--space-sm)',
-                fontSize: 'var(--text-sm)',
-              }}>
-                地点
-              </label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                disabled={initializing}
-                style={{
-                  width: '100%',
-                  padding: 'var(--space-md)',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-subtle)',
-                  fontSize: 'var(--text-base)',
-                  boxSizing: 'border-box',
-                }}
-                placeholder="例如：上海、纽约、东京..."
-              />
-            </div>
+            <>
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--text-secondary)',
+                  marginBottom: 'var(--space-sm)',
+                  fontSize: 'var(--text-sm)',
+                }}>
+                  年龄
+                </label>
+                <input
+                  type="number"
+                  min={15}
+                  max={80}
+                  value={age}
+                  onChange={(e) => setAge(parseInt(e.target.value) || 25)}
+                  disabled={initializing}
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-md)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: 'var(--text-base)',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--text-secondary)',
+                  marginBottom: 'var(--space-sm)',
+                  fontSize: 'var(--text-sm)',
+                }}>
+                  地点
+                </label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  disabled={initializing}
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-md)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: 'var(--text-base)',
+                    boxSizing: 'border-box',
+                  }}
+                  placeholder="例如：上海、纽约、东京..."
+                />
+              </div>
+              
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--text-secondary)',
+                  marginBottom: 'var(--space-sm)',
+                  fontSize: 'var(--text-sm)',
+                }}>
+                  背景
+                </label>
+                <select
+                  value={background}
+                  onChange={(e) => setBackground(e.target.value)}
+                  disabled={initializing}
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-md)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: 'var(--text-base)',
+                    boxSizing: 'border-box',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="上班族">上班族</option>
+                  <option value="学生">学生</option>
+                  <option value="自由职业">自由职业</option>
+                  <option value="创业者">创业者</option>
+                  <option value="无业">无业</option>
+                </select>
+              </div>
+            </>
           )}
 
           {mode === 'history' && (
@@ -200,6 +267,34 @@ export function InitPage() {
                     {selectedPreset === preset.id && <span>✓</span>}
                   </button>
                 ))}
+              </div>
+              
+              <div style={{ marginTop: 'var(--space-lg)' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--text-secondary)',
+                  marginBottom: 'var(--space-sm)',
+                  fontSize: 'var(--text-sm)',
+                }}>
+                  你想成为谁（可选）
+                </label>
+                <input
+                  type="text"
+                  value={targetCharacter}
+                  onChange={(e) => setTargetCharacter(e.target.value)}
+                  disabled={initializing}
+                  style={{
+                    width: '100%',
+                    padding: 'var(--space-md)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-subtle)',
+                    fontSize: 'var(--text-base)',
+                    boxSizing: 'border-box',
+                  }}
+                  placeholder="例如：八阿哥、乔布斯..."
+                />
               </div>
             </div>
           )}
