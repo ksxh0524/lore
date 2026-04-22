@@ -50,6 +50,17 @@ export function loadConfig(): LoreConfig {
     }
   }
   
+  // 环境变量覆盖配置文件的端口设置
+  if (process.env.LORE_SERVER_PORT) {
+    const port = parseInt(process.env.LORE_SERVER_PORT, 10);
+    if (!isNaN(port)) {
+      raw.server = { ...(raw.server as Record<string, unknown> || {}), port };
+    }
+  }
+  if (process.env.LORE_SERVER_HOST) {
+    raw.server = { ...(raw.server as Record<string, unknown> || {}), host: process.env.LORE_SERVER_HOST };
+  }
+  
   const config = ConfigSchema.parse(raw);
   
   for (const provider of config.llm.providers) {

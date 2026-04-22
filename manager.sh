@@ -50,7 +50,7 @@ load_env() {
     fi
     
     # 加载环境变量
-    if [ -n "$env_file" ] && [ -f "$$env_file" ]; then
+    if [ -n "$env_file" ] && [ -f "$env_file" ]; then
         set -a
         source "$env_file" 2>/dev/null || true
         set +a
@@ -172,7 +172,7 @@ check_api_keys() {
     if [ $key_count -eq 0 ]; then
         log_warning "未检测到 API Key，将使用 Mock Provider"
         log_info "请复制 .env.example 为 .env 并配置你的 API Keys"
-        return 1
+        return 0
     else
         log_success "检测到 $key_count 个 API Key"
         return 0
