@@ -10,7 +10,7 @@ set -euo pipefail
 # 全局配置
 # ============================================================================
 
-readonly SCRIPT_VERSION="2.0.0"
+readonly SCRIPT_VERSION="0.0.1"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 readonly LOG_DIR="$SCRIPT_DIR/logs"
 readonly PID_DIR="$SCRIPT_DIR/.pids"
