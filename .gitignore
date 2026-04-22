@@ -6,3 +6,6 @@ dist/
 *.db-shm
 .turbo/
 .DS_Store
+.pids/
+*.pid
+tsconfig.tsbuildinfo
