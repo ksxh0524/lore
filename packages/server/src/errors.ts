@@ -24,6 +24,8 @@ export enum ErrorCode {
   INIT_PRESET_NOT_FOUND = 6001,
   INIT_GENERATION_FAILED = 6002,
 
+  NOT_FOUND = 7001,
+
   INTERNAL_ERROR = 9001,
   VALIDATION_ERROR = 9002,
 }
@@ -49,6 +51,7 @@ export function toHttpError(code: ErrorCode): number {
   if (code >= 4000 && code < 5000) return 400;
   if (code >= 5000 && code < 6000) return 500;
   if (code >= 6000 && code < 7000) return 400;
+  if (code === ErrorCode.NOT_FOUND) return 404;
   if (code === ErrorCode.VALIDATION_ERROR) return 400;
   return 500;
 }

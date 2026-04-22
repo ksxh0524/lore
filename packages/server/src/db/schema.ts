@@ -151,3 +151,18 @@ export const factions = sqliteTable('factions', {
   reputation: integer('reputation').default(50),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
+
+// User configured LLM providers
+export const userProviders = sqliteTable('user_providers', {
+  id: text('id').primaryKey(),
+  presetId: text('preset_id').notNull(), // dashscope, openai, gemini, claude
+  name: text('name').notNull(),
+  apiKey: text('api_key').notNull(), // encrypted
+  baseUrl: text('base_url'), // optional override
+  enabled: integer('enabled', { mode: 'boolean' }).default(true),
+  priority: integer('priority').default(50),
+  models: text('models', { mode: 'json' }).$type<string[]>(), // enabled models
+  defaultModel: text('default_model'), // first enabled model
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});

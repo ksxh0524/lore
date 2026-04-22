@@ -1,8 +1,7 @@
 import { useWorldStore } from '../../stores/worldStore';
-import { api } from '../../services/api';
 import { WorldClock } from '../world/WorldClock';
 import { RelationshipPanel } from '../agent/RelationshipPanel';
-import { SaveManager } from '../world/SaveManager';
+import type { CSSProperties } from 'react';
 
 function moodEmoji(mood: number): string {
   if (mood >= 80) return '😊';
@@ -25,49 +24,69 @@ export function Sidebar() {
 
   const handlePause = async () => {
     if (!worldId) return;
-    if (isRunning) {
-      await api.pause(worldId);
-      setRunning(false);
-    } else {
-      await api.resume(worldId);
-      setRunning(true);
-    }
+    // TODO: Implement pause/resume via API
+    setRunning(!isRunning);
+  };
+
+  const containerStyles: CSSProperties = {
+    width: '280px',
+    background: 'var(--bg-secondary)',
+    borderRight: '1px solid var(--border-subtle)',
+    display: 'flex',
+    flexDirection: 'column',
+    flexShrink: 0,
   };
 
   return (
-    <div style={{ width: '280px', background: '#12121a', borderRight: '1px solid #1a1a25', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-      <div style={{ padding: '1rem', borderBottom: '1px solid #1a1a25', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={containerStyles}>
+      <div style={{ padding: 'var(--space-md)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>🌍 Lore</span>
-        <span style={{ color: '#8888a0', fontSize: '0.85rem' }}>Tick {tick}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>Tick {tick}</span>
       </div>
-      <div style={{ padding: '0.5rem' }}>
+      <div style={{ padding: 'var(--space-sm)' }}>
         <WorldClock />
       </div>
-      <div style={{ padding: '0.5rem', borderBottom: '1px solid #1a1a25' }}>
-        <button onClick={handlePause} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#1a1a25', color: '#f0f0f5', border: '1px solid #333', cursor: 'pointer' }}>
+      <div style={{ padding: 'var(--space-sm)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <button onClick={handlePause} style={{ width: '100%', padding: 'var(--space-sm)', borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', cursor: 'pointer' }}>
           {isRunning ? '⏸ 暂停' : '▶ 继续'}
         </button>
       </div>
-      <div style={{ padding: '0.5rem', fontSize: '0.85rem', color: '#8888a0' }}>角色列表</div>
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        {npcAgents.map((agent: any) => (
-          <div key={agent.id} onClick={() => selectAgent(agent.id)} style={{
-            padding: '0.75rem 1rem', cursor: 'pointer',
-            background: selectedAgentId === agent.id ? '#1a1a25' : 'transparent',
-            borderLeft: selectedAgentId === agent.id ? '3px solid #6366f1' : '3px solid transparent',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>{moodEmoji(agent.stats.mood)}</span>
-              <div>
-                <div style={{ fontSize: '0.9rem' }}>{agent.profile.name}</div>
-                <div style={{ fontSize: '0.75rem', color: '#8888a0' }}>{agent.profile.occupation} · {agent.state.currentActivity || '空闲'}</div>
+      
+      {/* Agent List */}
+      <div style={{ flex: 1, overflow: 'auto', padding: 'var(--space-sm)' }}>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 'var(--space-sm)' }}>
+          角色 ({npcAgents.length})
+        </div>
+        {npcAgents.map((agent: any) => {
+          const isSelected = selectedAgentId === agent.id;
+          const mood = moodEmoji(agent.stats.mood);
+          return (
+            <div
+              key={agent.id}
+              onClick={() => selectAgent(agent.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-sm)',
+                padding: 'var(--space-sm)',
+                borderRadius: 'var(--radius-md)',
+                background: isSelected ? 'var(--accent-primary)' : 'transparent',
+                color: isSelected ? '#fff' : 'var(--text-primary)',
+                cursor: 'pointer',
+                marginBottom: 'var(--space-xs)',
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>{mood}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 500 }}>{agent.profile.name}</div>
+                <div style={{ fontSize: 'var(--text-xs)', opacity: 0.7 }}>{agent.profile.occupation}</div>
               </div>
             </div>
-            {selectedAgentId === agent.id && <RelationshipPanel />}
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <SaveManager />
+      
+      <RelationshipPanel />
     </div>
   );
 }

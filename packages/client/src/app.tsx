@@ -1,15 +1,39 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { WorldPage } from './pages/WorldPage';
 import { InitPage } from './pages/InitPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { useWorldStore } from './stores/worldStore';
 
-export function App() {
+function RequireWorld({ children }: { children: React.ReactNode }) {
   const worldId = useWorldStore((s) => s.worldId);
-
-  // If no world is created, show init page
   if (!worldId) {
-    return <InitPage />;
+    return <Navigate to="/" replace />;
   }
+  return children;
+}
 
-  // Otherwise show the main world page
-  return <WorldPage />;
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<InitPage />} />
+      <Route 
+        path="/world" 
+        element={
+          <RequireWorld>
+            <WorldPage />
+          </RequireWorld>
+        } 
+      />
+      <Route path="/settings/*" element={<SettingsPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
+  );
 }

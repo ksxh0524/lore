@@ -2,6 +2,7 @@ import { eq, desc, and, or, sql, lt } from 'drizzle-orm';
 import { db } from './index.js';
 import * as s from './schema.js';
 import type { WorldType, AgentType, AgentProfile, AgentState, AgentStats } from '@lore/shared';
+import { encryptApiKey, decryptApiKey } from '../utils/encryption.js';
 
 export class Repository {
   async createWorld(data: { id: string; name: string; type: WorldType; historyPreset?: string }) {
@@ -310,5 +311,84 @@ export class Repository {
   async updateFaction(id: string, data: Partial<typeof s.factions.$inferInsert>) {
     const result = await db.update(s.factions).set(data).where(eq(s.factions.id, id)).returning();
     return result[0] ?? null;
+  }
+
+  // ── User Providers ──
+
+  async createUserProvider(data: {
+    id: string;
+    presetId: string;
+    name: string;
+    apiKey: string;
+    baseUrl?: string;
+    enabled?: boolean;
+    priority?: number;
+    models?: string[];
+    defaultModel?: string;
+  }) {
+    const encryptedApiKey = encryptApiKey(data.apiKey);
+    const now = new Date();
+    const result = await db.insert(s.userProviders).values({
+      ...data,
+      apiKey: encryptedApiKey,
+      enabled: data.enabled ?? true,
+      priority: data.priority ?? 50,
+      createdAt: now,
+      updatedAt: now,
+    }).returning();
+    return result[0]!;
+  }
+
+  async getUserProvider(id: string) {
+    const rows = await db.select().from(s.userProviders).where(eq(s.userProviders.id, id)).limit(1);
+    const provider = rows[0] ?? null;
+    if (provider) {
+      return {
+        ...provider,
+        apiKey: decryptApiKey(provider.apiKey),
+      };
+    }
+    return null;
+  }
+
+  async getAllUserProviders() {
+    const rows = await db.select().from(s.userProviders).orderBy(desc(s.userProviders.priority));
+    return rows.map(provider => ({
+      ...provider,
+      apiKey: decryptApiKey(provider.apiKey),
+    }));
+  }
+
+  async updateUserProvider(id: string, data: Partial<Omit<typeof s.userProviders.$inferInsert, 'id' | 'createdAt'>>) {
+    const updateData: Partial<typeof s.userProviders.$inferInsert> = {
+      ...data,
+      updatedAt: new Date(),
+    };
+    if (data.apiKey) {
+      updateData.apiKey = encryptApiKey(data.apiKey);
+    }
+    const result = await db.update(s.userProviders)
+      .set(updateData)
+      .where(eq(s.userProviders.id, id))
+      .returning();
+    return result[0] ?? null;
+  }
+
+  async deleteUserProvider(id: string): Promise<void> {
+    await db.delete(s.userProviders).where(eq(s.userProviders.id, id));
+  }
+
+  async getUserProviderByPresetId(presetId: string) {
+    const rows = await db.select().from(s.userProviders)
+      .where(eq(s.userProviders.presetId, presetId))
+      .limit(1);
+    const provider = rows[0] ?? null;
+    if (provider) {
+      return {
+        ...provider,
+        apiKey: decryptApiKey(provider.apiKey),
+      };
+    }
+    return null;
   }
 }

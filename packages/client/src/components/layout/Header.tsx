@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useWorldStore } from '../../stores/worldStore';
 import type { CSSProperties } from 'react';
 
@@ -6,6 +7,7 @@ interface HeaderProps {
 }
 
 export function Header({ onToggleGodMode }: HeaderProps) {
+  const navigate = useNavigate();
   const worldId = useWorldStore((s) => s.worldId);
   const tick = useWorldStore((s) => s.tick);
   const isRunning = useWorldStore((s) => s.isRunning);
@@ -67,6 +69,22 @@ export function Header({ onToggleGodMode }: HeaderProps) {
 
       {/* Right: Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+        <button
+          onClick={() => navigate('/settings')}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 'var(--radius-md)',
+            border: 'none',
+            background: 'var(--bg-tertiary)',
+            color: 'var(--text-secondary)',
+            fontSize: 'var(--text-sm)',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all var(--transition-fast)',
+          }}
+        >
+          ⚙️ 设置
+        </button>
         {worldId && onToggleGodMode && (
           <button
             onClick={onToggleGodMode}

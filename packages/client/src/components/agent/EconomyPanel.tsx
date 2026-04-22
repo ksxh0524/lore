@@ -1,41 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useWorldStore } from '../../stores/worldStore';
-import { api } from '../../services/api';
+import type { CSSProperties } from 'react';
 
 export function EconomyPanel() {
   const selectedAgentId = useWorldStore((s) => s.selectedAgentId);
-  const [economy, setEconomy] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!selectedAgentId) return;
-    setLoading(true);
-    api.getEconomy(selectedAgentId)
-      .then(setEconomy)
-      .catch(() => setEconomy(null))
-      .finally(() => setLoading(false));
-  }, [selectedAgentId]);
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!selectedAgentId) return null;
-  if (loading) return <div style={{ padding: '1rem', color: '#8888a0', fontSize: '0.85rem' }}>加载经济数据...</div>;
-  if (!economy) return null;
+
+  const containerStyles: CSSProperties = {
+    position: 'fixed',
+    bottom: isOpen ? 0 : '-300px',
+    right: 'var(--space-md)',
+    width: '320px',
+    background: 'var(--bg-secondary)',
+    borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+    border: '1px solid var(--border-subtle)',
+    borderBottom: 'none',
+    transition: 'bottom var(--transition-normal)',
+    zIndex: 100,
+  };
+
+  const headerStyles: CSSProperties = {
+    padding: 'var(--space-md)',
+    borderBottom: '1px solid var(--border-subtle)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    cursor: 'pointer',
+  };
 
   return (
-    <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid #1a1a25', background: '#12121a' }}>
-      <div style={{ fontSize: '0.8rem', color: '#8888a0', marginBottom: '0.5rem' }}>💰 经济状况</div>
-      <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem' }}>
-        <div>
-          <span style={{ color: '#8888a0' }}>余额 </span>
-          <span style={{ color: '#4ade80', fontWeight: 600 }}>¥{economy.balance?.toFixed(0) ?? 0}</span>
-        </div>
-        <div>
-          <span style={{ color: '#8888a0' }}>收入 </span>
-          <span style={{ color: '#22c55e' }}>+{economy.income?.toFixed(0) ?? 0}</span>
-        </div>
-        <div>
-          <span style={{ color: '#8888a0' }}>支出 </span>
-          <span style={{ color: '#ef4444' }}>-{economy.expenses?.toFixed(0) ?? 0}</span>
-        </div>
+    <div style={containerStyles}>
+      <div style={headerStyles} onClick={() => setIsOpen(!isOpen)}>
+        <span style={{ fontWeight: 600 }}>💰 经济面板</span>
+        <span>{isOpen ? '▼' : '▲'}</span>
+      </div>
+      <div style={{ padding: 'var(--space-lg)', color: 'var(--text-muted)' }}>
+        经济功能开发中...
       </div>
     </div>
   );
