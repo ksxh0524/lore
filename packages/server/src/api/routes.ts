@@ -61,7 +61,20 @@ export function registerRoutes(
 
   const initSchema = z.object({
     worldType: z.enum(['history', 'random']),
-    randomParams: z.object({ age: z.number(), location: z.string(), background: z.string() }).optional(),
+    randomParams: z.object({
+      age: z.number(),
+      location: z.string(),
+      background: z.string(), // Required for backwards compatibility
+      locationData: z.object({
+        name: z.string(),
+        lat: z.number(),
+        lng: z.number(),
+        country: z.string(),
+        type: z.string(),
+        culture: z.string(),
+      }).optional(),
+      userDescription: z.string().optional(),
+    }).optional(),
     historyParams: z.object({ presetName: z.string(), targetCharacter: z.string().optional() }).optional(),
   });
 
@@ -88,13 +101,11 @@ export function registerRoutes(
       pushManager.broadcast({ type: 'init_progress', stage: 'creating_agents', progress: 50 });
 
       for (const agentData of result.agents) {
-        const agent = await agentManager.createAgent(result.worldId, 'npc', agentData.profile);
-        agent.stats = agentData.initialStats;
+        const agent = await agentManager.createAgent(result.worldId, 'npc', agentData.profile, agentData.initialStats);
         await economyEngine.initAgentEconomy(result.worldId, agent.id, agentData.initialStats.money);
       }
 
-      const userAvatar = await agentManager.createAgent(result.worldId, 'user-avatar', result.userAvatar.profile);
-      userAvatar.stats = result.userAvatar.initialStats;
+      const userAvatar = await agentManager.createAgent(result.worldId, 'user-avatar', result.userAvatar.profile, result.userAvatar.initialStats);
       await economyEngine.initAgentEconomy(result.worldId, userAvatar.id, result.userAvatar.initialStats.money, 5000, 2000);
       pushManager.broadcast({ type: 'init_progress', stage: 'building_relationships', progress: 80 });
 

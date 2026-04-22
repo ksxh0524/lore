@@ -1,23 +1,393 @@
 
-> @lore/server@0.1.0 dev /Users/liuyang/codes/Lore/packages/server
+> @lore/server@0.0.1 dev /Users/liuyang/codes/Lore/packages/server
 > tsx watch src/index.ts
 
-[14:00:44.707] [32mINFO[39m: [36m[Lore] Starting...[39m
-[14:00:44.717] [32mINFO[39m: [36mServer listening at http://127.0.0.1:3952[39m
-[14:00:44.717] [32mINFO[39m: [36mServer listening at http://192.168.31.15:3952[39m
-[14:00:44.717] [32mINFO[39m: [36m[Lore] Server running at http://localhost:3952[39m
-[14:00:45.009] [32mINFO[39m: [36mincoming request[39m
+[15:34:09.972] [32mINFO[39m: [36m[Lore] Starting...[39m
+[15:34:09.982] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[15:34:09.982] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[15:34:09.982] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+[15:34:10.246] [32mINFO[39m: [36mincoming request[39m
     [35mreqId[39m: "req-1"
     [35mreq[39m: {
       "method": "GET",
       "url": "/api/config",
-      "host": "localhost:3952",
+      "host": "localhost:39527",
       "remoteAddress": "127.0.0.1",
-      "remotePort": 59138
+      "remotePort": 60800
     }
-[14:00:45.013] [32mINFO[39m: [36mrequest completed[39m
+[15:34:10.250] [32mINFO[39m: [36mrequest completed[39m
     [35mreqId[39m: "req-1"
     [35mres[39m: {
       "statusCode": 200
     }
-    [35mresponseTime[39m: 3.670292019844055
+    [35mresponseTime[39m: 3.626791000366211
+23:53:42 [tsx] change in ./src/api/routes.ts Restarting...
+[15:53:43.016] [32mINFO[39m: [36m[Lore] Starting...[39m
+[15:53:43.026] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:395223:55:48 [tsx] change in ./src/agent/init-agent.ts Restarting...
+c[15:55:49.155] [32mINFO[39m: [36m[Lore] Starting...[39m
+[15:55:49.166] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:19[15:55:49.166] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[15:55:49.166] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[15:55:49.166] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+223:57:14 [tsx] change in ./src/agent/init-agent.ts Rerunning...
+c[15:57:15.178] [32mINFO[39m: [36m[Lore] Starting...[39m
+[15:57:15.189] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[15:57:15.189] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[15:57:15.189] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+01:36:15 [tsx] change in ./src/agent/agent-manager.ts Restarting...
+c[17:36:16.276] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:36:16.286] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:19[17:36:16.286] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[17:36:16.286] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[17:36:16.286] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+001:39:02 [tsx] change in ./src/llm/scheduler.ts Rerunning...
+c[17:39:03.189] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:39:03.210] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:395201:43:05 [tsx] change in ./src/agent/init-agent.ts Restarting...
+c[17:43:06.282] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:43:06.293] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+01:43:57 [tsx] change in ./src/index.ts Rerunning...
+c[17:43:58.255] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:43:58.265] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }01:44:18 [tsx] change in ./src/index.ts Restarting...
+c[17:44:19.086] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:44:19.098] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:395201:44:27 [tsx] unlink in ./src/agent/stats-manager.ts Restarting...
+c
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/liuyang/codes/Lore/packages/server/src/agent/enhanced-runtime.js' imported from /Users/liuyang/codes/Lore/packages/server/src/agent/agent-manager.ts
+    at finalizeResolution (node:internal/modules/esm/resolve:274:11)
+    at moduleResolve (node:internal/modules/esm/resolve:864:10)
+    at defaultResolve (node:internal/modules/esm/resolve:990:11)
+    at nextResolve (node:internal/modules/esm/hooks:785:28)
+    at resolveBase (file:///Users/liuyang/codes/Lore/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/esm/index.mjs?1776879868040:2:3744)
+    at async resolveDirectory (file:///Users/liuyang/codes/Lore/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/esm/index.mjs?1776879868040:2:4237)
+    at async resolve (file:///Users/liuyang/codes/Lore/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/esm/index.mjs?1776879868040:2:5355)
+    at async nextResolve (node:internal/modules/esm/hooks:785:22)
+    at async AsyncLoaderHooksOnLoaderHookWorker.resolve (node:internal/modules/esm/hooks:269:24)
+    at async handleMessage (node:internal/modules/esm/worker:251:18) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///Users/liuyang/codes/Lore/packages/server/src/agent/enhanced-runtime.js'
+}
+
+Node.js v24.12.0
+01:44:44 [tsx] change in ./src/agent/agent-manager.ts Rerunning...
+c[17:44:45.300] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:44:45.311] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }001:44:48 [tsx] change in ./src/llm/scheduler.ts Rerunning...
+c[17:44:49.403] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:44:49.412] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:395201:45:26 [tsx] change in ./src/agent/init-agent.ts Restarting...
+c[17:45:27.367] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:45:27.396] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[17:45:27.396] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[17:45:27.396] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+01:45:30 [tsx] change in ./src/agent/init-agent.ts Restarting...
+c[17:45:31.397] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:45:31.411] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+01:45:37 [tsx] change in ./src/agent/init-agent.ts Rerunning...
+c[17:45:38.364] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:45:38.377] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[17:45:38.377] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[17:45:38.377] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+01:46:02 [tsx] change in ./src/agent/init-agent.ts Restarting...
+c[17:46:03.403] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:46:03.413] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+01:46:34 [tsx] change in ./src/agent/init-agent.ts Rerunning...
+c[17:46:34.641] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:46:34.653] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+01:47:10 [tsx] change in ./src/db/repository.ts Rerunning...
+c[17:47:11.425] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:47:11.438] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+01:47:25 [tsx] change in ./src/db/schema.ts Rerunning...
+c[17:47:26.159] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:47:26.171] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+01:53:25 [tsx] change in ./src/agent/state-machine.ts Rerunning...
+c[17:53:26.493] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:53:26.504] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+01:53:57 [tsx] change in ./src/agent/event-bus.ts Rerunning...
+c[17:53:58.258] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:53:58.274] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[17:53:58.274] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[17:53:58.274] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+01:54:38 [tsx] change in ./src/agent/stats-manager.ts Restarting...
+c[17:54:39.395] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:54:39.405] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+01:58:22 [tsx] change in ./src/agent/agent-manager.ts Rerunning...
+c[17:58:22.889] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:58:22.900] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[17:58:22.900] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[17:58:22.900] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+01:59:44 [tsx] change in ./src/llm/prompts.ts Restarting...
+c[17:59:45.491] [32mINFO[39m: [36m[Lore] Starting...[39m
+[17:59:45.503] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+02:03:38 [tsx] change in ./src/agent/init-agent.ts Rerunning...
+c[18:03:39.084] [32mINFO[39m: [36m[Lore] Starting...[39m
+[18:03:39.094] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+02:04:20 [tsx] change in ./src/api/routes.ts Rerunning...
+c[18:04:20.758] [32mINFO[39m: [36m[Lore] Starting...[39m
+[18:04:20.768] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[18:04:20.768] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[18:04:20.768] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+02:04:44 [tsx] change in ./src/api/routes.ts Restarting...
+c[18:04:45.399] [32mINFO[39m: [36m[Lore] Starting...[39m
+[18:04:45.410] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+
+02:04:44 [tsx] change in ./src/api/routes.ts Rerunning...
+c[18:04:45.382] [32mINFO[39m: [36m[Lore] Starting...[39m
+[18:04:45.396] [32mINFO[39m: [36mServer listening at http://127.0.0.1:39527[39m
+[18:04:45.396] [32mINFO[39m: [36mServer listening at http://192.168.31.15:39527[39m
+[18:04:45.396] [32mINFO[39m: [36m[Lore] Server running at http://localhost:39527[39m
+27
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }
+02:04:44 [tsx] change in ./src/api/routes.ts Rerunning...
+c[18:04:45.388] [32mINFO[39m: [36m[Lore] Starting...[39m
+[18:04:45.400] [31mERROR[39m: [36m[Lore] Failed to start[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:39527",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:39527
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE",
+      "errno": -48,
+      "syscall": "listen",
+      "address": "0.0.0.0",
+      "port": 39527
+    }

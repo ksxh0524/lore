@@ -2,8 +2,8 @@ import type { InitRequest, InitResult, AgentProfile, AgentStats } from '@lore/sh
 import { nanoid } from 'nanoid';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { Repository } from '../db/repository.js';
-import { buildRandomWorldPrompt } from '../llm/prompts.js';
 import type { LoreConfig } from '../config/loader.js';
+import { buildRandomWorldPrompt } from '../llm/prompts.js';
 
 export class InitAgent {
   private llmScheduler: LLMScheduler;
@@ -30,10 +30,21 @@ export class InitAgent {
     return this.initRandomWorld(worldId, { age: 25, location: '上海', background: '上班族' });
   }
 
-  private async initHistoryWorld(worldId: string, params: { presetName: string; targetCharacter?: string }): Promise<InitResult> {
+  private async initHistoryWorld(
+    worldId: string,
+    params: { presetName: string; targetCharacter?: string },
+  ): Promise<InitResult> {
     const prompt = [
-      { role: 'system' as const, content: `你是一个历史世界构建大师。用户要求穿越到"${params.presetName}"时代。请生成一个符合该时代的完整世界，包括5-8个历史人物。输出JSON格式：{"worldConfig":{"name":"...","startTime":"ISO时间","location":"..."},"agents":[{"name":"...","age":25,"gender":"男/女","occupation":"...","personality":"...","backstory":"...","speechStyle":"...","initialStats":{"mood":70,"health":100,"energy":100,"money":500}}],"userAvatar":{"name":"玩家","profile":{"name":"玩家","age":20,"gender":"unknown","occupation":"...","personality":"由你定义","background":"","speechStyle":"随意","likes":[],"dislikes":[]},"initialStats":{"mood":70,"health":100,"energy":100,"money":1000},"backstory":"..."}}` },
-      { role: 'user' as const, content: `请生成"${params.presetName}"的历史世界。${params.targetCharacter ? `用户想成为：${params.targetCharacter}` : ''}` },
+      {
+        role: 'system' as const,
+        content: `你是一个历史世界构建大师。用户要求穿越到"${params.presetName}"时代。
+请生成一个符合该时代的完整世界，包括5-8个历史人物。
+输出JSON格式：{"worldConfig":{"name":"...","startTime":"ISO时间","location":"..."},"agents":[{"name":"...","age":25,"gender":"男/女","occupation":"...","personality":"...","backstory":"...","speechStyle":"...","initialStats":{"mood":70,"health":100,"energy":100,"money":500}}],"userAvatar":{"name":"玩家","profile":{"name":"玩家","age":20,"gender":"unknown","occupation":"...","personality":"由你定义","background":"","speechStyle":"随意","likes":[],"dislikes":[]},"initialStats":{"mood":70,"health":100,"energy":100,"money":1000},"backstory":"..."}}`,
+      },
+      {
+        role: 'user' as const,
+        content: `请生成"${params.presetName}"的历史世界。${params.targetCharacter ? `用户想成为：${params.targetCharacter}` : ''}`,
+      },
     ];
 
     let worldData: any;
@@ -60,10 +71,15 @@ export class InitAgent {
     const agents: InitResult['agents'] = [];
     for (const raw of worldData.agents ?? []) {
       const profile: AgentProfile = raw.profile ?? {
-        name: raw.name ?? 'NPC', age: raw.age ?? 25, gender: raw.gender ?? 'unknown',
-        occupation: raw.occupation ?? '平民', personality: raw.personality ?? '普通',
-        background: raw.backstory ?? raw.background ?? '', speechStyle: raw.speechStyle ?? '文言风',
-        likes: raw.likes ?? [], dislikes: raw.dislikes ?? [],
+        name: raw.name ?? 'NPC',
+        age: raw.age ?? 25,
+        gender: raw.gender ?? 'unknown',
+        occupation: raw.occupation ?? '平民',
+        personality: raw.personality ?? '普通',
+        background: raw.backstory ?? raw.background ?? '',
+        speechStyle: raw.speechStyle ?? '文言风',
+        likes: raw.likes ?? [],
+        dislikes: raw.dislikes ?? [],
       };
       const stats: AgentStats = raw.initialStats ?? { mood: 70, health: 100, energy: 100, money: 500 };
       agents.push({ name: profile.name, profile, initialStats: stats, backstory: raw.backstory ?? '' });
@@ -72,8 +88,15 @@ export class InitAgent {
     const userAvatar: InitResult['userAvatar'] = {
       name: worldData.userAvatar?.name ?? '玩家',
       profile: worldData.userAvatar?.profile ?? {
-        name: '玩家', age: 20, gender: 'unknown', occupation: params.targetCharacter ?? '穿越者',
-        personality: '由你定义', background: '', speechStyle: '随意', likes: [], dislikes: [],
+        name: '玩家',
+        age: 20,
+        gender: 'unknown',
+        occupation: params.targetCharacter ?? '穿越者',
+        personality: '由你定义',
+        background: '',
+        speechStyle: '随意',
+        likes: [],
+        dislikes: [],
       },
       initialStats: worldData.userAvatar?.initialStats ?? { mood: 70, health: 100, energy: 100, money: 1000 },
       backstory: worldData.userAvatar?.backstory ?? '',
@@ -93,27 +116,10 @@ export class InitAgent {
     };
   }
 
-  private generateHistoryFallback(presetName: string): any {
-    const names = ['李明', '赵云', '张华', '王昭', '陈安', '刘禅', '杨妃'];
-    const occupations = ['将军', '文官', '商人', '农夫', '工匠', '书生', '宫女'];
-    return {
-      worldConfig: { name: `${presetName}`, startTime: new Date().toISOString(), location: '中国' },
-      userAvatar: {
-        name: '玩家', profile: { name: '玩家', age: 20, gender: 'unknown', occupation: '穿越者', personality: '由你定义', background: '', speechStyle: '随意', likes: [], dislikes: [] },
-        initialStats: { mood: 70, health: 100, energy: 100, money: 1000 }, backstory: '',
-      },
-      agents: names.map((name, i) => ({
-        name, age: 20 + Math.floor(Math.random() * 30), gender: i % 2 === 0 ? '男' : '女',
-        occupation: occupations[i], personality: '沉稳',
-        backstory: `${name}是${presetName}时代的一个${occupations[i]}`,
-        speechStyle: '文雅',
-        profile: { name, age: 25, gender: i % 2 === 0 ? '男' : '女', occupation: occupations[i], personality: '沉稳', background: '', speechStyle: '文雅', likes: [], dislikes: [] },
-        initialStats: { mood: 70, health: 100, energy: 100, money: 500 },
-      })),
-    };
-  }
-
-  private async initRandomWorld(worldId: string, params: { age: number; location: string; background: string }): Promise<InitResult> {
+  private async initRandomWorld(
+    worldId: string,
+    params: { age: number; location: string; background: string },
+  ): Promise<InitResult> {
     const prompt = buildRandomWorldPrompt(params);
 
     let worldData: any;
@@ -162,9 +168,15 @@ export class InitAgent {
     const userAvatar: InitResult['userAvatar'] = {
       name: worldData.userAvatar?.name ?? '玩家',
       profile: worldData.userAvatar?.profile ?? {
-        name: '玩家', age: params.age, gender: 'unknown',
-        occupation: params.background, personality: '由你定义',
-        background: '', speechStyle: '随意', likes: [], dislikes: [],
+        name: '玩家',
+        age: params.age,
+        gender: 'unknown',
+        occupation: params.background,
+        personality: '由你定义',
+        background: '',
+        speechStyle: '随意',
+        likes: [],
+        dislikes: [],
       },
       initialStats: worldData.userAvatar?.initialStats ?? { mood: 70, health: 100, energy: 100, money: 5000 },
       backstory: worldData.userAvatar?.backstory ?? '',
@@ -184,6 +196,31 @@ export class InitAgent {
     };
   }
 
+  private generateHistoryFallback(presetName: string): any {
+    const names = ['李明', '赵云', '张华', '王昭', '陈安', '刘禅', '杨妃'];
+    const occupations = ['将军', '文官', '商人', '农夫', '工匠', '书生', '宫女'];
+    return {
+      worldConfig: { name: `${presetName}`, startTime: new Date().toISOString(), location: '中国' },
+      userAvatar: {
+        name: '玩家',
+        profile: { name: '玩家', age: 20, gender: 'unknown', occupation: '穿越者', personality: '由你定义', background: '', speechStyle: '随意', likes: [], dislikes: [] },
+        initialStats: { mood: 70, health: 100, energy: 100, money: 1000 },
+        backstory: '',
+      },
+      agents: names.map((name, i) => ({
+        name,
+        age: 20 + Math.floor(Math.random() * 30),
+        gender: i % 2 === 0 ? '男' : '女',
+        occupation: occupations[i],
+        personality: '沉稳',
+        backstory: `${name}是${presetName}时代的一个${occupations[i]}`,
+        speechStyle: '文雅',
+        profile: { name, age: 25, gender: i % 2 === 0 ? '男' : '女', occupation: occupations[i], personality: '沉稳', background: '', speechStyle: '文雅', likes: [], dislikes: [] },
+        initialStats: { mood: 70, health: 100, energy: 100, money: 500 },
+      })),
+    };
+  }
+
   private generateFallbackWorld(params: { age: number; location: string; background: string }): any {
     const names = ['小美', '阿杰', '王姐', '老陈', '小李', '张伟', '小芳'];
     const occupations = ['程序员', '设计师', '老师', '外卖员', '销售', '学生', '厨师'];
@@ -198,12 +235,15 @@ export class InitAgent {
       backstory: `${name}是一个生活在${params.location}的普通人。`,
       speechStyle: '随意',
       profile: {
-        name, age: 20 + Math.floor(Math.random() * 30),
+        name,
+        age: 20 + Math.floor(Math.random() * 30),
         gender: i % 2 === 0 ? '女' : '男',
         occupation: occupations[i] ?? '无业',
         personality: personalities[i] ?? '普通',
         background: `${name}是一个生活在${params.location}的普通人。`,
-        speechStyle: '随意', likes: [], dislikes: [],
+        speechStyle: '随意',
+        likes: [],
+        dislikes: [],
       },
       initialStats: { mood: 60 + Math.floor(Math.random() * 30), health: 100, energy: 80, money: 1000 + Math.floor(Math.random() * 5000) },
     }));

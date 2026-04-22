@@ -13,7 +13,7 @@ export interface AgentProfile {
   avatarUrl?: string;
 }
 
-export type AgentStatus = 'idle' | 'active' | 'sleeping' | 'dead';
+export type AgentStatus = 'idle' | 'active' | 'sleeping' | 'dead' | 'working' | 'traveling' | 'socializing';
 
 export interface AgentState {
   status: AgentStatus;

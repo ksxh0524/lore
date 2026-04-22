@@ -1,5 +1,5 @@
 export type MemoryType = 'working' | 'recent' | 'long-term';
-export type MemoryContentType = 'chat' | 'event' | 'decision' | 'relationship';
+export type MemoryContentType = 'chat' | 'event' | 'decision' | 'relationship' | 'action' | 'system';
 
 export interface MemoryEntry {
   id: string;

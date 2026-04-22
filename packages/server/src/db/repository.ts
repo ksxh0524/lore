@@ -54,7 +54,7 @@ export class Repository {
 
   async insertMemory(data: {
     id: string; agentId: string; type: 'working' | 'recent' | 'long-term';
-    content: string; importance?: number; memoryType?: 'chat' | 'event' | 'decision' | 'relationship'; timestamp: Date; expiresAt?: Date;
+    content: string; importance?: number; memoryType?: 'chat' | 'event' | 'decision' | 'relationship' | 'action' | 'system'; timestamp: Date; expiresAt?: Date;
   }) {
     const result = await db.insert(s.memories).values({
       ...data,

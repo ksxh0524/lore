@@ -26,9 +26,6 @@ ${a.speechStyle}
 - 正在: ${agent.state.currentActivity || '空闲'}
 - 位置: ${agent.state.currentLocation || '未知'}
 
-## 最近记忆
-${formatMemoryContext(memoryContext)}
-
 ## 规则
 - 保持角色一致性，不要跳出角色
 - 根据心情和精力调整语气
@@ -37,7 +34,7 @@ ${formatMemoryContext(memoryContext)}
 - 如果心情好且对方有吸引力，你可以主动示好
 - 不要主动透露你的内部数值`,
     },
-    ...memoryContext.slice(-6).map(m => ({ role: 'user' as const, content: m })),
+    ...memoryContext.slice(-6).map((m) => ({ role: 'user' as const, content: m })),
     { role: 'user', content: userMessage },
   ];
 }
@@ -74,7 +71,7 @@ ${worldState.currentTime}（第 ${worldState.day} 天）
       content: pendingEvents.length > 0
         ? `以下事件需要你做出决定：
 
-${pendingEvents.map(e => e.description).join('\n')}
+${pendingEvents.map((e) => e.description).join('\n')}
 
 请返回你的决定（JSON 格式）：
 {
@@ -89,7 +86,11 @@ ${pendingEvents.map(e => e.description).join('\n')}
   ];
 }
 
-export function buildRandomWorldPrompt(params: { age: number; location: string; background: string }): Array<{ role: 'system' | 'user'; content: string }> {
+export function buildRandomWorldPrompt(params: {
+  age: number;
+  location: string;
+  background: string;
+}): Array<{ role: 'system' | 'user'; content: string }> {
   return [
     {
       role: 'system',
@@ -177,9 +178,4 @@ function energyToText(energy: number): string {
   if (energy >= 50) return '还行';
   if (energy >= 20) return '有点累';
   return '精疲力竭';
-}
-
-function formatMemoryContext(context: string[]): string {
-  if (!context || context.length === 0) return '';
-  return context.slice(-10).join('\n');
 }

@@ -32,7 +32,7 @@ export const memories = sqliteTable('memories', {
   content: text('content').notNull(),
   embedding: blob('embedding'),
   importance: real('importance').default(0.5),
-  memoryType: text('memory_type', { enum: ['chat', 'event', 'decision', 'relationship'] }),
+  memoryType: text('memory_type', { enum: ['chat', 'event', 'decision', 'relationship', 'action', 'system'] }),
   timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
   expiresAt: integer('expires_at', { mode: 'timestamp' }),
 });
