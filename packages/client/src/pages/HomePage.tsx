@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Globe, Plus, Settings, ChevronRight, Loader2, Clock, Calendar } from 'lucide-react';
 import { api } from '../services/api';
 import { useWorldStore } from '../stores/worldStore';
+import './HomePage.css';
 
 interface World {
   id: string;
@@ -9,6 +11,11 @@ interface World {
   type: 'random' | 'history';
   status: string;
   createdAt: string;
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
 }
 
 export function HomePage() {
@@ -37,249 +44,89 @@ export function HomePage() {
     navigate('/world');
   };
 
-  const containerStyles: React.CSSProperties = {
-    minHeight: '100vh',
-    background: 'var(--bg-primary)',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: 'var(--space-xl)',
-  };
-
-  const headerStyles: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-sm)',
-    marginBottom: 'var(--space-3xl)',
-  };
-
-  const logoStyles: React.CSSProperties = {
-    fontSize: '2rem',
-  };
-
-  const titleStyles: React.CSSProperties = {
-    fontSize: 'var(--text-2xl)',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-  };
-
-  const cardContainerStyles: React.CSSProperties = {
-    width: '100%',
-    maxWidth: '480px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-lg)',
-  };
-
-  const cardStyles: React.CSSProperties = {
-    background: 'var(--bg-secondary)',
-    borderRadius: 'var(--radius-lg)',
-    padding: 'var(--space-xl)',
-    cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
-    border: '1px solid var(--border-subtle)',
-  };
-
-  const cardHoverStyles: React.CSSProperties = {
-    transform: 'translateY(-2px)',
-    boxShadow: 'var(--shadow-md)',
-    borderColor: 'var(--accent-primary)',
-  };
-
-  const cardHeaderStyles: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-md)',
-    marginBottom: 'var(--space-sm)',
-  };
-
-  const iconStyles: React.CSSProperties = {
-    fontSize: '1.5rem',
-    width: '40px',
-    height: '40px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'var(--bg-tertiary)',
-    borderRadius: 'var(--radius-md)',
-  };
-
-  const cardTitleStyles: React.CSSProperties = {
-    fontSize: 'var(--text-lg)',
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-  };
-
-  const cardDescStyles: React.CSSProperties = {
-    fontSize: 'var(--text-sm)',
-    color: 'var(--text-secondary)',
-    marginLeft: 'calc(40px + var(--space-md))',
-  };
-
-  const worldListStyles: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-sm)',
-    marginTop: 'var(--space-md)',
-  };
-
-  const worldItemStyles: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 'var(--space-md)',
-    background: 'var(--bg-tertiary)',
-    borderRadius: 'var(--radius-md)',
-    cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
-    border: '1px solid transparent',
-  };
-
-  const worldItemHoverStyles: React.CSSProperties = {
-    background: 'var(--bg-hover)',
-    borderColor: 'var(--border-default)',
-  };
-
-  const worldNameStyles: React.CSSProperties = {
-    fontWeight: 500,
-    color: 'var(--text-primary)',
-  };
-
-  const worldMetaStyles: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-sm)',
-    fontSize: 'var(--text-xs)',
-    color: 'var(--text-muted)',
-  };
-
-  const tagStyles = (type: 'random' | 'history'): React.CSSProperties => ({
-    padding: '2px 8px',
-    borderRadius: 'var(--radius-sm)',
-    background: type === 'history' ? 'var(--accent-warning)' : 'var(--accent-info)',
-    color: '#fff',
-    fontWeight: 500,
-  });
-
-  const statusStyles = (status: string): React.CSSProperties => ({
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: status === 'running' ? 'var(--accent-success)' : 'var(--text-muted)',
-    animation: status === 'running' ? 'pulse 2s ease-in-out infinite' : 'none',
-  });
-
-  const emptyStyles: React.CSSProperties = {
-    textAlign: 'center',
-    padding: 'var(--space-xl)',
-    color: 'var(--text-muted)',
-    fontSize: 'var(--text-sm)',
-  };
-
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-  const [hoveredWorld, setHoveredWorld] = useState<string | null>(null);
-
   return (
-    <div style={containerStyles}>
-      {/* Header */}
-      <div style={headerStyles}>
-        <span style={logoStyles}>🌍</span>
-        <span style={titleStyles}>Lore</span>
-      </div>
-
-      {/* Cards */}
-      <div style={cardContainerStyles}>
-        {/* New World Card */}
-        <div
-          style={{
-            ...cardStyles,
-            ...(hoveredCard === 'new' ? cardHoverStyles : {}),
-          }}
-          onMouseEnter={() => setHoveredCard('new')}
-          onMouseLeave={() => setHoveredCard(null)}
-          onClick={() => navigate('/new')}
-        >
-          <div style={cardHeaderStyles}>
-            <div style={iconStyles}>➕</div>
-            <div style={cardTitleStyles}>新建</div>
+    <div className="home-page">
+      <header className="home-header">
+        <div className="home-logo">
+          <div className="home-logo-icon">
+            <Globe size={18} />
           </div>
-          <div style={cardDescStyles}>创建一个新世界</div>
+          <span className="home-logo-text">Lore</span>
         </div>
+        <div className="home-header-actions">
+          <button className="home-header-btn" onClick={() => navigate('/settings')}>
+            <Settings size={20} />
+          </button>
+        </div>
+      </header>
 
-        {/* History Worlds Card */}
-        <div style={cardStyles}>
-          <div style={cardHeaderStyles}>
-            <div style={iconStyles}>📜</div>
-            <div style={cardTitleStyles}>历史的世界</div>
-          </div>
-          
+      <main className="home-main">
+        <div className="home-content">
           {loading ? (
-            <div style={{ ...cardDescStyles, color: 'var(--text-muted)' }}>
-              加载中...
+            <div className="home-loading">
+              <Loader2 className="animate-spin" size={32} />
             </div>
           ) : worlds.length === 0 ? (
-            <div style={emptyStyles}>
-              暂无世界，去创建一个吧
+            <div className="home-empty-state">
+              <div className="home-empty-illustration">
+                <Globe size={48} strokeWidth={1.5} />
+              </div>
+              <h2 className="home-empty-title">开始创建你的世界</h2>
+              <p className="home-empty-desc">
+                创建一个 AI 驱动的虚拟世界，观察角色们的生活和故事
+              </p>
+              <button className="home-create-btn" onClick={() => navigate('/new')}>
+                <Plus size={20} />
+                <span>新建世界</span>
+              </button>
             </div>
           ) : (
-            <div style={worldListStyles}>
-              {worlds.map((world) => (
-                <div
-                  key={world.id}
-                  style={{
-                    ...worldItemStyles,
-                    ...(hoveredWorld === world.id ? worldItemHoverStyles : {}),
-                  }}
-                  onMouseEnter={() => setHoveredWorld(world.id)}
-                  onMouseLeave={() => setHoveredWorld(null)}
-                  onClick={() => handleEnterWorld(world.id)}
-                >
-                  <div>
-                    <div style={worldNameStyles}>{world.name}</div>
-                    <div style={worldMetaStyles}>
-                      <span style={tagStyles(world.type)}>
+            <div className="home-worlds-section">
+              <div className="home-section-header">
+                <h2 className="home-section-title">我的世界</h2>
+                <button className="home-section-btn" onClick={() => navigate('/new')}>
+                  <Plus size={16} />
+                  <span>新建</span>
+                </button>
+              </div>
+
+              <div className="home-worlds-grid">
+                {worlds.map((world) => (
+                  <div
+                    key={world.id}
+                    className="home-world-card"
+                    onClick={() => handleEnterWorld(world.id)}
+                  >
+                    <div className="home-world-card-header">
+                      <div className="home-world-icon">
+                        <Globe size={24} />
+                      </div>
+                      <span className={`home-world-status-dot ${world.status === 'running' ? 'running' : ''}`} />
+                    </div>
+                    <div className="home-world-name">{world.name}</div>
+                    <div className="home-world-meta">
+                      <span className={`home-world-tag ${world.type}`}>
                         {world.type === 'history' ? '历史' : '随机'}
                       </span>
-                      <span>·</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={statusStyles(world.status)} />
-                        {world.status === 'running' ? '运行中' : '已暂停'}
+                      <span>{world.status === 'running' ? '运行中' : '已暂停'}</span>
+                    </div>
+                    <div className="home-world-footer">
+                      <span>
+                        <Calendar size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                        {formatDate(world.createdAt)}
+                      </span>
+                      <span className="home-world-enter">
+                        进入
+                        <ChevronRight size={14} />
                       </span>
                     </div>
                   </div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-lg)' }}>
-                    →
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
-
-        {/* Settings Card */}
-        <div
-          style={{
-            ...cardStyles,
-            ...(hoveredCard === 'settings' ? cardHoverStyles : {}),
-          }}
-          onMouseEnter={() => setHoveredCard('settings')}
-          onMouseLeave={() => setHoveredCard(null)}
-          onClick={() => navigate('/settings')}
-        >
-          <div style={cardHeaderStyles}>
-            <div style={iconStyles}>⚙️</div>
-            <div style={cardTitleStyles}>设置</div>
-          </div>
-          <div style={cardDescStyles}>配置 AI 提供商和其他选项</div>
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
+      </main>
     </div>
   );
 }
