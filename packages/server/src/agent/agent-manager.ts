@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { AgentType, AgentProfile, AgentState, AgentStats } from '@lore/shared';
+import type { AgentType, AgentProfile, AgentState, AgentStats, Relationship as RelationshipType } from '@lore/shared';
 import { AgentRuntime } from './agent-runtime.js';
 import type { Repository } from '../db/repository.js';
 import type { LLMScheduler } from '../llm/scheduler.js';
@@ -29,15 +29,7 @@ export class AgentManager {
     const id = nanoid();
     const agent = new AgentRuntime(id, worldId, type, profile, this.repo, this.llmScheduler, this.config, initialStats);
     this.agents.set(id, agent);
-
-    await this.repo.createAgent({
-      id,
-      worldId,
-      type,
-      profile,
-      state: agent.state,
-      stats: agent.stats,
-    });
+    agent.setAgentManager(this);
 
     return agent;
   }
@@ -56,6 +48,16 @@ export class AgentManager {
     return this.agents;
   }
 
+  private async loadRelationships(agentId: string): Promise<Array<[string, RelationshipType]>> {
+    try {
+      const rels = await this.repo.getAgentRelationships(agentId);
+      return rels.map((r) => [r.targetAgentId, r as unknown as RelationshipType] as [string, RelationshipType]);
+    } catch (err) {
+      logger.warn({ agentId, err }, 'Failed to load relationships');
+      return [];
+    }
+  }
+
   async getWorldAgents(worldId: string): Promise<AgentRuntime[]> {
     const cached = [...this.agents.values()].filter((a) => a.worldId === worldId);
     if (cached.length > 0) return cached;
@@ -66,6 +68,7 @@ export class AgentManager {
     for (const row of rows) {
       let agent = this.agents.get(row.id);
       if (!agent) {
+        const relationships = await this.loadRelationships(row.id);
         agent = AgentRuntime.deserialize(
           {
             id: row.id,
@@ -74,13 +77,14 @@ export class AgentManager {
             profile: row.profile as AgentProfile,
             state: row.state as AgentState,
             stats: row.stats as AgentStats,
-            relationships: [],
+            relationships,
           },
           this.repo,
           this.llmScheduler,
           this.config,
         );
         this.agents.set(row.id, agent);
+        agent.setAgentManager(this);
       }
       result.push(agent);
     }
@@ -108,9 +112,26 @@ export class AgentManager {
     for (const agent of this.agents.values()) {
       try {
         await this.repo.updateAgent(agent.id, {
-          state: agent.state,
+          state: {
+            ...agent.state,
+            currentLocation: agent.state.currentLocation,
+          },
           stats: agent.stats,
         });
+        for (const [targetId, rel] of agent.relationships) {
+          try {
+            const existing = await this.repo.getAgentRelationships(agent.id);
+            const found = existing.find((r) => r.targetAgentId === targetId);
+            if (found) {
+              await this.repo.updateRelationship(found.id, {
+                type: rel.type,
+                intimacy: rel.intimacy,
+              });
+            }
+          } catch (relErr) {
+            logger.warn({ agentId: agent.id, targetId, err: relErr }, 'Persist relationship failed');
+          }
+        }
       } catch (err) {
         logger.error({ agentId: agent.id, err }, 'Persist agent failed');
       }
@@ -146,6 +167,7 @@ export class AgentManager {
     if (match) {
       let agent = this.agents.get(match.id);
       if (!agent) {
+        const relationships = await this.loadRelationships(match.id);
         agent = AgentRuntime.deserialize(
           {
             id: match.id,
@@ -154,13 +176,14 @@ export class AgentManager {
             profile: match.profile as AgentProfile,
             state: match.state as AgentState,
             stats: match.stats as AgentStats,
-            relationships: [],
+            relationships,
           },
           this.repo,
           this.llmScheduler,
           this.config,
         );
         this.agents.set(match.id, agent);
+        agent.setAgentManager(this);
       }
       return agent;
     }
@@ -181,6 +204,7 @@ export class AgentManager {
     const row = await this.repo.getAgent(id);
     if (!row) return null;
 
+    const relationships = await this.loadRelationships(id);
     const agent = AgentRuntime.deserialize(
       {
         id: row.id,
@@ -189,7 +213,7 @@ export class AgentManager {
         profile: row.profile as AgentProfile,
         state: row.state as AgentState,
         stats: row.stats as AgentStats,
-        relationships: [],
+        relationships,
       },
       this.repo,
       this.llmScheduler,

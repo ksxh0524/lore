@@ -1,9 +1,9 @@
 import type { RelationshipType } from '@lore/shared';
 import type { Repository } from '../db/repository.js';
 import { nanoid } from 'nanoid';
-import { db } from '../db/index.js';
-import { relationships as relTable } from '../db/schema.js';
-import { and, lt, gt } from 'drizzle-orm';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('relationships');
 
 const transitionThresholds: Array<{ from: RelationshipType; to: RelationshipType; minIntimacy: number }> = [
   { from: 'stranger', to: 'acquaintance', minIntimacy: 11 },
@@ -57,7 +57,7 @@ export class RelationshipManager {
       return;
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (delta.intimacy !== undefined) {
       updateData.intimacy = Math.max(-50, Math.min(100, (rel.intimacy ?? 0) + delta.intimacy));
     }
@@ -108,18 +108,10 @@ export class RelationshipManager {
 
   async decayInactive(worldId: string): Promise<void> {
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-    const rows = await db.select().from(relTable).where(
-      and(
-        lt(relTable.updatedAt, cutoff),
-        gt(relTable.intimacy, 0),
-      )
-    );
-
-    for (const row of rows) {
-      await this.repo.updateRelationship(row.id, {
-        intimacy: Math.max(0, (row.intimacy ?? 0) - 1),
-      });
+    try {
+      await this.repo.decayInactiveRelationships(cutoff);
+    } catch (err) {
+      logger.warn({ worldId, err }, 'Failed to decay inactive relationships');
     }
   }
 }

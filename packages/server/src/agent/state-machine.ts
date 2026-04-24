@@ -70,6 +70,17 @@ export class AgentStateMachine extends EventEmitter {
       to: 'sleeping',
       guard: (ctx) => ctx.energy < 20,
     });
+    this.addTransition({ from: 'active', to: 'traveling' });
+    this.addTransition({
+      from: 'active',
+      to: 'working',
+      guard: (ctx) => ctx.energy > 30,
+    });
+    this.addTransition({
+      from: 'active',
+      to: 'socializing',
+      guard: (ctx) => ctx.mood > 20 && ctx.energy > 25,
+    });
 
     this.addTransition({
       from: 'sleeping',
@@ -89,6 +100,11 @@ export class AgentStateMachine extends EventEmitter {
     });
     this.addTransition({
       from: 'traveling',
+      to: 'active',
+      guard: (ctx) => ctx.energy > 20,
+    });
+    this.addTransition({
+      from: 'traveling',
       to: 'sleeping',
       guard: (ctx) => ctx.energy <= 10,
     });
@@ -100,6 +116,11 @@ export class AgentStateMachine extends EventEmitter {
     });
     this.addTransition({
       from: 'working',
+      to: 'active',
+      guard: (ctx) => ctx.energy > 40,
+    });
+    this.addTransition({
+      from: 'working',
       to: 'sleeping',
       guard: (ctx) => ctx.energy < 15,
     });
@@ -108,6 +129,11 @@ export class AgentStateMachine extends EventEmitter {
       from: 'socializing',
       to: 'idle',
       guard: (ctx) => ctx.energy < 20 || ctx.mood < 10,
+    });
+    this.addTransition({
+      from: 'socializing',
+      to: 'active',
+      guard: (ctx) => ctx.energy > 30,
     });
 
     this.addTransition({
@@ -133,7 +159,7 @@ export class AgentStateMachine extends EventEmitter {
   }
 
   canTransition(to: AgentStatus, context: StateContext): boolean {
-    if (this.currentState === to) return true;
+    if (this.currentState === to) return false;
     const key = `${this.currentState}->${to}`;
     const transitions = this.transitions.get(key);
     if (!transitions || transitions.length === 0) return false;

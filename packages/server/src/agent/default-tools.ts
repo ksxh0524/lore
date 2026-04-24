@@ -415,7 +415,7 @@ export function createSendFriendRequestTool(): AgentTool {
 export function createSearchMemoryTool(): AgentTool {
   return {
     name: 'search_memory',
-    description: '搜索自己的记忆（需要AgentRuntime实例）',
+    description: '搜索自己的记忆，查找相关信息',
     parameters: {
       type: 'object',
       properties: {
@@ -423,11 +423,15 @@ export function createSearchMemoryTool(): AgentTool {
       },
       required: ['query'],
     },
-    execute: async (args: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+      const query = String(args.query ?? '');
+      const results = await context.memory.search(query, 5);
       return {
         success: true,
-        message: '记忆搜索需要在AgentRuntime中特殊处理',
-        result: { query: String(args.query ?? ''), needsRuntime: true },
+        message: results.length > 0
+          ? `找到了${results.length}条相关记忆`
+          : '没有找到相关记忆',
+        result: { query, results },
       };
     },
   };

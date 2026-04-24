@@ -35,8 +35,11 @@ export class MemoryManager {
     if (this.workingMemory.length > 20) this.workingMemory.shift();
 
     const now = new Date();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    
+    const longTermThreshold = 0.8;
+    const expiresAt = importance >= longTermThreshold
+      ? undefined
+      : new Date(Date.now() + this.getExpiryDays(importance) * 24 * 60 * 60 * 1000);
+
     await this.repo.insertMemory({
       id: nanoid(),
       agentId: this.agentId,
@@ -148,7 +151,22 @@ export class MemoryManager {
   }
 
   private estimateTokens(text: string): number {
-    return Math.ceil(text.length / 4);
+    let tokens = 0;
+    for (const char of text) {
+      const code = char.codePointAt(0) ?? 0;
+      if (code > 0x7f) {
+        tokens += 2;
+      } else {
+        tokens += 0.25;
+      }
+    }
+    return Math.ceil(tokens);
+  }
+
+  private getExpiryDays(importance: number): number {
+    if (importance >= 0.7) return 30;
+    if (importance >= 0.5) return 14;
+    return 3;
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {

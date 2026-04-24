@@ -6,6 +6,7 @@ export { registerDefaultTools } from './default-tools.js';
 export { AgentStateMachine, type AgentStatus } from './state-machine.js';
 export { agentEventBus, type AgentEventType, type AgentEvent } from './event-bus.js';
 export { StatsManager } from './stats-manager.js';
+export { MessageInbox } from './message-inbox.js';
 export {
   type ToolContext,
   type ToolResult,
