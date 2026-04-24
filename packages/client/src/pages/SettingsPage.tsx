@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Brain, Settings, Globe, Info } from 'lucide-react';
+import { Brain, Settings, Globe, Info, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AIProvidersPanel } from '../components/settings/AIProvidersPanel';
 import './settings-page.css';
 
@@ -13,6 +14,7 @@ const tabs: { id: SettingsTab; label: string; Icon: typeof Brain }[] = [
 ];
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('providers');
 
   const renderTabContent = () => {
@@ -62,8 +64,12 @@ export function SettingsPage() {
   return (
     <div className="settings-page">
       <aside className="settings-sidebar">
-        <div className="settings-header">
-          <h1>设置</h1>
+        <div className="settings-sidebar-header">
+          <button className="settings-back-btn" onClick={() => navigate('/')}>
+            <ArrowLeft size={18} />
+            <span>返回</span>
+          </button>
+          <h1 className="settings-sidebar-title">设置</h1>
         </div>
         <nav className="settings-nav">
           {tabs.map((tab) => {
@@ -81,7 +87,11 @@ export function SettingsPage() {
           })}
         </nav>
       </aside>
-      <main className="settings-content">{renderTabContent()}</main>
+      <main className="settings-content">
+        <div className="settings-content-inner">
+          {renderTabContent()}
+        </div>
+      </main>
     </div>
   );
 }
