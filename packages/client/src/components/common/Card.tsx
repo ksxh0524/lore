@@ -1,8 +1,17 @@
-import { type ReactNode, type CSSProperties } from 'react';
+import { type ReactNode } from 'react';
+import {
+  MessageSquare,
+  Briefcase,
+  Dice5,
+  Heart,
+  Activity,
+  Coins,
+  Globe
+} from 'lucide-react';
+import './card.css';
 
 interface CardProps {
   children: ReactNode;
-  style?: CSSProperties;
   className?: string;
   padding?: 'none' | 'sm' | 'md' | 'lg';
   hoverable?: boolean;
@@ -11,48 +20,21 @@ interface CardProps {
 
 export function Card({
   children,
-  style,
-  className,
+  className = '',
   padding = 'md',
   hoverable = false,
   onClick,
 }: CardProps) {
-  const paddingMap = {
-    none: 0,
-    sm: 'var(--space-sm)',
-    md: 'var(--space-md)',
-    lg: 'var(--space-lg)',
-  };
-
-  const baseStyles: CSSProperties = {
-    background: 'var(--bg-secondary)',
-    borderRadius: 'var(--radius-lg)',
-    border: '1px solid var(--border-subtle)',
-    padding: paddingMap[padding],
-    transition: 'all var(--transition-fast)',
-    cursor: onClick ? 'pointer' : 'default',
-  };
+  const classes = [
+    'card',
+    `padding-${padding}`,
+    hoverable ? 'hoverable' : '',
+    onClick ? 'clickable' : '',
+    className,
+  ].filter(Boolean).join(' ');
 
   return (
-    <div
-      className={className}
-      onClick={onClick}
-      style={baseStyles}
-      onMouseEnter={(e) => {
-        if (hoverable || onClick) {
-          e.currentTarget.style.borderColor = 'var(--border-default)';
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (hoverable || onClick) {
-          e.currentTarget.style.borderColor = 'var(--border-subtle)';
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = 'none';
-        }
-      }}
-    >
+    <div className={classes} onClick={onClick}>
       {children}
     </div>
   );
@@ -66,6 +48,16 @@ interface EventCardProps {
   timestamp?: string;
 }
 
+const eventIcons = {
+  social: MessageSquare,
+  work: Briefcase,
+  random: Dice5,
+  relationship: Heart,
+  health: Activity,
+  money: Coins,
+  world: Globe,
+};
+
 const eventColors: Record<string, string> = {
   social: 'var(--event-social)',
   work: 'var(--event-work)',
@@ -76,56 +68,28 @@ const eventColors: Record<string, string> = {
   world: 'var(--event-world)',
 };
 
-const eventIcons: Record<string, string> = {
-  social: '💬',
-  work: '💼',
-  random: '🎲',
-  relationship: '❤️',
-  health: '🏥',
-  money: '💰',
-  world: '🌍',
-};
-
 export function EventCard({ type, title, description, actions, timestamp }: EventCardProps) {
+  const IconComponent = eventIcons[type];
   const color = eventColors[type];
-  const icon = eventIcons[type];
 
   return (
-    <Card padding="md" style={{ borderLeft: `4px solid ${color}` }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-sm)' }}>
-        <span style={{ fontSize: '1.25rem' }}>{icon}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ 
-            fontWeight: 600, 
-            color: 'var(--text-primary)',
-            marginBottom: 'var(--space-xs)',
-          }}>
-            {title}
-          </div>
-          <div style={{ 
-            color: 'var(--text-secondary)', 
-            fontSize: 'var(--text-sm)',
-            lineHeight: 1.5,
-            marginBottom: actions && actions.length > 0 ? 'var(--space-md)' : 0,
-          }}>
+    <Card padding="md" className={`event-card type-${type}`}>
+      <div className="event-card-header">
+        <IconComponent className="event-card-icon" style={{ color }} />
+        <div className="event-card-content">
+          <div className="event-card-title">{title}</div>
+          <div className="event-card-description" style={{ marginBottom: actions && actions.length > 0 ? 'var(--space-md)' : 0 }}>
             {description}
           </div>
           {actions && actions.length > 0 && (
-            <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>
+            <div className="event-card-actions">
               {actions.map((action, i) => (
                 <button
                   key={i}
                   onClick={action.onClick}
+                  className={`event-card-action-btn ${action.variant || 'secondary'}`}
                   style={{
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: 'var(--text-sm)',
-                    fontWeight: 500,
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-fast)',
-                    background: action.variant === 'primary' ? color : 'var(--bg-tertiary)',
-                    color: action.variant === 'primary' ? '#fff' : 'var(--text-primary)',
+                    background: action.variant === 'primary' ? color : undefined,
                   }}
                 >
                   {action.label}
@@ -135,13 +99,7 @@ export function EventCard({ type, title, description, actions, timestamp }: Even
           )}
         </div>
         {timestamp && (
-          <div style={{ 
-            fontSize: 'var(--text-xs)', 
-            color: 'var(--text-muted)',
-            whiteSpace: 'nowrap',
-          }}>
-            {timestamp}
-          </div>
+          <div className="event-card-timestamp">{timestamp}</div>
         )}
       </div>
     </Card>

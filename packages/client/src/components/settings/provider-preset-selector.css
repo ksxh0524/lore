@@ -1,0 +1,113 @@
+.provider-preset-selector-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-md);
+}
+
+.provider-preset-selector-modal {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.provider-preset-selector-header {
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.provider-preset-selector-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+
+.provider-preset-selector-desc {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.provider-preset-selector-list {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.provider-preset-selector-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-left: 3px solid var(--preset-color);
+}
+
+.provider-preset-selector-item:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+}
+
+.provider-preset-selector-item-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.provider-preset-selector-item-icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--preset-color);
+}
+
+.provider-preset-selector-item-content {
+  flex: 1;
+}
+
+.provider-preset-selector-item-name {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.provider-preset-selector-item-desc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.provider-preset-selector-item-arrow {
+  color: var(--text-muted);
+}
+
+.provider-preset-selector-footer {
+  padding: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.provider-preset-selector-cancel-btn {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--text-base);
+}
+
+.provider-preset-selector-cancel-btn:hover {
+  background: var(--bg-tertiary);
+}

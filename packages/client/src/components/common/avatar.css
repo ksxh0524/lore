@@ -1,0 +1,83 @@
+.avatar {
+  position: relative;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.avatar.size-sm {
+  width: 32px;
+  height: 32px;
+  font-size: 0.875rem;
+}
+
+.avatar.size-md {
+  width: 40px;
+  height: 40px;
+  font-size: 1rem;
+}
+
+.avatar.size-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 1.5rem;
+}
+
+.avatar.size-xl {
+  width: 80px;
+  height: 80px;
+  font-size: 2rem;
+}
+
+.avatar-status {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
+}
+
+.avatar-status.online {
+  background: var(--accent-success);
+}
+
+.avatar-status.offline {
+  background: var(--text-muted);
+}
+
+.avatar-status.idle {
+  background: var(--accent-warning);
+}
+
+.avatar-status.busy {
+  background: var(--accent-error);
+}
+
+.mood-indicator {
+  font-size: var(--text-xs);
+  opacity: 0.8;
+}
+
+.mood-indicator.excellent {
+  color: var(--accent-success);
+}
+
+.mood-indicator.good {
+  color: #84cc16;
+}
+
+.mood-indicator.neutral {
+  color: var(--accent-warning);
+}
+
+.mood-indicator.low {
+  color: #f97316;
+}
+
+.mood-indicator.bad {
+  color: var(--accent-error);
+}

@@ -1,9 +1,10 @@
-import type { CSSProperties } from 'react';
+import { Users, Zap, MessageSquare, ScrollText } from 'lucide-react';
+import './bottom-nav.css';
 
 interface NavItem {
   id: string;
   label: string;
-  icon: string;
+  Icon: typeof Users;
 }
 
 interface BottomNavProps {
@@ -12,58 +13,25 @@ interface BottomNavProps {
 }
 
 const navItems: NavItem[] = [
-  { id: 'agents', label: '角色', icon: '👥' },
-  { id: 'events', label: '事件', icon: '⚡' },
-  { id: 'chat', label: '聊天', icon: '💬' },
-  { id: 'timeline', label: '时间线', icon: '📜' },
+  { id: 'agents', label: '角色', Icon: Users },
+  { id: 'events', label: '事件', Icon: Zap },
+  { id: 'chat', label: '聊天', Icon: MessageSquare },
+  { id: 'timeline', label: '时间线', Icon: ScrollText },
 ];
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
-  const containerStyles: CSSProperties = {
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: 'var(--bg-secondary)',
-    borderTop: '1px solid var(--border-subtle)',
-    display: 'flex',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    height: '60px',
-    zIndex: 100,
-    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-  };
-
   return (
-    <nav style={containerStyles}>
+    <nav className="bottom-nav">
       {navItems.map((item) => {
         const isActive = activeTab === item.id;
-        
         return (
           <button
             key={item.id}
             onClick={() => onTabChange(item.id)}
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '2px',
-              height: '100%',
-              background: 'transparent',
-              border: 'none',
-              color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
-              cursor: 'pointer',
-              transition: 'color var(--transition-fast)',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-
+            className={`bottom-nav-item ${isActive ? 'active' : ''}`}
           >
-            <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: isActive ? 600 : 400 }}>
-              {item.label}
-            </span>
+            <item.Icon className="bottom-nav-icon" />
+            <span className="bottom-nav-label">{item.label}</span>
           </button>
         );
       })}

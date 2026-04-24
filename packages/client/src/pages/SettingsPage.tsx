@@ -1,58 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Brain, Settings, Globe, Info } from 'lucide-react';
 import { AIProvidersPanel } from '../components/settings/AIProvidersPanel';
-import type { CSSProperties } from 'react';
+import './settings-page.css';
 
 type SettingsTab = 'providers' | 'general' | 'world' | 'about';
 
-interface TabConfig {
-  id: SettingsTab;
-  label: string;
-  icon: string;
-}
-
-const tabs: TabConfig[] = [
-  { id: 'providers', label: 'AI 服务商', icon: '🧠' },
-  { id: 'general', label: '通用设置', icon: '⚙️' },
-  { id: 'world', label: '世界设置', icon: '🌍' },
-  { id: 'about', label: '关于', icon: 'ℹ️' },
+const tabs: { id: SettingsTab; label: string; Icon: typeof Brain }[] = [
+  { id: 'providers', label: 'AI 服务商', Icon: Brain },
+  { id: 'general', label: '通用设置', Icon: Settings },
+  { id: 'world', label: '世界设置', Icon: Globe },
+  { id: 'about', label: '关于', Icon: Info },
 ];
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('providers');
-
-  const containerStyles: CSSProperties = {
-    minHeight: '100vh',
-    display: 'flex',
-    background: 'var(--bg-primary)',
-  };
-
-  const sidebarStyles: CSSProperties = {
-    width: '260px',
-    background: 'var(--bg-secondary)',
-    borderRight: '1px solid var(--border-subtle)',
-    display: 'flex',
-    flexDirection: 'column',
-    flexShrink: 0,
-  };
-
-  const headerStyles: CSSProperties = {
-    padding: 'var(--space-lg)',
-    borderBottom: '1px solid var(--border-subtle)',
-  };
-
-  const navStyles: CSSProperties = {
-    flex: 1,
-    padding: 'var(--space-md)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-xs)',
-  };
-
-  const contentStyles: CSSProperties = {
-    flex: 1,
-    overflow: 'auto',
-    padding: 'var(--space-lg)',
-  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -60,38 +21,36 @@ export function SettingsPage() {
         return <AIProvidersPanel />;
       case 'general':
         return (
-          <div style={{ padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>
-            <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-md)' }}>通用设置</h2>
+          <div className="settings-placeholder">
+            <h2>通用设置</h2>
             <p>通用设置功能即将推出...</p>
           </div>
         );
       case 'world':
         return (
-          <div style={{ padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>
-            <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-md)' }}>世界设置</h2>
+          <div className="settings-placeholder">
+            <h2>世界设置</h2>
             <p>世界默认设置功能即将推出...</p>
           </div>
         );
       case 'about':
         return (
-          <div style={{ padding: 'var(--space-xl)' }}>
-            <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-md)' }}>关于 Lore</h2>
-            <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              <p style={{ marginBottom: 'var(--space-md)' }}>
+          <div className="settings-about">
+            <h2>关于 Lore</h2>
+            <div className="settings-about-content">
+              <p>
                 <strong>Lore</strong> 是一个开源的 AI 世界模拟器。
               </p>
-              <p style={{ marginBottom: 'var(--space-md)' }}>
+              <p>
                 每个 AI 角色都有独立的人格、记忆和生活轨迹。世界持续运行，角色自主决策。
               </p>
-              <p style={{ marginBottom: 'var(--space-md)' }}>
+              <p>
                 <strong>版本:</strong> 0.1.0
               </p>
-              <p style={{ marginBottom: 'var(--space-md)' }}>
+              <p>
                 <strong>开源地址:</strong> https://github.com/ksxh0524/lore
               </p>
-              <p>
-                MIT License © 2025
-              </p>
+              <p>MIT License © 2025</p>
             </div>
           </div>
         );
@@ -101,59 +60,28 @@ export function SettingsPage() {
   };
 
   return (
-    <div style={containerStyles}>
-      {/* Sidebar */}
-      <aside style={sidebarStyles}>
-        <div style={headerStyles}>
-          <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700 }}>设置</h1>
+    <div className="settings-page">
+      <aside className="settings-sidebar">
+        <div className="settings-header">
+          <h1>设置</h1>
         </div>
-        <nav style={navStyles}>
+        <nav className="settings-nav">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-md)',
-                  padding: 'var(--space-md)',
-                  borderRadius: 'var(--radius-md)',
-                  border: 'none',
-                  background: isActive ? 'var(--accent-primary)' : 'transparent',
-                  color: isActive ? '#fff' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  fontSize: 'var(--text-base)',
-                  fontWeight: isActive ? 600 : 400,
-                  transition: 'all var(--transition-fast)',
-                  textAlign: 'left',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'var(--bg-tertiary)';
-                    e.currentTarget.style.color = 'var(--text-primary)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = 'var(--text-secondary)';
-                  }
-                }}
+                className={`settings-tab ${isActive ? 'active' : ''}`}
               >
-                <span style={{ fontSize: '1.25rem' }}>{tab.icon}</span>
+                <tab.Icon className="settings-tab-icon" />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </nav>
       </aside>
-
-      {/* Main Content */}
-      <main style={contentStyles}>
-        {renderTabContent()}
-      </main>
+      <main className="settings-content">{renderTabContent()}</main>
     </div>
   );
 }

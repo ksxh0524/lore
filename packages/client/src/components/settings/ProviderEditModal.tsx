@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { ProviderPreset, UserProvider } from '@lore/shared';
-import type { CSSProperties } from 'react';
+import './provider-edit-modal.css';
 
 interface ProviderEditModalProps {
   preset?: ProviderPreset;
@@ -12,11 +12,11 @@ interface ProviderEditModalProps {
 
 export function ProviderEditModal({ preset, provider, onClose, onSave }: ProviderEditModalProps) {
   const { addProvider, updateProvider, testProvider, isLoading } = useSettingsStore();
-  
+
   const isEditing = !!provider;
   const presets = useSettingsStore((s) => s.presets);
   const currentPreset = preset || presets.find(p => p.id === provider?.presetId);
-  
+
   const [name, setName] = useState(provider?.name || currentPreset?.name || '');
   const [apiKey, setApiKey] = useState('');
   const [selectedModels, setSelectedModels] = useState<string[]>(provider?.models || []);
@@ -37,8 +37,6 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
       const newSelection = prev.includes(model)
         ? prev.filter(m => m !== model)
         : [...prev, model];
-      
-      // Ensure at least one model is selected
       if (newSelection.length === 0) {
         return prev;
       }
@@ -55,17 +53,17 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
 
   const handleSave = async () => {
     setError(null);
-    
+
     if (!name.trim()) {
       setError('请输入显示名称');
       return;
     }
-    
+
     if (!isEditing && !apiKey.trim()) {
       setError('请输入 API Key');
       return;
     }
-    
+
     if (selectedModels.length === 0) {
       setError('请至少选择一个模型');
       return;
@@ -74,10 +72,6 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
     try {
       if (isEditing && provider) {
         const updates: Partial<UserProvider> = { name: name.trim(), models: selectedModels };
-        if (apiKey.trim()) {
-          // API Key 只有在输入了新值时才更新
-          // 这里需要通过其他方式传递，暂时不支持编辑时修改 API Key
-        }
         await updateProvider(provider.id, updates);
       } else if (currentPreset) {
         await addProvider(currentPreset.id, apiKey.trim(), selectedModels);
@@ -88,76 +82,32 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
     }
   };
 
-  const containerStyles: CSSProperties = {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0, 0, 0, 0.8)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    padding: 'var(--space-md)',
-  };
-
-  const modalStyles: CSSProperties = {
-    background: 'var(--bg-secondary)',
-    borderRadius: 'var(--radius-lg)',
-    width: '100%',
-    maxWidth: '520px',
-    maxHeight: '90vh',
-    overflow: 'auto',
-  };
-
-  const sectionStyles: CSSProperties = {
-    padding: 'var(--space-lg)',
-    borderBottom: '1px solid var(--border-subtle)',
-  };
-
-  const inputStyles: CSSProperties = {
-    width: '100%',
-    padding: 'var(--space-md)',
-    borderRadius: 'var(--radius-md)',
-    background: 'var(--bg-tertiary)',
-    border: '1px solid var(--border-subtle)',
-    color: 'var(--text-primary)',
-    fontSize: 'var(--text-base)',
-    marginTop: 'var(--space-sm)',
-  };
-
   if (!currentPreset) return null;
 
   return (
-    <div style={containerStyles} onClick={onClose}>
-      <div style={modalStyles} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div style={sectionStyles}>
-          <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600 }}>
+    <div className="provider-edit-modal-overlay" onClick={onClose}>
+      <div className="provider-edit-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="provider-edit-modal-header">
+          <h2 className="provider-edit-modal-title">
             {isEditing ? '编辑服务商' : `添加 ${currentPreset.name}`}
           </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-xs)' }}>
-            {currentPreset.description}
-          </p>
+          <p className="provider-edit-modal-desc">{currentPreset.description}</p>
         </div>
 
-        {/* Form */}
-        <div style={sectionStyles}>
-          {/* Name */}
-          <div style={{ marginBottom: 'var(--space-lg)' }}>
-            <label style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-              显示名称
-            </label>
+        <div className="provider-edit-modal-form">
+          <div className="provider-edit-modal-field">
+            <label className="provider-edit-modal-label">显示名称</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={currentPreset.name}
-              style={inputStyles}
+              className="provider-edit-modal-input"
             />
           </div>
 
-          {/* API Key */}
-          <div style={{ marginBottom: 'var(--space-lg)' }}>
-            <label style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+          <div className="provider-edit-modal-field">
+            <label className="provider-edit-modal-label">
               API Key {isEditing && '(留空保持不变)'}
             </label>
             <input
@@ -165,51 +115,32 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={isEditing ? '••••••••••••••••' : currentPreset.apiKeyPlaceholder || 'sk-...'}
-              style={inputStyles}
+              className="provider-edit-modal-input"
             />
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-xs)' }}>
+            <p className="provider-edit-modal-input-hint">
               你的 API Key 将被加密存储在本地数据库中
             </p>
           </div>
 
-          {/* Models */}
-          <div>
-            <label style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', display: 'block', marginBottom: 'var(--space-sm)' }}>
+          <div className="provider-edit-modal-field">
+            <label className="provider-edit-modal-label">
               启用模型（第一个选中的将作为默认模型）
             </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+            <div className="provider-edit-modal-models">
               {currentPreset.defaultModels.map((model) => (
                 <label
                   key={model}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--space-md)',
-                    padding: 'var(--space-md)',
-                    borderRadius: 'var(--radius-md)',
-                    background: selectedModels.includes(model) ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-                    color: selectedModels.includes(model) ? '#fff' : 'var(--text-primary)',
-                    cursor: 'pointer',
-                    border: `1px solid ${selectedModels.includes(model) ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
-                  }}
+                  className={`provider-edit-modal-model-item ${selectedModels.includes(model) ? 'selected' : ''}`}
                 >
                   <input
                     type="checkbox"
                     checked={selectedModels.includes(model)}
                     onChange={() => handleModelToggle(model)}
-                    style={{ width: 18, height: 18 }}
+                    className="provider-edit-modal-model-checkbox"
                   />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
-                    {model}
-                  </span>
+                  <span className="provider-edit-modal-model-name">{model}</span>
                   {selectedModels[0] === model && (
-                    <span style={{ 
-                      fontSize: 'var(--text-xs)', 
-                      opacity: 0.8,
-                      marginLeft: 'auto',
-                    }}>
-                      默认
-                    </span>
+                    <span className="provider-edit-modal-model-default">默认</span>
                   )}
                 </label>
               ))}
@@ -217,56 +148,28 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
           </div>
         </div>
 
-        {/* Error */}
         {error && (
-          <div style={{ padding: '0 var(--space-lg)', marginBottom: 'var(--space-md)' }}>
-            <div style={{ 
-              padding: 'var(--space-md)', 
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--accent-error)',
-              color: '#fff',
-              fontSize: 'var(--text-sm)',
-            }}>
-              {error}
-            </div>
+          <div className="provider-edit-modal-error">
+            <div className="provider-edit-modal-error-content">{error}</div>
           </div>
         )}
 
-        {/* Test Result */}
         {testStatus && (
-          <div style={{ padding: '0 var(--space-lg)', marginBottom: 'var(--space-md)' }}>
-            <div style={{ 
-              padding: 'var(--space-md)', 
-              borderRadius: 'var(--radius-md)',
-              background: testStatus.success ? 'var(--accent-success)' : 'var(--accent-error)',
-              color: '#fff',
-              fontSize: 'var(--text-sm)',
-            }}>
+          <div className="provider-edit-modal-test-result">
+            <div
+              className={`provider-edit-modal-test-result-content ${testStatus.success ? 'success' : 'error'}`}
+            >
               {testStatus.message}
             </div>
           </div>
         )}
 
-        {/* Actions */}
-        <div style={{ 
-          padding: 'var(--space-lg)', 
-          display: 'flex', 
-          gap: 'var(--space-md)',
-          justifyContent: 'flex-end',
-        }}>
+        <div className="provider-edit-modal-actions">
           {isEditing && (
             <button
               onClick={handleTest}
               disabled={isLoading}
-              style={{
-                padding: 'var(--space-md) var(--space-lg)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-default)',
-                background: 'transparent',
-                color: 'var(--text-primary)',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.6 : 1,
-              }}
+              className="provider-edit-modal-btn default"
             >
               {isLoading ? '测试中...' : '测试连接'}
             </button>
@@ -274,29 +177,14 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
           <button
             onClick={onClose}
             disabled={isLoading}
-            style={{
-              padding: 'var(--space-md) var(--space-lg)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-default)',
-              background: 'transparent',
-              color: 'var(--text-primary)',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-            }}
+            className="provider-edit-modal-btn default"
           >
             取消
           </button>
           <button
             onClick={handleSave}
             disabled={isLoading}
-            style={{
-              padding: 'var(--space-md) var(--space-lg)',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              background: 'var(--accent-primary)',
-              color: '#fff',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.6 : 1,
-            }}
+            className="provider-edit-modal-btn primary"
           >
             {isLoading ? '保存中...' : '保存'}
           </button>

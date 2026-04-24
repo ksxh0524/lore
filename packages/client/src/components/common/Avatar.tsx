@@ -1,28 +1,26 @@
-import type { CSSProperties } from 'react';
+import './avatar.css';
 
 interface AvatarProps {
   name: string;
   emoji?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   status?: 'online' | 'offline' | 'idle' | 'busy';
-  style?: CSSProperties;
 }
 
 const sizeMap = {
-  sm: { size: 32, fontSize: '0.875rem' },
-  md: { size: 40, fontSize: '1rem' },
-  lg: { size: 56, fontSize: '1.5rem' },
-  xl: { size: 80, fontSize: '2rem' },
+  sm: { size: 32 },
+  md: { size: 40 },
+  lg: { size: 56 },
+  xl: { size: 80 },
 };
 
-const statusColors = {
-  online: 'var(--accent-success)',
-  offline: 'var(--text-muted)',
-  idle: 'var(--accent-warning)',
-  busy: 'var(--accent-error)',
+const statusClasses = {
+  online: 'online',
+  offline: 'offline',
+  idle: 'idle',
+  busy: 'busy',
 };
 
-// Generate consistent color from name
 function getColorFromName(name: string): string {
   const colors = [
     '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
@@ -39,57 +37,28 @@ function getColorFromName(name: string): string {
   return colors[colorIndex]!;
 }
 
-export function Avatar({ name = 'Unknown', emoji, size = 'md', status, style }: AvatarProps) {
-  const { size: pixelSize, fontSize } = sizeMap[size];
+export function Avatar({ name = 'Unknown', emoji, size = 'md', status }: AvatarProps) {
   const displayName = name || 'Unknown';
   const bgColor = getColorFromName(displayName);
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <div
-      style={{
-        position: 'relative',
-        width: pixelSize,
-        height: pixelSize,
-        borderRadius: '50%',
-        background: bgColor,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize,
-        fontWeight: 600,
-        color: '#fff',
-        flexShrink: 0,
-        ...style,
-      }}
+      className={`avatar size-${size}`}
+      style={{ background: bgColor }}
     >
       {emoji || initial}
-      
       {status && (
         <span
+          className={`avatar-status ${statusClasses[status]}`}
           style={{
-            position: 'absolute',
-            bottom: 0,
-            right: 0,
-            width: pixelSize * 0.3,
-            height: pixelSize * 0.3,
-            borderRadius: '50%',
-            background: statusColors[status],
-            border: `2px solid var(--bg-secondary)`,
+            width: sizeMap[size].size * 0.3,
+            height: sizeMap[size].size * 0.3,
           }}
         />
       )}
     </div>
   );
-}
-
-// Mood emoji helper
-export function getMoodEmoji(mood: number): string {
-  if (mood >= 80) return '😊';
-  if (mood >= 60) return '🙂';
-  if (mood >= 40) return '😐';
-  if (mood >= 20) return '😔';
-  return '😢';
 }
 
 export function getMoodColor(mood: number): string {
