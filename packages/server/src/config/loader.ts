@@ -25,6 +25,7 @@ const WorldSchema = z.object({
 });
 
 const LLMConfigSchema = z.object({
+  providers: z.array(ProviderSchema).default([]),
   limits: z.object({
     maxConcurrent: z.number().default(5),
     maxQueueSize: z.number().default(50),
@@ -33,7 +34,7 @@ const LLMConfigSchema = z.object({
     maxRetryDelayMs: z.number().default(10000),
     circuitBreakerThreshold: z.number().default(5),
     circuitBreakerResetMs: z.number().default(60000),
-  }),
+  }).default({}),
   prompts: z.object({
     maxMessageLength: z.number().default(2000),
     maxMessageContext: z.number().default(500),
@@ -41,15 +42,15 @@ const LLMConfigSchema = z.object({
     contextTokenLimit: z.number().default(2000),
     defaultMaxTokens: z.number().default(1024),
     initMaxTokens: z.number().default(4096),
-  }),
+  }).default({}),
   priorities: z.object({
     userChat: z.number().default(160),
     decision: z.number().default(80),
     social: z.number().default(70),
     creative: z.number().default(50),
     worldEvent: z.number().default(40),
-  }),
-});
+  }).default({}),
+}).default({});
 
 const AgentSchema = z.object({
   initialStats: z.object({
@@ -57,43 +58,42 @@ const AgentSchema = z.object({
     health: z.number().default(100),
     energy: z.number().default(100),
     money: z.number().default(1000),
-  }),
+  }).default({}),
   moneyRanges: z.object({
     userAvatar: z.number().default(5000),
     agent: z.number().default(1000),
     randomMax: z.number().default(5000),
-  }),
+  }).default({}),
   limits: z.object({
     maxEventHistoryPerAgent: z.number().default(1000),
     maxStateHistorySize: z.number().default(100),
     maxMemoryLimit: z.number().default(100),
-  }),
-});
+  }).default({}),
+}).default({});
 
 const StatsSchema = z.object({
   bounds: z.object({
-    mood: z.object({ min: z.number().default(0), max: z.number().default(100) }),
-    health: z.object({ min: z.number().default(0), max: z.number().default(100) }),
-    energy: z.object({ min: z.number().default(0), max: z.number().default(100) }),
-  }),
+    mood: z.object({ min: z.number().default(0), max: z.number().default(100) }).default({}),
+    health: z.object({ min: z.number().default(0), max: z.number().default(100) }).default({}),
+    energy: z.object({ min: z.number().default(0), max: z.number().default(100) }).default({}),
+  }).default({}),
   money: z.object({
     baselineForHappiness: z.number().default(5000),
-  }),
-});
+  }).default({}),
+}).default({});
 
 const ApiSchema = z.object({
   defaults: z.object({
     eventLimit: z.number().default(100),
     messageLimit: z.number().default(100),
-  }),
+  }).default({}),
   websocket: z.object({
     heartbeatIntervalMs: z.number().default(30000),
     heartbeatTimeoutMs: z.number().default(60000),
-  }),
-});
+  }).default({}),
+}).default({});
 
 const ConfigSchema = z.object({
-  providers: z.array(ProviderSchema).default([]),
   world: WorldSchema.default({}),
   llm: LLMConfigSchema.default({}),
   agent: AgentSchema.default({}),
@@ -107,7 +107,7 @@ const ConfigSchema = z.object({
     port: z.number().default(39528),
     host: z.string().default('localhost'),
   }).default({}),
-  dataDir: z.string().default('./data'),
+  dataDir: z.string().default(`${process.env.HOME ?? '~'}/.lore`),
   encryption: z.object({
     key: z.string().optional(),
   }).default({}),
@@ -118,20 +118,25 @@ const ConfigSchema = z.object({
 export type LoreConfig = z.infer<typeof ConfigSchema>;
 export type ProviderConfig = z.infer<typeof ProviderSchema>;
 
-export function createDefaultConfig(): LoreConfig {
+export function loadConfig(): LoreConfig {
+  const dataDir = process.env.LORE_DATA_DIR ?? `${process.env.HOME ?? '~'}/.lore`;
+  
   return ConfigSchema.parse({
-    providers: [],
-    world: {},
-    llm: {},
-    agent: {},
-    stats: {},
-    api: {},
-    server: {},
-    client: {},
-    dataDir: './data',
-    logLevel: 'info',
-    enableMockProvider: true,
+    dataDir,
+    server: {
+      port: process.env.LORE_SERVER_PORT ? parseInt(process.env.LORE_SERVER_PORT, 10) : undefined,
+      host: process.env.LORE_SERVER_HOST,
+    },
+    client: {
+      port: process.env.LORE_CLIENT_PORT ? parseInt(process.env.LORE_CLIENT_PORT, 10) : undefined,
+    },
+    encryption: process.env.LORE_ENCRYPTION_KEY ? { key: process.env.LORE_ENCRYPTION_KEY } : undefined,
+    enableMockProvider: process.env.ENABLE_MOCK_PROVIDER === 'true' ? true : undefined,
   });
+}
+
+export function createDefaultConfig(): LoreConfig {
+  return ConfigSchema.parse({});
 }
 
 export function validateConfig(data: unknown): LoreConfig {

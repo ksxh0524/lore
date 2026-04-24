@@ -185,22 +185,8 @@ wait_for_health() {
 
 # 检查 API Key 配置
 check_api_keys() {
-    local has_key=false
-    local key_count=0
-    
-    [ -n "${DASHSCOPE_API_KEY:-}" ] && ((key_count++))
-    [ -n "${OPENAI_API_KEY:-}" ] && ((key_count++))
-    [ -n "${GEMINI_API_KEY:-}" ] && ((key_count++))
-    [ -n "${ANTHROPIC_API_KEY:-}" ] && ((key_count++))
-    
-    if [ $key_count -eq 0 ]; then
-        log_warning "未检测到 API Key，将使用 Mock Provider"
-        log_info "请复制 .env.example 为 .env 并配置你的 API Keys"
-        return 0
-    else
-        log_success "检测到 $key_count 个 API Key"
-        return 0
-    fi
+    log_info "LLM Provider 通过数据库动态配置"
+    log_info "启动后访问 http://localhost:$(get_server_port)/api/providers 配置"
 }
 
 # ============================================================================
@@ -377,19 +363,6 @@ cmd_status() {
         log_info "SQLite 待初始化"
     fi
     
-    # API Key 状态
-    local key_count=0
-    [ -n "${DASHSCOPE_API_KEY:-}" ] && ((key_count++))
-    [ -n "${OPENAI_API_KEY:-}" ] && ((key_count++))
-    [ -n "${GEMINI_API_KEY:-}" ] && ((key_count++))
-    [ -n "${ANTHROPIC_API_KEY:-}" ] && ((key_count++))
-    
-    if [ $key_count -gt 0 ]; then
-        log_success "LLM 配置 $key_count 个 Provider"
-    else
-        log_warning "LLM 配置 使用 Mock Provider"
-    fi
-    
     echo
     
     # 服务状态
@@ -445,22 +418,9 @@ cmd_config() {
     echo "  数据目录: ${LORE_DATA_DIR:-$HOME/.lore}"
     echo
     
-    log_info "API Keys:"
-    [ -n "${DASHSCOPE_API_KEY:-}" ] && echo "  ✓ DashScope" || echo "  ✗ DashScope"
-    [ -n "${OPENAI_API_KEY:-}" ] && echo "  ✓ OpenAI" || echo "  ✗ OpenAI"
-    [ -n "${GEMINI_API_KEY:-}" ] && echo "  ✓ Gemini" || echo "  ✗ Gemini"
-    [ -n "${ANTHROPIC_API_KEY:-}" ] && echo "  ✓ Claude" || echo "  ✗ Claude"
-    echo
-    
-    log_info "配置文件位置:"
-    if [ -f "$SCRIPT_DIR/.env" ]; then
-        echo "  ✓ $SCRIPT_DIR/.env"
-    elif [ -f "$HOME/.lore/.env" ]; then
-        echo "  ✓ $HOME/.lore/.env"
-    else
-        echo "  ✗ 未找到 .env 文件"
-        echo "    请复制 .env.example 为 .env 并配置"
-    fi
+    log_info "LLM Provider:"
+    echo "  通过数据库动态配置"
+    echo "  启动后访问 http://localhost:$(get_server_port)/api/providers"
 }
 
 cmd_build() {
@@ -509,8 +469,9 @@ cmd_help() {
     echo "  clean       清理旧日志"
     echo ""
     echo "配置:"
-    echo "  复制 .env.example 为 .env 并修改配置"
-    echo "  或设置环境变量 LORE_SERVER_PORT 和 LORE_CLIENT_PORT"
+    echo "  LORE_SERVER_PORT - 后端端口 (默认 3952)"
+    echo "  LORE_CLIENT_PORT - 前端端口 (默认 39528)"
+    echo "  LORE_DATA_DIR    - 数据目录 (默认 ~/.lore)"
     echo ""
     echo "示例:"
     echo "  ./manager.sh start              # 启动服务"
