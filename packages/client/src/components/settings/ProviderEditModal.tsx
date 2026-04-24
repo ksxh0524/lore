@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { providerApi } from '../../services/api';
 import type { ProviderPreset, UserProvider } from '@lore/shared';
-import { RefreshCw, Plus, X, Loader2 } from 'lucide-react';
+import { RefreshCw, Plus, X, Loader2, Zap } from 'lucide-react';
 import './provider-edit-modal.css';
 
 interface ProviderEditModalProps {
@@ -28,6 +28,12 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
   const [testStatus, setTestStatus] = useState<{ success?: boolean; message?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isEditing && currentPreset?.models?.length) {
+      setAvailableModels(currentPreset.models);
+    }
+  }, [currentPreset, isEditing]);
+
   const handleFetchModels = async () => {
     if (!apiKey || !currentPreset) return;
     
@@ -50,6 +56,10 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
   };
 
   const handleRemoveModel = (model: string) => {
+    if (models.length <= 1) {
+      setError('至少保留一个模型');
+      return;
+    }
     setModels(models.filter(m => m !== model));
   };
 
@@ -98,7 +108,9 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
 
   if (!currentPreset) return null;
 
-  const allModels = [...new Set([...availableModels, ...models])];
+  const isDynamic = currentPreset.dynamicModels !== false;
+  const fixedModels = currentPreset.models || [];
+  const allModels = isDynamic ? availableModels : fixedModels;
 
   return (
     <div className="provider-edit-modal-overlay" onClick={onClose}>
@@ -108,6 +120,12 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
             {isEditing ? '编辑服务商' : `添加 ${currentPreset.name}`}
           </h2>
           <p className="provider-edit-modal-desc">{currentPreset.baseUrl}</p>
+          {!isDynamic && (
+            <div className="provider-edit-modal-plan-badge">
+              <Zap size={14} />
+              <span>订阅套餐 · 模型固定</span>
+            </div>
+          )}
         </div>
 
         <div className="provider-edit-modal-form">
@@ -134,7 +152,7 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
                 placeholder={isEditing ? '••••••••••••••••' : 'sk-...'}
                 className="provider-edit-modal-input"
               />
-              {!isEditing && (
+              {isDynamic && !isEditing && (
                 <button
                   type="button"
                   onClick={handleFetchModels}
@@ -147,14 +165,16 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
               )}
             </div>
             <p className="provider-edit-modal-input-hint">
-              输入 API Key 后点击"获取模型"自动加载可用模型列表
+              {isDynamic 
+                ? '输入 API Key 后点击"获取模型"自动加载可用模型'
+                : '订阅套餐模型列表固定，直接选择即可'}
             </p>
           </div>
 
           <div className="provider-edit-modal-field">
             <label className="provider-edit-modal-label">已选模型</label>
             
-            {models.length > 0 && (
+            {models.length > 0 ? (
               <div className="provider-edit-modal-selected-models">
                 {models.map((model, index) => (
                   <div key={model} className="provider-edit-modal-selected-model">
@@ -170,11 +190,17 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="provider-edit-modal-no-models">
+                点击下方模型添加
+              </div>
             )}
 
-            {allModels.length > 0 && !isEditing && (
+            {!isEditing && allModels.length > 0 && (
               <div className="provider-edit-modal-available-section">
-                <div className="provider-edit-modal-available-header">可选模型</div>
+                <div className="provider-edit-modal-available-header">
+                  {isDynamic ? '可用模型（从 API 获取）' : '套餐模型'}
+                </div>
                 <div className="provider-edit-modal-available-models">
                   {allModels.filter(m => !models.includes(m)).map((model) => (
                     <button
@@ -191,23 +217,25 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
               </div>
             )}
 
-            <div className="provider-edit-modal-custom-section">
-              <input
-                type="text"
-                value={customModel}
-                onChange={(e) => setCustomModel(e.target.value)}
-                placeholder="手动输入模型名称..."
-                className="provider-edit-modal-input"
-              />
-              <button
-                type="button"
-                onClick={handleAddCustomModel}
-                disabled={!customModel.trim()}
-                className="provider-edit-modal-add-custom-btn"
-              >
-                添加
-              </button>
-            </div>
+            {isDynamic && (
+              <div className="provider-edit-modal-custom-section">
+                <input
+                  type="text"
+                  value={customModel}
+                  onChange={(e) => setCustomModel(e.target.value)}
+                  placeholder="手动输入其他模型名称..."
+                  className="provider-edit-modal-input"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomModel}
+                  disabled={!customModel.trim()}
+                  className="provider-edit-modal-add-custom-btn"
+                >
+                  添加
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -246,7 +274,7 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
           </button>
           <button
             onClick={handleSave}
-            disabled={isLoading}
+            disabled={isLoading || models.length === 0}
             className="provider-edit-modal-btn primary"
           >
             {isLoading ? '保存中...' : '保存'}
