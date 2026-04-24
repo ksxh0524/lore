@@ -19,7 +19,7 @@ export const PRESET_DEFAULTS: Record<string, { name: string; baseUrl: string; ty
     name: '智谱 AI Coding',
     baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
     type: 'openai',
-    models: ['glm-5', 'glm-4-flash', 'glm-4-plus', 'glm-4-air', 'glm-4-airx', 'glm-4-long'],
+    models: ['glm-5.1', 'glm-5', 'glm-4-flash', 'glm-4-plus', 'glm-4-air', 'glm-4-airx', 'glm-4-long'],
   },
   'openai': {
     name: 'OpenAI',
