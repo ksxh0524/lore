@@ -46,6 +46,7 @@ export class AgentEventBus extends EventEmitter {
   private static instance: AgentEventBus;
   private eventHistory: Map<string, AgentEvent[]> = new Map();
   private readonly maxHistoryPerAgent = 1000;
+  private readonly defaultMaxAgeMs = 24 * 60 * 60 * 1000;
 
   static getInstance(): AgentEventBus {
     if (!AgentEventBus.instance) {
@@ -94,6 +95,36 @@ export class AgentEventBus extends EventEmitter {
     } else {
       this.eventHistory.clear();
     }
+  }
+
+  cleanupOldHistory(agentId: string, maxAgeMs?: number): number {
+    const cutoff = Date.now() - (maxAgeMs ?? this.defaultMaxAgeMs);
+    const history = this.eventHistory.get(agentId);
+    if (!history) return 0;
+    
+    const originalLength = history.length;
+    const filtered = history.filter(e => e.timestamp.getTime() > cutoff);
+    this.eventHistory.set(agentId, filtered);
+    return originalLength - filtered.length;
+  }
+
+  cleanupAllOldHistory(maxAgeMs?: number): number {
+    let totalRemoved = 0;
+    for (const agentId of this.eventHistory.keys()) {
+      totalRemoved += this.cleanupOldHistory(agentId, maxAgeMs);
+    }
+    return totalRemoved;
+  }
+
+  getStats(): { agentCount: number; totalEvents: number; avgEventsPerAgent: number } {
+    const agentCount = this.eventHistory.size;
+    const totalEvents = Array.from(this.eventHistory.values())
+      .reduce((sum, h) => sum + h.length, 0);
+    return {
+      agentCount,
+      totalEvents,
+      avgEventsPerAgent: agentCount > 0 ? Math.round(totalEvents / agentCount) : 0,
+    };
   }
 }
 

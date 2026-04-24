@@ -5,6 +5,8 @@ import { loadConfig } from './config/loader.js';
 import { initTables } from './db/index.js';
 import { Repository } from './db/repository.js';
 import { LLMScheduler } from './llm/scheduler.js';
+import { ProviderFactory } from './llm/factory.js';
+import { ImageGenerator } from './llm/image-generator.js';
 import { AgentManager } from './agent/agent-manager.js';
 import { InitAgent } from './agent/init-agent.js';
 import { WorldClock } from './world/clock.js';
@@ -25,6 +27,7 @@ import { registerRoutes } from './api/routes.js';
 import { registerWebSocket } from './api/ws.js';
 import { registerProviderRoutes } from './api/provider-routes.js';
 import { initLogger, createLogger, logMonitorStats } from './logger/index.js';
+import { agentEventBus } from './agent/event-bus.js';
 import { nanoid } from 'nanoid';
 
 async function main() {
@@ -54,22 +57,34 @@ async function main() {
 
   initTables();
 
-  const repo = new Repository();
+const repo = new Repository();
+  const providerFactory = new ProviderFactory(config);
   const llmScheduler = new LLMScheduler(config);
+  const imageGenerator = new ImageGenerator(config, providerFactory);
   const monitor = new Monitor();
   llmScheduler.setMonitor(monitor);
   const agentManager = new AgentManager(repo, llmScheduler, config);
   const initAgent = new InitAgent(llmScheduler, repo, config);
   const worldClock = new WorldClock(new Date(), config.world.defaultTimeSpeed);
-  const worldAgent = new WorldAgent(llmScheduler);
+  const worldAgent = new WorldAgent(llmScheduler, config, repo);
   const economyEngine = new EconomyEngine(repo);
   const platformEngine = new PlatformEngine(repo);
+  platformEngine.setLLMScheduler(llmScheduler);
+  platformEngine.setImageGenerator(imageGenerator);
+  platformEngine.setConfig(config);
   const worldPersistence = new WorldPersistence(repo, agentManager);
-  const eventEngine = new EventEngine(worldAgent, repo);
-  const eventChainEngine = new EventChainEngine(repo);
-  const factionSystem = new FactionSystem(repo);
   const relationshipManager = new RelationshipManager(repo);
-  const socialEngine = new SocialEngine(llmScheduler, platformEngine, relationshipManager);
+  const eventEngine = new EventEngine(worldAgent, repo);
+  eventEngine.setRelationshipManager(relationshipManager);
+  eventEngine.setLLMScheduler(llmScheduler);
+  eventEngine.setConfig(config);
+  const eventChainEngine = new EventChainEngine(repo);
+  eventChainEngine.setRelationshipManager(relationshipManager);
+  eventChainEngine.setAgentManager(agentManager);
+  const factionSystem = new FactionSystem(repo);
+  const socialEngine = new SocialEngine(llmScheduler, platformEngine, relationshipManager, repo);
+  socialEngine.setConfig(config);
+  socialEngine.setAgentManager(agentManager);
   const modeManager = new ModeManager();
   const pushManager = new PushManager();
 
@@ -79,24 +94,50 @@ async function main() {
 
   const tickScheduler = new TickScheduler(config.world.defaultTickIntervalMs, async (tick) => {
     worldClock.advance(config.world.defaultTickIntervalMs);
-    const worldState = {
-      currentTick: tick,
-      currentTime: worldClock.getTime().toISOString(),
-      day: worldClock.getDay(),
-      agentCount: agentManager.getAliveCount(),
-      worldId: currentWorldId,
-    };
-
-    monitor.resetTick();
-    monitor.startTick();
 
     const agents = agentManager.getAgentsMap();
     const aliveAgents = [...agents.values()]
       .filter((a) => a.state.status !== 'dead');
 
+    const moodValues = aliveAgents.map(a => a.stats.mood);
+    const healthValues = aliveAgents.map(a => a.stats.health);
+    const energyValues = aliveAgents.map(a => a.stats.energy);
+    const moneyValues = aliveAgents.map(a => a.stats.money);
+
+    const avgMood = moodValues.length > 0 ? moodValues.reduce((a, b) => a + b, 0) / moodValues.length : 70;
+    const avgHealth = healthValues.length > 0 ? healthValues.reduce((a, b) => a + b, 0) / healthValues.length : 100;
+    const avgEnergy = energyValues.length > 0 ? energyValues.reduce((a, b) => a + b, 0) / energyValues.length : 100;
+    const avgMoney = moneyValues.length > 0 ? moneyValues.reduce((a, b) => a + b, 0) / moneyValues.length : 1000;
+
+    const employedCount = aliveAgents.filter(a =>
+      a.profile.occupation && !['无业', '学生', '退休'].includes(a.profile.occupation)
+    ).length;
+
+    const worldState = {
+      currentTick: tick,
+      currentTime: worldClock.getTime().toISOString(),
+      day: worldClock.getDay(),
+      agentCount: aliveAgents.length,
+      worldId: currentWorldId ?? '',
+      avgMood,
+      avgHealth,
+      avgEnergy,
+      avgMoney,
+      moodDistribution: {
+        happy: moodValues.filter(m => m >= 70).length,
+        neutral: moodValues.filter(m => m >= 40 && m < 70).length,
+        sad: moodValues.filter(m => m < 40).length,
+      },
+      employmentRate: aliveAgents.length > 0 ? employedCount / aliveAgents.length : 0,
+      recentEvents: [],
+    };
+
+    monitor.resetTick();
+    monitor.startTick();
+
     tickLogger.debug({ tick, aliveCount: aliveAgents.length }, 'Tick started');
 
-    const worldEvents = await eventEngine.generate(worldClock, aliveAgents, worldState);
+    const worldEvents = await eventEngine.generate(worldClock, aliveAgents, worldState, relationshipManager);
     for (const event of worldEvents) {
       if (!event.processed) {
         await eventEngine.applyConsequences(event, agentManager);
@@ -105,7 +146,7 @@ async function main() {
       monitor.recordEvent();
 
       if (currentWorldId) {
-        const chainEvents = await eventChainEngine.checkChains(event, currentWorldId);
+        const chainEvents = await eventChainEngine.checkChains(event, currentWorldId, tick);
         for (const ce of chainEvents) {
           await eventEngine.applyConsequences(ce, agentManager);
           await repo.createEvent(ce);
@@ -148,34 +189,40 @@ async function main() {
       }
     }
 
-    if (tick % 20 === 0 && aliveAgents.length > 0) {
+    if (tick % 10 === 0 && aliveAgents.length > 0) {
       const activeAgents = aliveAgents.filter((a) =>
-        a.state.status !== 'sleeping' && a.type === 'npc' && Math.random() < 0.15,
+        a.state.status !== 'sleeping' && a.type === 'npc',
       );
 
-      for (const agent of activeAgents.slice(0, 3)) {
+      for (const agent of activeAgents.slice(0, Math.ceil(activeAgents.length * 0.1))) {
         try {
-          await socialEngine.postSocial(agent);
+          await socialEngine.processSocialTick(agent);
         } catch {}
       }
     }
 
-    if (tick % 50 === 0 && aliveAgents.length > 1) {
-      const socialCandidates = aliveAgents.filter((a) =>
-        a.state.status !== 'sleeping' && a.type === 'npc' && Math.random() < 0.1,
+    if (tick % 30 === 0 && aliveAgents.length > 0) {
+      const postingAgents = aliveAgents.filter((a) =>
+        a.state.status !== 'sleeping' && a.stats.energy > 50 && Math.random() < 0.2,
       );
 
-      for (const agent of socialCandidates.slice(0, 2)) {
+      for (const agent of postingAgents.slice(0, 3)) {
         try {
-          const rels = await relationshipManager.getAll(agent.id);
-          const friends = rels.filter((r) => r.type === 'friend' || r.type === 'close_friend');
-          if (friends.length > 0) {
-            const target = friends[Math.floor(Math.random() * friends.length)]!;
-            await relationshipManager.update(agent.id, target.targetAgentId, {
-              intimacy: 1,
-              historyEntry: '日常闲聊',
-            });
-          }
+          await platformEngine.createAgentPost(agent);
+        } catch {}
+      }
+    }
+
+    if (tick % 100 === 0 && currentWorldId) {
+      const day = worldClock.getDay();
+      if (day % 30 === 0) {
+        try {
+          await economyEngine.monthlySettle(currentWorldId, agents.values());
+        } catch {}
+      }
+      if (day % 7 === 0) {
+        try {
+          await economyEngine.payWeeklyIncome(currentWorldId, agents.values());
         } catch {}
       }
     }
@@ -191,6 +238,10 @@ async function main() {
 
     if (tick % 100 === 0 && currentWorldId) {
       await eventChainEngine.cleanupExpired(currentWorldId);
+      const removed = agentEventBus.cleanupAllOldHistory();
+      if (removed > 0) {
+        tickLogger.debug({ tick, removedEvents: removed }, 'Cleaned up old event history');
+      }
     }
 
     if (tick % 30 === 0) {
