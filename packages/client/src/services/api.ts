@@ -63,6 +63,13 @@ export const providerApi = {
     fetchJson(`/providers/${id}/test`, {
       method: 'POST',
     }),
+  
+  // Fetch models from provider API
+  fetchModels: (presetId: string, apiKey: string): Promise<{ data: { models: string[] } }> => 
+    fetchJson(`/provider-presets/${presetId}/fetch-models`, {
+      method: 'POST',
+      body: JSON.stringify({ apiKey }),
+    }),
 };
 
 // World API

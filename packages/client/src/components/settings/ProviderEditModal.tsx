@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { providerApi } from '../../services/api';
 import type { ProviderPreset, UserProvider } from '@lore/shared';
+import { RefreshCw, Plus, X, Loader2 } from 'lucide-react';
 import './provider-edit-modal.css';
 
 interface ProviderEditModalProps {
@@ -19,29 +21,42 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
 
   const [name, setName] = useState(provider?.name || currentPreset?.name || '');
   const [apiKey, setApiKey] = useState('');
-  const [selectedModels, setSelectedModels] = useState<string[]>(provider?.models || []);
+  const [models, setModels] = useState<string[]>(provider?.models || []);
+  const [customModel, setCustomModel] = useState('');
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [testStatus, setTestStatus] = useState<{ success?: boolean; message?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (currentPreset && !isEditing && currentPreset.defaultModels.length > 0) {
-      const firstModel = currentPreset.defaultModels[0];
-      if (firstModel) {
-        setSelectedModels([firstModel]);
-      }
+  const handleFetchModels = async () => {
+    if (!apiKey || !currentPreset) return;
+    
+    setFetchingModels(true);
+    setError(null);
+    
+    try {
+      const result = await providerApi.fetchModels(currentPreset.id, apiKey);
+      setAvailableModels(result.data.models);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '获取模型失败');
+    } finally {
+      setFetchingModels(false);
     }
-  }, [currentPreset, isEditing]);
+  };
 
-  const handleModelToggle = (model: string) => {
-    setSelectedModels(prev => {
-      const newSelection = prev.includes(model)
-        ? prev.filter(m => m !== model)
-        : [...prev, model];
-      if (newSelection.length === 0) {
-        return prev;
-      }
-      return newSelection;
-    });
+  const handleAddModel = (model: string) => {
+    if (!model || models.includes(model)) return;
+    setModels([...models, model]);
+  };
+
+  const handleRemoveModel = (model: string) => {
+    setModels(models.filter(m => m !== model));
+  };
+
+  const handleAddCustomModel = () => {
+    if (!customModel.trim()) return;
+    handleAddModel(customModel.trim());
+    setCustomModel('');
   };
 
   const handleTest = async () => {
@@ -64,17 +79,16 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
       return;
     }
 
-    if (selectedModels.length === 0) {
-      setError('请至少选择一个模型');
+    if (models.length === 0) {
+      setError('请至少添加一个模型');
       return;
     }
 
     try {
       if (isEditing && provider) {
-        const updates: Partial<UserProvider> = { name: name.trim(), models: selectedModels };
-        await updateProvider(provider.id, updates);
+        await updateProvider(provider.id, { name: name.trim(), models, defaultModel: models[0] });
       } else if (currentPreset) {
-        await addProvider(currentPreset.id, apiKey.trim(), selectedModels);
+        await addProvider(currentPreset.id, apiKey.trim(), models);
       }
       onSave();
     } catch (err) {
@@ -84,6 +98,8 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
 
   if (!currentPreset) return null;
 
+  const allModels = [...new Set([...availableModels, ...models])];
+
   return (
     <div className="provider-edit-modal-overlay" onClick={onClose}>
       <div className="provider-edit-modal" onClick={(e) => e.stopPropagation()}>
@@ -91,7 +107,7 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
           <h2 className="provider-edit-modal-title">
             {isEditing ? '编辑服务商' : `添加 ${currentPreset.name}`}
           </h2>
-          <p className="provider-edit-modal-desc">{currentPreset.description}</p>
+          <p className="provider-edit-modal-desc">{currentPreset.baseUrl}</p>
         </div>
 
         <div className="provider-edit-modal-form">
@@ -110,40 +126,87 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
             <label className="provider-edit-modal-label">
               API Key {isEditing && '(留空保持不变)'}
             </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={isEditing ? '••••••••••••••••' : currentPreset.apiKeyPlaceholder || 'sk-...'}
-              className="provider-edit-modal-input"
-            />
+            <div className="provider-edit-modal-input-group">
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={isEditing ? '••••••••••••••••' : 'sk-...'}
+                className="provider-edit-modal-input"
+              />
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={handleFetchModels}
+                  disabled={!apiKey || fetchingModels}
+                  className="provider-edit-modal-fetch-btn"
+                >
+                  {fetchingModels ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                  <span>获取模型</span>
+                </button>
+              )}
+            </div>
             <p className="provider-edit-modal-input-hint">
-              你的 API Key 将被加密存储在本地数据库中
+              输入 API Key 后点击"获取模型"自动加载可用模型列表
             </p>
           </div>
 
           <div className="provider-edit-modal-field">
-            <label className="provider-edit-modal-label">
-              启用模型（第一个选中的将作为默认模型）
-            </label>
-            <div className="provider-edit-modal-models">
-              {currentPreset.defaultModels.map((model) => (
-                <label
-                  key={model}
-                  className={`provider-edit-modal-model-item ${selectedModels.includes(model) ? 'selected' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedModels.includes(model)}
-                    onChange={() => handleModelToggle(model)}
-                    className="provider-edit-modal-model-checkbox"
-                  />
-                  <span className="provider-edit-modal-model-name">{model}</span>
-                  {selectedModels[0] === model && (
-                    <span className="provider-edit-modal-model-default">默认</span>
-                  )}
-                </label>
-              ))}
+            <label className="provider-edit-modal-label">已选模型</label>
+            
+            {models.length > 0 && (
+              <div className="provider-edit-modal-selected-models">
+                {models.map((model, index) => (
+                  <div key={model} className="provider-edit-modal-selected-model">
+                    <span className="provider-edit-modal-model-name">{model}</span>
+                    {index === 0 && <span className="provider-edit-modal-model-default-badge">默认</span>}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveModel(model)}
+                      className="provider-edit-modal-remove-model-btn"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {allModels.length > 0 && !isEditing && (
+              <div className="provider-edit-modal-available-section">
+                <div className="provider-edit-modal-available-header">可选模型</div>
+                <div className="provider-edit-modal-available-models">
+                  {allModels.filter(m => !models.includes(m)).map((model) => (
+                    <button
+                      key={model}
+                      type="button"
+                      onClick={() => handleAddModel(model)}
+                      className="provider-edit-modal-available-model"
+                    >
+                      <Plus size={14} />
+                      <span>{model}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="provider-edit-modal-custom-section">
+              <input
+                type="text"
+                value={customModel}
+                onChange={(e) => setCustomModel(e.target.value)}
+                placeholder="手动输入模型名称..."
+                className="provider-edit-modal-input"
+              />
+              <button
+                type="button"
+                onClick={handleAddCustomModel}
+                disabled={!customModel.trim()}
+                className="provider-edit-modal-add-custom-btn"
+              >
+                添加
+              </button>
             </div>
           </div>
         </div>
