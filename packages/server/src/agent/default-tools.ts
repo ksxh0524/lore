@@ -1,9 +1,9 @@
-import type { AgentRuntime } from './agent-runtime.js';
+import type { ToolContext, ToolResult, StatChange, StateChange } from './types.js';
 import type { Repository } from '../db/repository.js';
 import type { AgentTool } from './tools.js';
 import { nanoid } from 'nanoid';
 
-export function createFindJobTool(repo: Repository): AgentTool {
+export function createFindJobTool(): AgentTool {
   return {
     name: 'find_job',
     description: '找工作投递简历，需要指定职位类型',
@@ -15,24 +15,26 @@ export function createFindJobTool(repo: Repository): AgentTool {
       },
       required: ['jobType'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const jobType = String(args.jobType ?? '普通员工');
       const company = args.company ? String(args.company) : '附近的公司';
-      
-      agent.state.currentActivity = `正在找${jobType}工作`;
-      
+
+      const stateChanges: StateChange = { activity: `正在找${jobType}工作` };
+
       const success = Math.random() > 0.3;
       if (success) {
         return {
           success: true,
           message: `你成功获得了一份${company}的${jobType}面试机会！`,
           result: { interviewScheduled: true, company, jobType },
+          stateChanges: [stateChanges],
         };
       }
       return {
         success: false,
         message: `很遗憾，${company}暂时没有招聘${jobType}的计划。`,
         result: { interviewScheduled: false },
+        stateChanges: [stateChanges],
       };
     },
   };
@@ -51,43 +53,42 @@ export function createBuyItemTool(repo: Repository): AgentTool {
       },
       required: ['item', 'price'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const item = String(args.item ?? '东西');
       const price = Number(args.price ?? 100);
       const quantity = Number(args.quantity ?? 1);
       const totalCost = price * quantity;
-      
-      if (agent.stats.money < totalCost) {
+
+      if (context.stats.money < totalCost) {
         return {
           success: false,
-          message: `钱不够！购买${quantity}个${item}需要${totalCost}元，但你只有${agent.stats.money}元。`,
+          message: `钱不够！购买${quantity}个${item}需要${totalCost}元，但你只有${context.stats.money}元。`,
           result: { purchased: false },
         };
       }
-      
-      agent.stats.money -= totalCost;
-      agent.state.currentActivity = `购买了${quantity}个${item}`;
-      
+
       await repo.createEvent({
         id: nanoid(),
-        worldId: agent.worldId,
+        worldId: context.worldId,
         type: 'purchase',
-        description: `${agent.profile.name}购买了${quantity}个${item}，花费${totalCost}元`,
-        involvedAgents: [agent.id],
+        description: `${context.profile.name}购买了${quantity}个${item}，花费${totalCost}元`,
+        involvedAgents: [context.id],
         priority: 30,
         timestamp: new Date(),
       });
-      
+
       return {
         success: true,
-        message: `成功购买${quantity}个${item}，花费${totalCost}元，剩余${agent.stats.money}元。`,
+        message: `成功购买${quantity}个${item}，花费${totalCost}元。`,
         result: { purchased: true, item, quantity, totalCost },
+        statChanges: [{ stat: 'money', delta: -totalCost, reason: 'purchase' }],
+        stateChanges: [{ activity: `购买了${quantity}个${item}` }],
       };
     },
   };
 }
 
-export function createSocializeTool(repo: Repository): AgentTool {
+export function createSocializeTool(): AgentTool {
   return {
     name: 'socialize',
     description: '与其他人社交互动',
@@ -100,20 +101,19 @@ export function createSocializeTool(repo: Repository): AgentTool {
       },
       required: ['targetName', 'action'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const targetName = String(args.targetName ?? '某人');
       const action = String(args.action ?? '聊天');
       const message = args.message ? String(args.message) : '';
-      
-      agent.state.currentActivity = `正在和${targetName}${action}`;
-      
+
       const moodChange = Math.floor(Math.random() * 20) - 5;
-      agent.stats.mood = Math.max(0, Math.min(100, agent.stats.mood + moodChange));
-      
+
       return {
         success: true,
         message: `你和${targetName}进行了${action}${message ? `，你说："${message}"` : ''}。心情${moodChange >= 0 ? '变好了' : '变差了'}。`,
         result: { targetName, action, moodChange },
+        statChanges: [{ stat: 'mood', delta: moodChange, reason: 'social_interaction' }],
+        stateChanges: [{ activity: `正在和${targetName}${action}`, status: 'socializing' }],
       };
     },
   };
@@ -131,23 +131,19 @@ export function createRestTool(): AgentTool {
       },
       required: ['duration'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const duration = Number(args.duration ?? 1);
       const restType = String(args.type ?? '休息');
-      
-      const energyRecovery = Math.min(100 - agent.stats.energy, duration * 15);
-      agent.stats.energy = Math.min(100, agent.stats.energy + energyRecovery);
-      agent.state.currentActivity = `正在${restType}`;
-      agent.state.status = 'sleeping';
-      
-      setTimeout(() => {
-        agent.state.status = 'idle';
-      }, duration * 1000);
-      
+
+      const energyRecovery = Math.min(100 - context.stats.energy, duration * 15);
+
       return {
         success: true,
-        message: `你${restType}了${duration}小时，恢复了${energyRecovery}点精力。当前精力：${agent.stats.energy}`,
+        message: `你${restType}了${duration}小时，恢复了${energyRecovery}点精力。`,
         result: { energyRecovery, duration },
+        statChanges: [{ stat: 'energy', delta: energyRecovery, reason: 'rest' }],
+        stateChanges: [{ activity: `正在${restType}`, status: 'sleeping' }],
+        duration: duration * 60,
       };
     },
   };
@@ -165,37 +161,36 @@ export function createWorkTool(repo: Repository): AgentTool {
       },
       required: ['hours'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const hours = Number(args.hours ?? 8);
       const task = args.task ? String(args.task) : '日常工作';
-      
-      const energyCost = Math.min(agent.stats.energy, hours * 5);
-      agent.stats.energy -= energyCost;
-      
+
+      const energyCost = Math.min(context.stats.energy, hours * 5);
       const baseEarning = hours * 50;
       const bonus = Math.random() > 0.8 ? Math.floor(Math.random() * 100) : 0;
       const totalEarning = baseEarning + bonus;
-      
-      agent.stats.money += totalEarning;
-      agent.state.currentActivity = `正在工作：${task}`;
-      
       const moodChange = hours > 8 ? -10 : 5;
-      agent.stats.mood = Math.max(0, Math.min(100, agent.stats.mood + moodChange));
-      
+
       await repo.createEvent({
         id: nanoid(),
-        worldId: agent.worldId,
+        worldId: context.worldId,
         type: 'work',
-        description: `${agent.profile.name}工作了${hours}小时，赚取了${totalEarning}元`,
-        involvedAgents: [agent.id],
+        description: `${context.profile.name}工作了${hours}小时，赚取了${totalEarning}元`,
+        involvedAgents: [context.id],
         priority: 20,
         timestamp: new Date(),
       });
-      
+
       return {
         success: true,
         message: `你工作了${hours}小时（${task}），消耗${energyCost}精力，赚取${totalEarning}元${bonus > 0 ? `（含奖金${bonus}元）` : ''}。`,
         result: { hours, earning: totalEarning, energyCost },
+        statChanges: [
+          { stat: 'energy', delta: -energyCost, reason: 'work' },
+          { stat: 'money', delta: totalEarning, reason: 'work' },
+          { stat: 'mood', delta: moodChange, reason: 'work' },
+        ],
+        stateChanges: [{ activity: `正在工作：${task}`, status: 'working' }],
       };
     },
   };
@@ -213,30 +208,31 @@ export function createSendMessageTool(repo: Repository): AgentTool {
       },
       required: ['targetName', 'content'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const targetName = String(args.targetName ?? '某人');
       const content = String(args.content ?? '');
-      
-      agent.state.currentActivity = `给${targetName}发消息`;
-      agent.stats.energy = Math.max(0, agent.stats.energy - 5);
-      
+
       const moodChange = Math.random() > 0.3 ? 5 : -3;
-      agent.stats.mood = Math.max(0, Math.min(100, agent.stats.mood + moodChange));
-      
+
       await repo.createEvent({
         id: nanoid(),
-        worldId: agent.worldId,
+        worldId: context.worldId,
         type: 'message',
-        description: `${agent.profile.name}给${targetName}发了消息："${content.slice(0, 50)}..."`,
-        involvedAgents: [agent.id],
+        description: `${context.profile.name}给${targetName}发了消息："${content.slice(0, 50)}..."`,
+        involvedAgents: [context.id],
         priority: 20,
         timestamp: new Date(),
       });
-      
+
       return {
         success: true,
         message: `你给${targetName}发了一条消息："${content}"`,
         result: { targetName, content, moodChange },
+        statChanges: [
+          { stat: 'energy', delta: -5, reason: 'send_message' },
+          { stat: 'mood', delta: moodChange, reason: 'send_message' },
+        ],
+        stateChanges: [{ activity: `给${targetName}发消息` }],
       };
     },
   };
@@ -254,29 +250,27 @@ export function createChangeLocationTool(repo: Repository): AgentTool {
       },
       required: ['targetLocation'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const targetLocation = String(args.targetLocation ?? '某地');
       const reason = args.reason ? String(args.reason) : '';
-      
-      const oldLocation = agent.state.currentLocation;
-      agent.state.currentLocation = targetLocation;
-      agent.state.currentActivity = `前往${targetLocation}`;
-      agent.stats.energy = Math.max(0, agent.stats.energy - 10);
-      
+      const oldLocation = context.state.currentLocation;
+
       await repo.createEvent({
         id: nanoid(),
-        worldId: agent.worldId,
+        worldId: context.worldId,
         type: 'movement',
-        description: `${agent.profile.name}从${oldLocation || '某处'}移动到了${targetLocation}${reason ? `，原因：${reason}` : ''}`,
-        involvedAgents: [agent.id],
+        description: `${context.profile.name}从${oldLocation || '某处'}移动到了${targetLocation}${reason ? `，原因：${reason}` : ''}`,
+        involvedAgents: [context.id],
         priority: 20,
         timestamp: new Date(),
       });
-      
+
       return {
         success: true,
         message: `你从${oldLocation || '原地'}移动到了${targetLocation}`,
         result: { oldLocation, newLocation: targetLocation, reason },
+        statChanges: [{ stat: 'energy', delta: -10, reason: 'movement' }],
+        stateChanges: [{ activity: `前往${targetLocation}`, location: targetLocation, status: 'traveling' }],
       };
     },
   };
@@ -296,45 +290,46 @@ export function createStartBusinessTool(repo: Repository): AgentTool {
       },
       required: ['businessName', 'businessType', 'description'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const businessName = String(args.businessName ?? '我的企业');
       const businessType = String(args.businessType ?? '服务');
       const capital = Number(args.capital ?? 10000);
       const description = String(args.description ?? '');
-      
-      if (agent.stats.money < capital) {
+
+      if (context.stats.money < capital) {
         return {
           success: false,
-          message: `资金不足！创业需要${capital}元，但你只有${agent.stats.money}元。`,
+          message: `资金不足！创业需要${capital}元，但你只有${context.stats.money}元。`,
           result: { started: false },
         };
       }
-      
-      agent.stats.money -= capital;
-      agent.state.currentActivity = `经营${businessName}`;
-      agent.stats.mood = Math.min(100, agent.stats.mood + 20);
-      agent.stats.energy = Math.max(0, agent.stats.energy - 30);
-      
+
       await repo.createEvent({
         id: nanoid(),
-        worldId: agent.worldId,
+        worldId: context.worldId,
         type: 'business',
-        description: `${agent.profile.name}创办了${businessType}企业"${businessName}"，投入资金${capital}元。${description}`,
-        involvedAgents: [agent.id],
+        description: `${context.profile.name}创办了${businessType}企业"${businessName}"，投入资金${capital}元。${description}`,
+        involvedAgents: [context.id],
         priority: 40,
         timestamp: new Date(),
       });
-      
+
       return {
         success: true,
         message: `恭喜！你成功创办了${businessType}企业"${businessName}"，投入资金${capital}元。`,
         result: { businessName, businessType, capital, started: true },
+        statChanges: [
+          { stat: 'money', delta: -capital, reason: 'business_startup' },
+          { stat: 'mood', delta: 20, reason: 'business_startup' },
+          { stat: 'energy', delta: -30, reason: 'business_startup' },
+        ],
+        stateChanges: [{ activity: `经营${businessName}` }],
       };
     },
   };
 }
 
-export function createPostSocialTool(repo: Repository): AgentTool {
+export function createPostSocialTool(): AgentTool {
   return {
     name: 'post_social',
     description: '在虚拟社交媒体平台发布动态',
@@ -346,10 +341,14 @@ export function createPostSocialTool(repo: Repository): AgentTool {
       },
       required: ['content'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const content = String(args.content ?? '');
-      agent.state.currentActivity = '发动态';
-      return { success: true, message: `你在社交平台发布了："${content}"`, result: { content } };
+      return {
+        success: true,
+        message: `你在社交平台发布了："${content}"`,
+        result: { content },
+        stateChanges: [{ activity: '发动态' }],
+      };
     },
   };
 }
@@ -365,14 +364,26 @@ export function createCheckRelationshipTool(repo: Repository): AgentTool {
       },
       required: ['targetName'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const targetName = String(args.targetName ?? '某人');
-      const rels = await repo.getAgentRelationships(agent.id);
-      const rel = rels.find((r: any) => r.targetAgentId === targetName || r.type === targetName);
+      const rels = await repo.getAgentRelationships(context.id);
+      const rel = rels.find(
+        (r) =>
+          (r.targetAgentId as unknown as string) === targetName ||
+          (r.type as unknown as string) === targetName
+      );
       if (rel) {
-        return { success: true, message: `你和${targetName}的关系：${rel.type}，亲密度：${rel.intimacy}`, result: rel };
+        return {
+          success: true,
+          message: `你和${targetName}的关系：${rel.type as string}，亲密度：${rel.intimacy ?? 0}`,
+          result: rel,
+        };
       }
-      return { success: true, message: `你和${targetName}还不认识`, result: { type: 'stranger', intimacy: 0 } };
+      return {
+        success: true,
+        message: `你和${targetName}还不认识`,
+        result: { type: 'stranger', intimacy: 0 },
+      };
     },
   };
 }
@@ -389,10 +400,14 @@ export function createSendFriendRequestTool(): AgentTool {
       },
       required: ['targetName'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
       const targetName = String(args.targetName ?? '某人');
-      agent.stats.mood = Math.min(100, agent.stats.mood + 3);
-      return { success: true, message: `你向${targetName}发送了好友请求`, result: { targetName } };
+      return {
+        success: true,
+        message: `你向${targetName}发送了好友请求`,
+        result: { targetName },
+        statChanges: [{ stat: 'mood', delta: 3, reason: 'friend_request' }],
+      };
     },
   };
 }
@@ -400,7 +415,7 @@ export function createSendFriendRequestTool(): AgentTool {
 export function createSearchMemoryTool(): AgentTool {
   return {
     name: 'search_memory',
-    description: '搜索自己的记忆',
+    description: '搜索自己的记忆（需要AgentRuntime实例）',
     parameters: {
       type: 'object',
       properties: {
@@ -408,31 +423,26 @@ export function createSearchMemoryTool(): AgentTool {
       },
       required: ['query'],
     },
-    execute: async (args: Record<string, unknown>, agent: AgentRuntime) => {
-      const query = String(args.query ?? '');
-      const results = await agent.memory.search(query, 5);
-      if (results.length === 0) {
-        return { success: true, message: `没有找到关于"${query}"的记忆`, result: [] };
-      }
+    execute: async (args: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> => {
       return {
         success: true,
-        message: `找到${results.length}条相关记忆`,
-        result: results.map(r => ({ content: r.content, importance: r.importance })),
+        message: '记忆搜索需要在AgentRuntime中特殊处理',
+        result: { query: String(args.query ?? ''), needsRuntime: true },
       };
     },
   };
 }
 
 export function registerDefaultTools(registry: { register: (tool: AgentTool) => void }, repo: Repository): void {
-  registry.register(createFindJobTool(repo));
+  registry.register(createFindJobTool());
   registry.register(createBuyItemTool(repo));
-  registry.register(createSocializeTool(repo));
+  registry.register(createSocializeTool());
   registry.register(createRestTool());
   registry.register(createWorkTool(repo));
   registry.register(createSendMessageTool(repo));
   registry.register(createChangeLocationTool(repo));
   registry.register(createStartBusinessTool(repo));
-  registry.register(createPostSocialTool(repo));
+  registry.register(createPostSocialTool());
   registry.register(createCheckRelationshipTool(repo));
   registry.register(createSendFriendRequestTool());
   registry.register(createSearchMemoryTool());

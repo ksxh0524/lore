@@ -18,6 +18,7 @@ export interface StatModifier {
 
 export class StatsManager {
   private stats: AgentStats;
+  private baseStats: AgentStats;
   private modifiers: Map<string, StatModifier> = new Map();
   private readonly agentId: string;
 
@@ -40,6 +41,7 @@ export class StatsManager {
 
   constructor(agentId: string, initialStats: AgentStats) {
     this.agentId = agentId;
+    this.baseStats = { ...initialStats };
     this.stats = { ...initialStats };
   }
 
@@ -56,6 +58,7 @@ export class StatsManager {
     const bounded = this.applyBounds(stat, value);
     if (oldValue !== bounded) {
       this.stats[stat] = bounded;
+      this.baseStats[stat] = bounded;
       this.emitStatChange(stat, oldValue, bounded, bounded - oldValue, reason);
     }
   }
@@ -117,13 +120,14 @@ export class StatsManager {
   }
 
   private recalculateStats(): void {
+    this.stats = { ...this.baseStats };
     for (const modifier of this.modifiers.values()) {
       if (modifier.type === 'add') {
-        this.stats[modifier.stat] += modifier.value;
+        this.stats[modifier.stat] = this.applyBounds(modifier.stat, this.stats[modifier.stat] + modifier.value);
       } else if (modifier.type === 'multiply') {
-        this.stats[modifier.stat] *= modifier.value;
+        this.stats[modifier.stat] = this.applyBounds(modifier.stat, this.stats[modifier.stat] * modifier.value);
       } else if (modifier.type === 'set') {
-        this.stats[modifier.stat] = modifier.value;
+        this.stats[modifier.stat] = this.applyBounds(modifier.stat, modifier.value);
       }
     }
   }

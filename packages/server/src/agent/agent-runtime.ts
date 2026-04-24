@@ -9,12 +9,13 @@ import type {
 } from '@lore/shared';
 import type { Repository } from '../db/repository.js';
 import type { LLMScheduler } from '../llm/scheduler.js';
+import type { ToolContext, ToolResult, StatChange, StateChange } from './types.js';
 import { MemoryManager } from './memory.js';
 import { ToolRegistry } from './tools.js';
 import { registerDefaultTools } from './default-tools.js';
 import { AgentStateMachine } from './state-machine.js';
 import { agentEventBus } from './event-bus.js';
-import { StatsManager, type StatChange } from './stats-manager.js';
+import { StatsManager } from './stats-manager.js';
 import { nanoid } from 'nanoid';
 import type { LoreConfig } from '../config/loader.js';
 import { buildDecisionPrompt, buildChatPrompt } from '../llm/prompts.js';
@@ -132,6 +133,16 @@ export class AgentRuntime {
     return this.stateMachine.getState();
   }
 
+  getToolContext(): ToolContext {
+    return {
+      id: this.id,
+      worldId: this.worldId,
+      profile: this.profile,
+      stats: this.stats,
+      state: this.state,
+    };
+  }
+
   getCurrentActivity(): string {
     return this.lastDecision?.action || '空闲';
   }
@@ -167,9 +178,8 @@ export class AgentRuntime {
 
   applyStatChanges(changes: StatChange[]): void {
     this.statsManager.applyChanges(changes);
-    
-    // Check for death condition
-    if (this.stats.health <= 0 && this.state.status !== 'dead') {
+
+    if (this.statsManager.getStat('health') <= 0 && this.stateMachine.getState() !== 'dead') {
       this.transitionTo('dead', '生命值耗尽');
       agentEventBus.emitEvent({
         agentId: this.id,
@@ -177,6 +187,47 @@ export class AgentRuntime {
         timestamp: new Date(),
         payload: { reason: 'health_depleted' },
       });
+    }
+  }
+
+  applyStateChanges(changes: StateChange[]): void {
+    for (const change of changes) {
+      if (change.status) {
+        this.transitionTo(change.status, 'tool_effect');
+      }
+      if (change.activity) {
+        this.lastDecision = {
+          action: change.activity,
+          reasoning: 'tool_effect',
+          moodChange: 0,
+          confidence: 0.8,
+        };
+      }
+      if (change.location) {
+        this.stateMachine.transition(
+          this.stateMachine.getState(),
+          {
+            energy: this.stats.energy,
+            health: this.stats.health,
+            mood: this.stats.mood,
+            currentActivity: change.activity ?? this.getCurrentActivity(),
+            currentLocation: change.location,
+          },
+          'location_change',
+        );
+      }
+    }
+  }
+
+  applyToolResult(result: ToolResult): void {
+    if (result.statChanges && result.statChanges.length > 0) {
+      this.applyStatChanges(result.statChanges);
+    }
+    if (result.stateChanges && result.stateChanges.length > 0) {
+      this.applyStateChanges(result.stateChanges);
+    }
+    if (result.memory) {
+      this.memoryInstance.add(result.memory, 'action', 0.5);
     }
   }
 
@@ -248,16 +299,28 @@ export class AgentRuntime {
 
   private handleAutoStateTransitions(): void {
     const currentState = this.stateMachine.getState();
-    if (currentState !== 'sleeping' && currentState !== 'dead') {
+
+    if (currentState === 'dead') return;
+
+    if (this.statsManager.getStat('health') <= 0) {
+      this.transitionTo('dead', '健康值归零');
+      agentEventBus.emitEvent({
+        agentId: this.id,
+        type: 'agent_died',
+        timestamp: new Date(),
+        payload: { reason: 'health_depleted' },
+      });
+      return;
+    }
+
+    if (currentState !== 'sleeping') {
       if (this.statsManager.shouldSleep()) {
         this.transitionTo('sleeping', '能量耗尽，自动进入睡眠');
       }
     }
+
     if (currentState === 'sleeping' && this.statsManager.canWakeUp()) {
       this.transitionTo('idle', '精力恢复，自动醒来');
-    }
-    if (currentState !== 'dead' && this.stats.health <= 0) {
-      this.transitionTo('dead', '健康值归零');
     }
   }
 
@@ -317,19 +380,30 @@ export class AgentRuntime {
       });
     }
 
-    let toolResult: unknown = null;
+    const toolResults: unknown[] = [];
     let success = true;
 
     if (decision.toolCalls && decision.toolCalls.length > 0) {
+      const context = this.getToolContext();
       for (const call of decision.toolCalls) {
         const tool = this.tools.get(call.name);
         if (tool) {
           try {
-            toolResult = await tool.execute(call.args, this);
-            await this.memory.add(`执行了 ${call.name}: ${JSON.stringify(toolResult)}`, 'decision', 0.6);
+            const result = await tool.execute(call.args, context);
+            this.applyToolResult(result);
+            toolResults.push(result.result);
+
+            if (result.result && typeof result.result === 'object' && 'needsRuntime' in result.result) {
+              const searchResult = await this.memory.search(String((call.args as { query?: string }).query ?? ''), 5);
+              toolResults.push(searchResult);
+            }
+
+            if (!result.success) {
+              success = false;
+            }
           } catch (err) {
             success = false;
-            toolResult = { error: String(err) };
+            toolResults.push({ error: String(err) });
           }
         }
       }
@@ -341,7 +415,7 @@ export class AgentRuntime {
     return {
       success,
       action: decision.action,
-      result: toolResult,
+      result: toolResults.length > 0 ? toolResults : null,
       statChanges,
       memory: decision.say,
     };

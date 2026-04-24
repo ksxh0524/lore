@@ -1,4 +1,5 @@
 import type { InitRequest, InitResult, AgentProfile, AgentStats } from '@lore/shared';
+import type { WorldData } from './types.js';
 import { nanoid } from 'nanoid';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { Repository } from '../db/repository.js';
@@ -7,30 +8,6 @@ import { buildRandomWorldPrompt } from '../llm/prompts.js';
 import { createLogger } from '../logger/index.js';
 
 const logger = createLogger('init-agent');
-
-interface WorldData {
-  worldConfig?: { name?: string; startTime?: string; location?: string };
-  userAvatar?: {
-    name?: string;
-    profile?: AgentProfile;
-    initialStats?: AgentStats;
-    backstory?: string;
-  };
-  agents?: Array<{
-    name?: string;
-    age?: number;
-    gender?: string;
-    occupation?: string;
-    personality?: string;
-    backstory?: string;
-    background?: string;
-    speechStyle?: string;
-    likes?: string[];
-    dislikes?: string[];
-    profile?: AgentProfile;
-    initialStats?: AgentStats;
-  }>;
-}
 
 export class InitAgent {
   private llmScheduler: LLMScheduler;
@@ -75,7 +52,7 @@ export class InitAgent {
       },
     ];
 
-    let worldData: any;
+    let worldData: WorldData;
     try {
       const result = await this.llmScheduler.submit({
         agentId: 'init-agent',
@@ -84,7 +61,7 @@ export class InitAgent {
         messages: prompt,
         maxTokens: 4096,
       });
-      worldData = JSON.parse(result.content);
+      worldData = JSON.parse(result.content) as WorldData;
       logger.debug({ worldId, presetName: params.presetName }, 'History world generated');
     } catch (err) {
       logger.warn({ worldId, presetName: params.presetName, err }, 'History world generation failed, using fallback');
@@ -100,17 +77,19 @@ export class InitAgent {
 
     const agents: InitResult['agents'] = [];
     for (const raw of worldData.agents ?? []) {
-      const profile: AgentProfile = raw.profile ?? {
-        name: raw.name ?? 'NPC',
-        age: raw.age ?? 25,
-        gender: raw.gender ?? 'unknown',
-        occupation: raw.occupation ?? '平民',
-        personality: raw.personality ?? '普通',
-        background: raw.backstory ?? raw.background ?? '',
-        speechStyle: raw.speechStyle ?? '文言风',
-        likes: raw.likes ?? [],
-        dislikes: raw.dislikes ?? [],
-      };
+      const profile: AgentProfile = raw.profile
+        ? { ...raw.profile, occupation: raw.profile.occupation ?? raw.occupation ?? '平民' }
+        : {
+            name: raw.name ?? 'NPC',
+            age: raw.age ?? 25,
+            gender: raw.gender ?? 'unknown',
+            occupation: raw.occupation ?? '平民',
+            personality: raw.personality ?? '普通',
+            background: raw.backstory ?? raw.background ?? '',
+            speechStyle: raw.speechStyle ?? '文言风',
+            likes: raw.likes ?? [],
+            dislikes: raw.dislikes ?? [],
+          };
       const stats: AgentStats = raw.initialStats ?? { mood: 70, health: 100, energy: 100, money: 500 };
       agents.push({ name: profile.name, profile, initialStats: stats, backstory: raw.backstory ?? '' });
     }
@@ -184,17 +163,19 @@ export class InitAgent {
     const agents: InitResult['agents'] = [];
     const rawAgents = worldData.agents ?? [];
     for (const raw of rawAgents) {
-      const profile: AgentProfile = raw.profile ?? {
-        name: raw.name ?? 'NPC',
-        age: raw.age ?? 25,
-        gender: raw.gender ?? 'unknown',
-        occupation: raw.occupation ?? '无业',
-        personality: raw.personality ?? '普通',
-        background: raw.backstory ?? raw.background ?? '',
-        speechStyle: raw.speechStyle ?? '随意',
-        likes: raw.likes ?? [],
-        dislikes: raw.dislikes ?? [],
-      };
+      const profile: AgentProfile = raw.profile
+        ? { ...raw.profile, occupation: raw.profile.occupation ?? raw.occupation ?? '无业' }
+        : {
+            name: raw.name ?? 'NPC',
+            age: raw.age ?? 25,
+            gender: raw.gender ?? 'unknown',
+            occupation: raw.occupation ?? '无业',
+            personality: raw.personality ?? '普通',
+            background: raw.backstory ?? raw.background ?? '',
+            speechStyle: raw.speechStyle ?? '随意',
+            likes: raw.likes ?? [],
+            dislikes: raw.dislikes ?? [],
+          };
       const stats: AgentStats = raw.initialStats ?? { mood: 70, health: 100, energy: 100, money: 1000 };
       agents.push({ name: profile.name, profile, initialStats: stats, backstory: raw.backstory ?? '' });
     }
@@ -231,7 +212,7 @@ export class InitAgent {
     };
   }
 
-  private generateHistoryFallback(presetName: string): any {
+  private generateHistoryFallback(presetName: string): WorldData {
     const names = ['李明', '赵云', '张华', '王昭', '陈安', '刘禅', '杨妃'];
     const occupations = ['将军', '文官', '商人', '农夫', '工匠', '书生', '宫女'];
     return {
@@ -256,7 +237,7 @@ export class InitAgent {
     };
   }
 
-  private generateFallbackWorld(params: { age: number; location: string; background: string }): any {
+  private generateFallbackWorld(params: { age: number; location: string; background: string }): WorldData {
     const names = ['小美', '阿杰', '王姐', '老陈', '小李', '张伟', '小芳'];
     const occupations = ['程序员', '设计师', '老师', '外卖员', '销售', '学生', '厨师'];
     const personalities = ['热情开朗', '沉默寡言', '温柔体贴', '古灵精怪', '稳重踏实', '活泼好动', '淡定从容'];

@@ -1,6 +1,7 @@
 import { db } from './index.js';
 import { memories } from './schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import type { MemoryType, MemoryContentType } from '@lore/shared';
 
 export async function storeEmbedding(memoryId: string, embedding: number[]): Promise<void> {
   const buffer = Buffer.from(new Float32Array(embedding).buffer);
@@ -11,7 +12,16 @@ export async function searchSimilar(
   agentId: string,
   queryEmbedding: number[],
   limit = 10,
+  options?: { type?: MemoryType; memoryType?: MemoryContentType },
 ): Promise<Array<{ id: string; content: string; importance: number; similarity: number }>> {
+  const conditions = [eq(memories.agentId, agentId)];
+  if (options?.type) {
+    conditions.push(eq(memories.type, options.type));
+  }
+  if (options?.memoryType) {
+    conditions.push(eq(memories.memoryType, options.memoryType));
+  }
+
   const rows = await db
     .select({
       id: memories.id,
@@ -20,7 +30,7 @@ export async function searchSimilar(
       embedding: memories.embedding,
     })
     .from(memories)
-    .where(eq(memories.agentId, agentId));
+    .where(and(...conditions));
 
   const scored = rows
     .map((r) => {

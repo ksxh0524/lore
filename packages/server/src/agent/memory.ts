@@ -79,7 +79,7 @@ export class MemoryManager {
     }));
   }
 
-  async getContext(maxTokens: number): Promise<MemoryContext> {
+  async getContext(maxTokens: number, query?: string): Promise<MemoryContext> {
     const result: MemoryContext = {
       working: [],
       recent: [],
@@ -101,6 +101,20 @@ export class MemoryManager {
       if (tokensUsed + tokens > maxTokens) break;
       result.recent.push(r);
       tokensUsed += tokens;
+    }
+
+    if (query && tokensUsed < maxTokens * 0.8) {
+      try {
+        const longTerm = await this.search(query, 5);
+        for (const lt of longTerm) {
+          const tokens = this.estimateTokens(lt.content);
+          if (tokensUsed + tokens > maxTokens) break;
+          result.longTerm.push(lt);
+          tokensUsed += tokens;
+        }
+      } catch (err) {
+        logger.warn({ agentId: this.agentId, err }, 'Failed to get long-term memories');
+      }
     }
 
     return result;

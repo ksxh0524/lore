@@ -1,6 +1,9 @@
 import type { RelationshipType } from '@lore/shared';
 import type { Repository } from '../db/repository.js';
 import { nanoid } from 'nanoid';
+import { db } from '../db/index.js';
+import { relationships as relTable } from '../db/schema.js';
+import { and, lt, gt } from 'drizzle-orm';
 
 const transitionThresholds: Array<{ from: RelationshipType; to: RelationshipType; minIntimacy: number }> = [
   { from: 'stranger', to: 'acquaintance', minIntimacy: 11 },
@@ -105,9 +108,6 @@ export class RelationshipManager {
 
   async decayInactive(worldId: string): Promise<void> {
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const { db } = await import('../db/index.js');
-    const { relationships: relTable } = await import('../db/schema.js');
-    const { and, lt, gt, eq } = await import('drizzle-orm');
 
     const rows = await db.select().from(relTable).where(
       and(

@@ -92,13 +92,15 @@ export class AgentManager {
     worldState: { currentTime: string; day: number; currentTick: number },
     llmScheduler: LLMScheduler,
     config: LoreConfig,
+    maxConcurrent = 5,
   ): Promise<void> {
     const all = [...this.agents.values()].filter((a) => a.status !== 'dead');
-    const batchSize = 3;
+    const results: Promise<void>[] = [];
 
-    for (let i = 0; i < all.length; i += batchSize) {
-      const batch = all.slice(i, i + batchSize);
-      await Promise.allSettled(batch.map((agent) => agent.tick(worldState, llmScheduler, config)));
+    for (let i = 0; i < all.length; i += maxConcurrent) {
+      const batch = all.slice(i, i + maxConcurrent);
+      const batchResults = batch.map((agent) => agent.tick(worldState, llmScheduler, config));
+      await Promise.allSettled(batchResults);
     }
   }
 

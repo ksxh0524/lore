@@ -2,10 +2,13 @@ import type { LLMScheduler } from '../llm/scheduler.js';
 import type { Repository } from '../db/repository.js';
 import type { PlatformEngine } from '../world/platform-engine.js';
 import type { RelationshipManager } from './relationships.js';
+import type { platformPosts } from '../db/schema.js';
 import { nanoid } from 'nanoid';
 import { createLogger } from '../logger/index.js';
 
 const logger = createLogger('social');
+
+type PlatformPostInsert = typeof platformPosts.$inferInsert;
 
 interface AgentLike {
   id: string;
@@ -34,7 +37,7 @@ export class SocialEngine {
     this.relationshipManager = relationshipManager;
   }
 
-  async postSocial(agent: AgentLike, content?: string, platformId?: string): Promise<any> {
+  async postSocial(agent: AgentLike, content?: string, platformId?: string): Promise<PlatformPostInsert | null> {
     let postContent = content;
     if (!postContent) {
       postContent = await this.generatePostContent(agent) ?? undefined;
@@ -46,7 +49,7 @@ export class SocialEngine {
 
     const platforms = await this.platformEngine.getWorldPlatforms(agent.worldId);
     const targetPlatform = platformId
-      ? platforms.find((p: any) => p.id === platformId)
+      ? platforms.find((p) => p.id === platformId)
       : platforms[0];
 
     if (!targetPlatform) {

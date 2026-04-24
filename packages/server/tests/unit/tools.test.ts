@@ -25,10 +25,11 @@ describe('Default Tools', () => {
   it('should create rest tool and recover energy', async () => {
     const { createRestTool } = await import('../../src/agent/default-tools.js');
     const tool = createRestTool();
-    const agent: any = { id: 'a1', worldId: 'w1', profile: { name: 'Test' }, state: { status: 'idle' }, stats: { energy: 50 } };
-    const result = await tool.execute({ duration: 4, type: '睡觉' }, agent);
+    const context: any = { id: 'a1', worldId: 'w1', profile: { name: 'Test' }, state: { status: 'idle' }, stats: { energy: 50 } };
+    const result = await tool.execute({ duration: 4, type: '睡觉' }, context);
     expect(result.success).toBe(true);
-    expect(agent.stats.energy).toBeGreaterThan(50);
+    expect(result.statChanges).toBeDefined();
+    expect(result.statChanges?.some((c: any) => c.stat === 'energy' && c.delta > 0)).toBe(true);
   });
 
   it('should register all default tools', async () => {
