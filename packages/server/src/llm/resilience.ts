@@ -22,7 +22,7 @@ export class LLMResilience {
         const result = await this.withTimeout(fn(), this.timeoutMs);
         this.circuitBreaker.recordSuccess();
         return result;
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!this.isRetryable(err)) {
           this.circuitBreaker.recordFailure();
           throw err;
@@ -51,10 +51,15 @@ export class LLMResilience {
     return new Promise(resolve => setTimeout(resolve, delay));
   }
 
-  private isRetryable(err: any): boolean {
-    if (err.status === 429) return true;
-    if (err.message === 'LLM_TIMEOUT') return true;
-    if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') return true;
+  private isRetryable(err: unknown): boolean {
+    if (err instanceof Error) {
+      if (err.message === 'LLM_TIMEOUT') return true;
+    }
+    
+    const errorLike = err as Record<string, unknown>;
+    if (errorLike.status === 429) return true;
+    if (errorLike.code === 'ECONNRESET' || errorLike.code === 'ECONNREFUSED') return true;
+    
     return false;
   }
 }
