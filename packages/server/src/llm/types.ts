@@ -6,6 +6,27 @@ export interface ILLMProvider {
   isModelSupported(model: string): boolean;
 }
 
+export interface IImageProvider {
+  readonly name: string;
+  generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResult>;
+  isModelSupported(model: string): boolean;
+}
+
+export interface ImageGenerationRequest {
+  prompt: string;
+  model: string;
+  size?: '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792';
+  quality?: 'standard' | 'hd';
+  style?: 'vivid' | 'natural';
+  n?: number;
+}
+
+export interface ImageGenerationResult {
+  images: Array<{ url?: string; base64?: string; revisedPrompt?: string }>;
+  model: string;
+  latencyMs: number;
+}
+
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -28,7 +49,7 @@ export interface LLMCallResult {
   latencyMs: number;
 }
 
-export type LLMCallType = 'user-chat' | 'decision' | 'social' | 'creative';
+export type LLMCallType = 'user-chat' | 'decision' | 'social' | 'creative' | 'world-event';
 
 export interface LLMRequest {
   agentId: string;
