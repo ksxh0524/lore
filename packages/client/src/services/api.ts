@@ -9,11 +9,10 @@ import type {
 const API_BASE = '/api';
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const hasBody = options?.body !== undefined;
   const response = await fetch(`${API_BASE}${url}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
     ...options,
+    headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
   });
   
   if (!response.ok) {
