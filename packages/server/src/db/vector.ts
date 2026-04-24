@@ -1,6 +1,6 @@
 import { db } from './index.js';
 import { memories } from './schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNotNull, desc } from 'drizzle-orm';
 import type { MemoryType, MemoryContentType } from '@lore/shared';
 
 export async function storeEmbedding(memoryId: string, embedding: number[]): Promise<void> {
@@ -14,10 +14,14 @@ export async function searchSimilar(
   limit = 10,
   options?: { type?: MemoryType; memoryType?: MemoryContentType },
 ): Promise<Array<{ id: string; content: string; importance: number; similarity: number }>> {
-  const conditions = [eq(memories.agentId, agentId)];
-  if (options?.type) {
-    conditions.push(eq(memories.type, options.type));
-  }
+  const typeFilter = options?.type ?? 'long-term';
+  
+  const conditions = [
+    eq(memories.agentId, agentId),
+    eq(memories.type, typeFilter),
+    isNotNull(memories.embedding),
+  ];
+  
   if (options?.memoryType) {
     conditions.push(eq(memories.memoryType, options.memoryType));
   }
@@ -30,16 +34,16 @@ export async function searchSimilar(
       embedding: memories.embedding,
     })
     .from(memories)
-    .where(and(...conditions));
+    .where(and(...conditions))
+    .orderBy(desc(memories.importance))
+    .limit(100);
 
   const scored = rows
+    .filter(r => r.embedding !== null)
     .map((r) => {
-      let similarity = 0;
-      if (r.embedding) {
-        const buf = r.embedding as Buffer;
-        const storedEmbedding: number[] = Array.from(new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4));
-        similarity = cosineSimilarity(queryEmbedding, storedEmbedding);
-      }
+      const buf = r.embedding as Buffer;
+      const storedEmbedding: number[] = Array.from(new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4));
+      const similarity = cosineSimilarity(queryEmbedding, storedEmbedding);
       return {
         id: r.id,
         content: r.content,
