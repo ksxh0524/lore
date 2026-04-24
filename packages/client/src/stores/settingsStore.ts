@@ -53,8 +53,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const preset = get().presets.find(p => p.id === presetId);
       if (!preset) throw new Error('Preset not found');
       
-      const defaultModel = preset.defaultModels[0] ?? '';
-      const enabledModels = models?.length ? models.filter((m): m is string => !!m) : [defaultModel];
+      const defaultModel = preset.models?.[0] ?? '';
+      const enabledModels = models?.length ? models.filter((m): m is string => !!m) : (defaultModel ? [defaultModel] : []);
       
       const result = await providerApi.createProvider({
         presetId,
