@@ -6,6 +6,7 @@ const ProviderSchema = z.object({
   type: z.string().optional(),
   baseUrl: z.string().optional(),
   models: z.array(z.string()).default([]),
+  imageModels: z.array(z.string()).default([]),
   embeddingModel: z.string().optional(),
   priority: z.number().default(50),
   enabled: z.boolean().default(true),
@@ -121,7 +122,7 @@ const ConfigSchema = z.object({
   dataDir: z.string().default(`${process.env.HOME ?? '~'}/.lore`),
   encryption: z.object({
     key: z.string().optional(),
-  }),
+  }).default({}).optional(),
   log: LogSchema,
   enableMockProvider: z.boolean().default(true),
 });

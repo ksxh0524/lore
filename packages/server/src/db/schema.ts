@@ -85,7 +85,7 @@ export const platforms = sqliteTable('platforms', {
   id: text('id').primaryKey(),
   worldId: text('world_id').notNull(),
   name: text('name').notNull(),
-  type: text('type', { enum: ['video_short', 'video_long', 'social', 'image', 'forum', 'job'] }).notNull(),
+  type: text('type', { enum: ['video_short', 'video_long', 'social', 'image', 'forum', 'job', 'dating'] }).notNull(),
   creatorId: text('creator_id'),
   userCount: integer('user_count').default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
