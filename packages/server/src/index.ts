@@ -23,6 +23,7 @@ import { PushManager } from './scheduler/push-manager.js';
 import { Monitor } from './monitor/index.js';
 import { registerRoutes } from './api/routes.js';
 import { registerWebSocket } from './api/ws.js';
+import { registerProviderRoutes } from './api/provider-routes.js';
 import { nanoid } from 'nanoid';
 
 async function main() {
@@ -219,8 +220,9 @@ async function main() {
     setWorldId: (id: string | null) => { currentWorldId = id; },
   };
 
-  registerRoutes(app, deps);
-  registerWebSocket(app, deps);
+registerRoutes(app, deps);
+registerWebSocket(app, deps);
+registerProviderRoutes(app, repo);
 
   try {
     await app.listen({ port: config.server.port, host: config.server.host });

@@ -190,6 +190,20 @@ export function initTables() {
       reputation INTEGER DEFAULT 50,
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS user_providers (
+      id TEXT PRIMARY KEY,
+      preset_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      api_key TEXT NOT NULL,
+      base_url TEXT,
+      enabled INTEGER DEFAULT 1,
+      priority INTEGER DEFAULT 50,
+      models TEXT,
+      default_model TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   sqlite.exec(`
