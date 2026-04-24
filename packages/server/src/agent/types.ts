@@ -1,4 +1,18 @@
 import type { AgentProfile, AgentState, AgentStats, AgentStatus } from '@lore/shared';
+import type { MemoryManager } from './memory.js';
+import { z } from 'zod';
+
+export const DecisionSchema = z.object({
+  action: z.string().default('思考'),
+  target: z.string().optional(),
+  reasoning: z.string().default('没有特别的理由'),
+  moodChange: z.number().default(0),
+  say: z.string().optional(),
+  alternativeActions: z.array(z.string()).optional(),
+  confidence: z.number().min(0).max(1).default(0.5),
+});
+
+export type DecisionInput = z.infer<typeof DecisionSchema>;
 
 export interface StatChange {
   stat: keyof AgentStats;
@@ -18,6 +32,7 @@ export interface ToolContext {
   profile: AgentProfile;
   stats: AgentStats;
   state: AgentState;
+  memory: MemoryManager;
 }
 
 export interface ToolResult {

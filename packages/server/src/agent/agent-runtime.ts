@@ -9,13 +9,15 @@ import type {
 } from '@lore/shared';
 import type { Repository } from '../db/repository.js';
 import type { LLMScheduler } from '../llm/scheduler.js';
-import type { ToolContext, ToolResult, StatChange, StateChange } from './types.js';
+import type { ToolContext, ToolResult, StatChange, StateChange, DecisionInput } from './types.js';
+import { DecisionSchema } from './types.js';
 import { MemoryManager } from './memory.js';
 import { ToolRegistry } from './tools.js';
 import { registerDefaultTools } from './default-tools.js';
 import { AgentStateMachine } from './state-machine.js';
 import { agentEventBus } from './event-bus.js';
 import { StatsManager } from './stats-manager.js';
+import { MessageInbox } from './message-inbox.js';
 import { nanoid } from 'nanoid';
 import type { LoreConfig } from '../config/loader.js';
 import { buildDecisionPrompt, buildChatPrompt } from '../llm/prompts.js';
@@ -53,11 +55,14 @@ export class AgentRuntime {
   private memoryInstance: MemoryManager;
   private relationshipsMap = new Map<string, RelationshipType>();
   private tools = new ToolRegistry();
+  private inbox: MessageInbox;
+  private currentLocation = '家';
 
   private lastThinkTick = 0;
   private lastDecision: AgentDecision | null = null;
   private consecutiveFailures = 0;
   private readonly maxConsecutiveFailures = 3;
+  private agentManager: { get: (id: string) => AgentRuntime | undefined; getAgentsMap: () => ReadonlyMap<string, AgentRuntime> } | null = null;
 
   private repo: Repository;
   private llmScheduler: LLMScheduler;
@@ -87,6 +92,7 @@ export class AgentRuntime {
       initialStats || { mood: 70, health: 100, energy: 100, money: 1000 },
     );
     this.memoryInstance = new MemoryManager(id, repo, llmScheduler, config);
+    this.inbox = new MessageInbox(id, worldId, repo);
     registerDefaultTools(this.tools, repo);
 
     this.stateMachine.on('stateChange', (event) => {
@@ -129,6 +135,19 @@ export class AgentRuntime {
     return this.tools;
   }
 
+  getInbox(): MessageInbox {
+    return this.inbox;
+  }
+
+  async deliverMessage(fromAgentId: string, fromAgentName: string, content: string): Promise<void> {
+    await this.inbox.deliverMessage(fromAgentId, fromAgentName, content);
+    await this.memory.add(`收到${fromAgentName}的消息："${content}"`, 'chat', 0.6);
+  }
+
+  setAgentManager(manager: { get: (id: string) => AgentRuntime | undefined; getAgentsMap: () => ReadonlyMap<string, AgentRuntime> }): void {
+    this.agentManager = manager;
+  }
+
   get status() {
     return this.stateMachine.getState();
   }
@@ -140,6 +159,7 @@ export class AgentRuntime {
       profile: this.profile,
       stats: this.stats,
       state: this.state,
+      memory: this.memoryInstance,
     };
   }
 
@@ -148,7 +168,20 @@ export class AgentRuntime {
   }
 
   getCurrentLocation(): string {
-    return '未知地点';
+    return this.currentLocation;
+  }
+
+  setCurrentLocation(location: string): void {
+    const oldLocation = this.currentLocation;
+    this.currentLocation = location;
+    if (oldLocation !== location) {
+      agentEventBus.emitEvent({
+        agentId: this.id,
+        type: 'location_changed',
+        timestamp: new Date(),
+        payload: { from: oldLocation, to: location },
+      });
+    }
   }
 
   canTransitionTo(status: ReturnType<AgentStateMachine['getState']>): boolean {
@@ -204,17 +237,7 @@ export class AgentRuntime {
         };
       }
       if (change.location) {
-        this.stateMachine.transition(
-          this.stateMachine.getState(),
-          {
-            energy: this.stats.energy,
-            health: this.stats.health,
-            mood: this.stats.mood,
-            currentActivity: change.activity ?? this.getCurrentActivity(),
-            currentLocation: change.location,
-          },
-          'location_change',
-        );
+        this.setCurrentLocation(change.location);
       }
     }
   }
@@ -286,6 +309,7 @@ export class AgentRuntime {
         this.lastThinkTick = worldState.currentTick;
         this.emitDecisionEvent(decision);
         this.emitActionEvent(result);
+        this.inbox.markAllRead();
       }
     } catch (err) {
       this.consecutiveFailures++;
@@ -329,7 +353,8 @@ export class AgentRuntime {
     llmScheduler: LLMScheduler,
     config: LoreConfig,
   ): Promise<AgentDecision | null> {
-    const prompt = buildDecisionPrompt(this, worldState, []);
+    const inboxEvents = this.inbox.getPendingEvents();
+    const prompt = buildDecisionPrompt(this, worldState, inboxEvents);
     const toolDefs = this.tools.toFunctionDefinitions();
 
     const result = await llmScheduler.submit({
@@ -348,16 +373,33 @@ export class AgentRuntime {
     toolCalls?: Array<{ name: string; args: Record<string, unknown> }>,
   ): AgentDecision | null {
     try {
-      const parsed = JSON.parse(content);
+      const rawParsed = JSON.parse(content);
+      const result = DecisionSchema.safeParse(rawParsed);
+      
+      if (result.success) {
+        return {
+          action: result.data.action,
+          target: result.data.target,
+          reasoning: result.data.reasoning,
+          moodChange: result.data.moodChange,
+          say: result.data.say,
+          toolCalls: toolCalls,
+          alternativeActions: result.data.alternativeActions,
+          confidence: result.data.confidence,
+        };
+      }
+      
+      logger.warn({ 
+        agentId: this.id, 
+        errors: result.error.errors,
+        rawContent: content.slice(0, 100) 
+      }, 'Decision parse validation failed, using fallback');
+      
       return {
-        action: String(parsed.action || '思考'),
-        target: parsed.target ? String(parsed.target) : undefined,
-        reasoning: String(parsed.reasoning || '没有特别的理由'),
-        moodChange: Number(parsed.moodChange || 0),
-        say: parsed.say ? String(parsed.say) : undefined,
-        toolCalls: toolCalls,
-        alternativeActions: Array.isArray(parsed.alternativeActions) ? parsed.alternativeActions : undefined,
-        confidence: Math.max(0, Math.min(1, Number(parsed.confidence || 0.5))),
+        action: String(rawParsed?.action || '思考'),
+        reasoning: String(rawParsed?.reasoning || content.slice(0, 200)),
+        moodChange: Number(rawParsed?.moodChange || 0),
+        confidence: 0.3,
       };
     } catch {
       return {
@@ -393,9 +435,8 @@ export class AgentRuntime {
             this.applyToolResult(result);
             toolResults.push(result.result);
 
-            if (result.result && typeof result.result === 'object' && 'needsRuntime' in result.result) {
-              const searchResult = await this.memory.search(String((call.args as { query?: string }).query ?? ''), 5);
-              toolResults.push(searchResult);
+            if (call.name === 'send_message' && this.agentManager) {
+              await this.handleMessageDelivery(call.args);
             }
 
             if (!result.success) {
@@ -433,6 +474,23 @@ export class AgentRuntime {
       this.transitionTo('traveling', '开始移动');
     } else {
       this.transitionTo('active', '开始活动');
+    }
+  }
+
+  private async handleMessageDelivery(args: Record<string, unknown>): Promise<void> {
+    if (!this.agentManager) return;
+    const targetName = String(args.targetName ?? '');
+    const content = String(args.content ?? '');
+    if (!targetName || !content) return;
+
+    const agentMap = this.agentManager.getAgentsMap?.();
+    if (!agentMap) return;
+
+    for (const agent of agentMap.values()) {
+      if (agent.profile.name === targetName && agent.id !== this.id) {
+        await agent.deliverMessage(this.id, this.profile.name, content);
+        break;
+      }
     }
   }
 
@@ -545,6 +603,9 @@ export class AgentRuntime {
       data.stats,
     );
     agent.relationshipsMap = new Map(data.relationships as Array<[string, RelationshipType]>);
+    if (data.state.currentLocation) {
+      agent.setCurrentLocation(data.state.currentLocation);
+    }
     return agent;
   }
 }
