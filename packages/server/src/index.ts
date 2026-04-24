@@ -270,17 +270,18 @@ const repo = new Repository();
   await app.register(websocket);
 
   const deps = {
-    config, agentManager, initAgent, llmScheduler, repo,
-    modeManager, pushManager, platformEngine, economyEngine,
-    worldClock, tickScheduler, monitor, worldPersistence,
-    eventEngine, eventChainEngine, factionSystem,
-    relationshipManager, socialEngine,
-    getWorldId: () => currentWorldId,
-    setWorldId: (id: string | null) => { currentWorldId = id; },
+    core: { config, repo, llmScheduler },
+    agents: { agentManager, initAgent, relationshipManager, socialEngine },
+    world: { worldClock, tickScheduler, economyEngine, platformEngine, eventEngine, eventChainEngine, factionSystem, worldPersistence },
+    ui: { modeManager, pushManager, monitor },
+    worldState: {
+      getWorldId: () => currentWorldId,
+      setWorldId: (id: string | null) => { currentWorldId = id; },
+    },
   };
 
   registerRoutes(app, deps);
-  registerWebSocket(app, deps);
+  registerWebSocket(app, { agentManager, llmScheduler, config, pushManager, modeManager, worldClock, tickScheduler, repo });
   registerProviderRoutes(app, repo);
 
   try {

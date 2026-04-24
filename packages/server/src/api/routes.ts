@@ -24,32 +24,45 @@ import { createLogger } from '../logger/index.js';
 
 const logger = createLogger('routes');
 
-export function registerRoutes(
-  app: FastifyInstance,
-  deps: {
+export interface AppDeps {
+  core: {
     config: LoreConfig;
+    repo: Repository;
+    llmScheduler: LLMScheduler;
+  };
+  agents: {
     agentManager: AgentManager;
     initAgent: InitAgent;
-    llmScheduler: LLMScheduler;
-    repo: Repository;
-    modeManager: ModeManager;
-    pushManager: PushManager;
-    platformEngine: PlatformEngine;
-    economyEngine: EconomyEngine;
+    relationshipManager: RelationshipManager;
+    socialEngine: SocialEngine;
+  };
+  world: {
     worldClock: WorldClock;
     tickScheduler: TickScheduler;
-    monitor: Monitor;
-    worldPersistence: WorldPersistence;
+    economyEngine: EconomyEngine;
+    platformEngine: PlatformEngine;
     eventEngine: EventEngine;
     eventChainEngine: EventChainEngine;
     factionSystem: FactionSystem;
-    relationshipManager: RelationshipManager;
-    socialEngine: SocialEngine;
+    worldPersistence: WorldPersistence;
+  };
+  ui: {
+    modeManager: ModeManager;
+    pushManager: PushManager;
+    monitor: Monitor;
+  };
+  worldState: {
     getWorldId: () => string | null;
     setWorldId: (id: string | null) => void;
-  },
-) {
-  const { config, agentManager, initAgent, llmScheduler, repo, modeManager, pushManager, platformEngine, economyEngine, worldClock, tickScheduler, monitor, worldPersistence, eventChainEngine, factionSystem, relationshipManager, socialEngine, getWorldId, setWorldId } = deps;
+  };
+}
+
+export function registerRoutes(app: FastifyInstance, deps: AppDeps) {
+  const { config, repo, llmScheduler } = deps.core;
+  const { agentManager, initAgent, relationshipManager, socialEngine } = deps.agents;
+  const { worldClock, tickScheduler, economyEngine, platformEngine, eventEngine, eventChainEngine, factionSystem, worldPersistence } = deps.world;
+  const { modeManager, pushManager, monitor } = deps.ui;
+  const { getWorldId, setWorldId } = deps.worldState;
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof LoreError) {
@@ -358,6 +371,75 @@ export function registerRoutes(
     const { id } = req.params as { id: string };
     const { amount, reason } = z.object({ amount: z.number().positive(), reason: z.string() }).parse(req.body);
     await economyEngine.earn(id, amount, reason);
+    return { data: { success: true } };
+  });
+
+  // ── Shop ──
+
+  app.get('/api/shop/items', async () => {
+    return { data: economyEngine.getShopItems() };
+  });
+
+  app.get('/api/shop/items/:category', async (req) => {
+    const { category } = req.params as { category: string };
+    return { data: economyEngine.getShopItemsByCategory(category as any) };
+  });
+
+  app.post('/api/agents/:id/buy', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { itemId } = z.object({ itemId: z.string() }).parse(req.body);
+    const agent = agentManager.get(id);
+    if (!agent) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Agent not found' } });
+    const success = await economyEngine.buy(agent, itemId);
+    if (!success) return reply.status(400).send({ error: { code: ErrorCode.VALIDATION_ERROR, message: 'Purchase failed (insufficient funds or item not found)' } });
+    return { data: { success: true, newBalance: agent.stats.money } };
+  });
+
+  // ── Jobs ──
+
+  app.get('/api/jobs', async () => {
+    return { data: economyEngine.getAllJobs() };
+  });
+
+  app.get('/api/jobs/:category', async (req) => {
+    const { category } = req.params as { category: string };
+    return { data: economyEngine.getJobsByCategory(category as any) };
+  });
+
+  app.get('/api/agents/:id/can-apply/:jobId', async (req) => {
+    const { id, jobId } = req.params as { id: string; jobId: string };
+    const agent = agentManager.get(id);
+    if (!agent) return { data: { canApply: false, reason: 'Agent not found' } };
+    const canApply = economyEngine.canApplyJob(agent, jobId);
+    return { data: { canApply } };
+  });
+
+  app.post('/api/agents/:id/apply-job', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { jobId } = z.object({ jobId: z.string() }).parse(req.body);
+    const agent = agentManager.get(id);
+    if (!agent) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Agent not found' } });
+    if (!economyEngine.canApplyJob(agent, jobId)) {
+      return reply.status(400).send({ error: { code: ErrorCode.VALIDATION_ERROR, message: 'Cannot apply for this job' } });
+    }
+    const job = economyEngine.getJob(jobId);
+    if (!job) return reply.status(404).send({ error: { code: ErrorCode.VALIDATION_ERROR, message: 'Job not found' } });
+    agent.profile.occupation = job.name;
+    await economyEngine.applyJobEffect(agent, jobId);
+    await agentManager.persist(id);
+    return { data: { success: true, job } };
+  });
+
+  app.post('/api/agents/:id/quit-job', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const agent = agentManager.get(id);
+    if (!agent) return reply.status(404).send({ error: { code: ErrorCode.AGENT_NOT_FOUND, message: 'Agent not found' } });
+    agent.profile.occupation = '无业';
+    const eco = await repo.getAgentEconomy(id);
+    if (eco) {
+      await repo.updateEconomy(eco.id, { income: 0 });
+    }
+    await agentManager.persist(id);
     return { data: { success: true } };
   });
 
