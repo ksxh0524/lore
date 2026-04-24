@@ -1,0 +1,29 @@
+export const PRESET_DEFAULTS: Record<string, { name: string; baseUrl: string; type: 'openai' | 'anthropic'; models?: string[] }> = {
+  'dashscope': {
+    name: '阿里云百炼',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    type: 'openai',
+  },
+  'dashscope-coding': {
+    name: '阿里云百炼 Coding Plan',
+    baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+    type: 'openai',
+    models: ['qwen3.5-plus', 'qwen3-coder-plus', 'glm-5', 'glm-4.7', 'kimi-k2.5', 'minimax-m2.5'],
+  },
+  'openai': {
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    type: 'openai',
+  },
+  'gemini': {
+    name: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    type: 'openai',
+  },
+  'claude': {
+    name: 'Anthropic Claude',
+    baseUrl: 'https://api.anthropic.com/v1',
+    type: 'anthropic',
+    models: ['claude-sonnet-4-20250514', 'claude-opus-4-20250514'],
+  },
+};

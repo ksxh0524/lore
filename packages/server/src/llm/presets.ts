@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { PRESET_DEFAULTS } from './preset-defaults.js';
 
 export interface ProviderPreset {
   id: string;
@@ -18,7 +19,11 @@ function getPresetsPath(): string {
   return join(dataDir, 'presets.json');
 }
 
-function loadPresetsFromFile(): Record<string, ProviderPreset> {
+interface PresetOverride {
+  models?: string[];
+}
+
+function loadOverridesFromFile(): Record<string, PresetOverride> {
   const presetsPath = getPresetsPath();
   
   if (!existsSync(presetsPath)) {
@@ -27,37 +32,42 @@ function loadPresetsFromFile(): Record<string, ProviderPreset> {
   
   try {
     const content = readFileSync(presetsPath, 'utf-8');
-    const parsed = JSON.parse(content);
-    
-    const presets: Record<string, ProviderPreset> = {};
-    for (const [id, preset] of Object.entries(parsed)) {
-      const p = preset as any;
-      presets[id] = {
-        id,
-        name: p.name || id,
-        baseUrl: p.baseUrl || '',
-        type: p.type || 'openai',
-        models: p.models,
-      };
-    }
-    
-    return presets;
+    return JSON.parse(content);
   } catch {
     return {};
   }
 }
 
 let cachedPresets: Record<string, ProviderPreset> | null = null;
+let cachedOverrides: Record<string, PresetOverride> | null = null;
+
+function buildPresets(): Record<string, ProviderPreset> {
+  const overrides = cachedOverrides ?? loadOverridesFromFile();
+  const presets: Record<string, ProviderPreset> = {};
+  
+  for (const [id, defaults] of Object.entries(PRESET_DEFAULTS)) {
+    presets[id] = {
+      id,
+      name: defaults.name,
+      baseUrl: defaults.baseUrl,
+      type: defaults.type,
+      models: overrides[id]?.models ?? defaults.models,
+    };
+  }
+  
+  return presets;
+}
 
 export function getPresets(): Record<string, ProviderPreset> {
   if (!cachedPresets) {
-    cachedPresets = loadPresetsFromFile();
+    cachedPresets = buildPresets();
   }
   return cachedPresets;
 }
 
 export function reloadPresets(): void {
   cachedPresets = null;
+  cachedOverrides = null;
 }
 
 export function getPresetById(id: string): ProviderPreset | undefined {
