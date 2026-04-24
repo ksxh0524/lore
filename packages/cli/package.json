@@ -1,0 +1,35 @@
+{
+  "name": "lore-cli",
+  "version": "0.0.1",
+  "description": "CLI for Lore - AI life simulation",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "lore": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.2"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "ai",
+    "simulation",
+    "life-simulation",
+    "cli"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomaly/lore"
+  }
+}
