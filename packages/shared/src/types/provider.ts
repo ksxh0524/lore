@@ -1,21 +1,16 @@
 export interface ProviderPreset {
   id: string;
   name: string;
-  description: string;
   baseUrl: string;
   type: 'openai' | 'anthropic';
-  defaultModels: string[];
-  embeddingModel?: string;
-  requiresApiKey: boolean;
-  apiKeyEnvVar?: string;
-  apiKeyPlaceholder?: string;
+  models?: string[];
 }
 
 export interface UserProvider {
   id: string;
   presetId: string;
   name: string;
-  apiKey: string; // masked like 'sk-****xxxx'
+  apiKey: string;
   baseUrl?: string;
   enabled: boolean;
   priority: number;
