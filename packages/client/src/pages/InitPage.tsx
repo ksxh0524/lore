@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type CSSProperties } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useWorldStore } from '../stores/worldStore';
 import { api } from '../services/api';
 import { Button } from '../components/common/Button';
@@ -11,6 +12,7 @@ const historyPresets = [
 ];
 
 export function InitPage() {
+  const navigate = useNavigate();
   const setWorldId = useWorldStore((s) => s.setWorldId);
   const setAgents = useWorldStore((s) => s.setAgents);
   const setRunning = useWorldStore((s) => s.setRunning);
@@ -43,6 +45,7 @@ export function InitPage() {
       const agents = await api.getAgents(result.worldId);
       setAgents(agents);
       setRunning(true);
+      navigate('/world');
     } catch (err) {
       alert(err instanceof Error ? err.message : '创建世界失败');
     } finally {

@@ -1,5 +1,6 @@
 import type { ILLMProvider, LLMCallRequest, LLMCallResult } from './types.js';
 import Anthropic from '@anthropic-ai/sdk';
+import { LoreError, ErrorCode } from '../errors.js';
 
 export class AnthropicProvider implements ILLMProvider {
   readonly name: string;
@@ -87,7 +88,11 @@ export class AnthropicProvider implements ILLMProvider {
 
   async embed(_text: string): Promise<number[]> {
     // Claude does not have embedding functionality
-    throw new Error('Claude does not support embeddings. Please use OpenAI-compatible provider for embeddings.');
+    throw new LoreError(
+      ErrorCode.LLM_API_ERROR,
+      'Claude does not support embeddings. Please use OpenAI-compatible provider for embeddings.',
+      502
+    );
   }
 
   private convertMessages(messages: Array<{ role: string; content: string }>): Anthropic.MessageParam[] {

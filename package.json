@@ -5,7 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --parallel --filter @lore/server --filter @lore/client run dev",
-    "build": "pnpm --filter @lore/shared build && pnpm --parallel --filter @lore/server --filter @lore/client run build"
+    "dev:server": "pnpm --filter @lore/server run dev",
+    "dev:client": "pnpm --filter @lore/client run dev",
+    "build": "pnpm --filter @lore/shared build && pnpm --parallel --filter @lore/server --filter @lore/client run build",
+    "test": "pnpm --filter @lore/server run test",
+    "test:unit": "pnpm --filter @lore/server run test tests/unit",
+    "lint": "eslint packages/*/src --ext .ts,.tsx",
+    "lint:fix": "eslint packages/*/src --ext .ts,.tsx --fix",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx,json,md}\""
   },
   "packageManager": "pnpm@10.30.2",
   "pnpm": {
@@ -15,6 +23,11 @@
     ]
   },
   "devDependencies": {
-    "@types/three": "^0.184.0"
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.8.3"
   }
 }

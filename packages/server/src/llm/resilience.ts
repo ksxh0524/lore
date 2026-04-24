@@ -1,6 +1,7 @@
 import { CircuitBreaker } from './circuit-breaker.js';
 import type { LLMResult } from './types.js';
 import type { LoreConfig } from '../config/loader.js';
+import { LoreError, ErrorCode } from '../errors.js';
 
 export class LLMResilience {
   private circuitBreaker: CircuitBreaker;
@@ -13,7 +14,7 @@ export class LLMResilience {
 
   async executeWithRetry(fn: () => Promise<LLMResult>): Promise<LLMResult> {
     if (this.circuitBreaker.isOpen()) {
-      throw new Error('Circuit breaker is open');
+      throw new LoreError(ErrorCode.LLM_API_ERROR, 'Circuit breaker is open - too many failures', 502);
     }
 
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -33,7 +34,7 @@ export class LLMResilience {
         await this.backoff(attempt);
       }
     }
-    throw new Error('Unreachable');
+    throw new LoreError(ErrorCode.INTERNAL_ERROR, 'LLM retry logic unreachable state');
   }
 
   async withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

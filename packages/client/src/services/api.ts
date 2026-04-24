@@ -67,6 +67,13 @@ export const providerApi = {
 
 // World API
 export const api = {
+  getWorlds: async (): Promise<Array<{ id: string; name: string; type: 'random' | 'history'; status: string; createdAt: string }>> => {
+    const response = await fetch('/api/worlds');
+    if (!response.ok) throw new Error('Failed to get worlds');
+    const data = await response.json();
+    return data.data || [];
+  },
+
   initWorld: async (params: { worldType: 'random' | 'history'; randomParams?: { age: number; location: string; background: string }; historyParams?: { presetName: string; targetCharacter?: string } }): Promise<{ worldId: string }> => {
     const response = await fetch('/api/worlds/init', {
       method: 'POST',

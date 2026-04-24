@@ -73,6 +73,8 @@ lore/
 │   ├── client/       # 前端 React PWA
 │   └── shared/       # 共享类型
 ├── docs/             # 技术文档
+├── AGENTS.md         # AI 编码助手指南
+├── CONTRIBUTING.md   # 贡献指南
 └── README.md
 ```
 
@@ -81,7 +83,16 @@ lore/
 ## 开发路线
 
 - [x] Phase 0：项目脚手架 + 文档
-- [ ] Phase 1：世界初始化 + 单 Agent + 基础沙盒 + 聊天 + 基础经济（MVP）
+- [x] Phase 1：世界初始化 + 单 Agent + 基础沙盒 + 聊天 + 基础经济（MVP）
+  - [x] 项目搭建（pnpm monorepo）
+  - [x] 数据库层（SQLite + Drizzle ORM）
+  - [x] REST API 和 WebSocket
+  - [x] LLM Provider 抽象层
+  - [x] Agent Runtime + 记忆系统
+  - [x] 世界初始化系统
+  - [x] Tick 调度器和世界引擎
+  - [x] 基础经济系统
+  - [x] 前端 UI（React）
 - [ ] Phase 2：记忆引擎 + 多 Agent + 关系网络 + 虚拟平台 + 图片生成
 - [ ] Phase 3：World Agent + 自主行为 + 上帝模式 + 推送通知
 - [ ] Phase 4：历史模式 + 社区预设 + 高级沙盒 + 势力系统

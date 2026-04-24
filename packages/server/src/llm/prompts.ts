@@ -5,6 +5,17 @@ export function buildChatPrompt(
   userMessage: string,
   memoryContext: string[],
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+  // Security: limit user message length to prevent prompt injection attacks
+  const MAX_MESSAGE_LENGTH = 2000;
+  const sanitizedMessage = userMessage.length > MAX_MESSAGE_LENGTH 
+    ? userMessage.slice(0, MAX_MESSAGE_LENGTH) + '...(消息过长被截断)'
+    : userMessage;
+  
+  // Security: sanitize memory context
+  const sanitizedMemory = memoryContext.slice(-6).map(m => 
+    m.length > 500 ? m.slice(0, 500) + '...' : m
+  );
+  
   const a = agent.profile;
   return [
     {
@@ -34,8 +45,8 @@ ${a.speechStyle}
 - 如果心情好且对方有吸引力，你可以主动示好
 - 不要主动透露你的内部数值`,
     },
-    ...memoryContext.slice(-6).map((m) => ({ role: 'user' as const, content: m })),
-    { role: 'user', content: userMessage },
+    ...sanitizedMemory.map((m) => ({ role: 'user' as const, content: m })),
+    { role: 'user', content: sanitizedMessage },
   ];
 }
 

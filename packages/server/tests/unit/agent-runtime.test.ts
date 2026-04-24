@@ -80,7 +80,12 @@ describe('AgentRuntime', () => {
   });
 
   it('should not think when status is dead', async () => {
-    agent.state.status = 'dead';
+    // Set health to 0 to trigger death transition
+    agent.applyStatChanges([{ stat: 'health', delta: -100, reason: 'test' }]);
+    
+    // Verify agent is dead
+    expect(agent.state.status).toBe('dead');
+    
     const worldState = { currentTime: new Date().toISOString(), day: 1, currentTick: 30 };
     await agent.tick(worldState, mockLLMScheduler, mockConfig);
     expect(mockLLMScheduler.submit).not.toHaveBeenCalled();

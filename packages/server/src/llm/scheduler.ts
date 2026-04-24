@@ -4,24 +4,39 @@ import { LLMResilience } from './resilience.js';
 import type { LoreConfig } from '../config/loader.js';
 import type { Monitor } from '../monitor/index.js';
 
-const priorityMap: Record<string, number> = {
+const DEFAULT_PRIORITY_MAP: Record<string, number> = {
   'user-chat': 160,
   'decision': 80,
   'social': 70,
   'creative': 50,
+  'world-event': 40,
 };
+
+interface QueuedRequest {
+  request: LLMRequest;
+  priority: number;
+  timestamp: number;
+  resolve: (value: LLMResult) => void;
+  reject: (error: Error) => void;
+}
 
 export class LLMScheduler {
   private factory: ProviderFactory;
   private resilience: LLMResilience;
   private maxConcurrent: number;
+  private maxQueueSize: number;
+  private priorityMap: Record<string, number>;
   private active = 0;
+  private queue: QueuedRequest[] = [];
   private monitor: Monitor | null = null;
+  private droppedCount = 0;
 
   constructor(config: LoreConfig) {
     this.factory = new ProviderFactory(config);
     this.resilience = new LLMResilience(config);
     this.maxConcurrent = config.llm.limits.maxConcurrent;
+    this.maxQueueSize = 50;
+    this.priorityMap = DEFAULT_PRIORITY_MAP;
   }
 
   setMonitor(monitor: Monitor): void {
@@ -32,41 +47,95 @@ export class LLMScheduler {
     return this.factory.getProvider(model);
   }
 
-  private async waitForSlot(): Promise<void> {
-    while (this.active >= this.maxConcurrent) {
-      await new Promise(r => setTimeout(r, 50));
+  getQueueStats(): { queueLength: number; active: number; dropped: number } {
+    return {
+      queueLength: this.queue.length,
+      active: this.active,
+      dropped: this.droppedCount,
+    };
+  }
+
+  private getPriority(callType: string): number {
+    return this.priorityMap[callType] ?? 50;
+  }
+
+  private async processQueue(): Promise<void> {
+    if (this.queue.length === 0 || this.active >= this.maxConcurrent) return;
+
+    this.queue.sort((a, b) => b.priority - a.priority);
+    
+    while (this.queue.length > 0 && this.active < this.maxConcurrent) {
+      const item = this.queue.shift();
+      if (!item) break;
+      
+      this.active++;
+      try {
+        const provider = this.factory.getProvider(item.request.model);
+        const result = await this.resilience.executeWithRetry(() =>
+          provider.generateText({
+            model: item.request.model,
+            messages: item.request.messages,
+            maxTokens: item.request.maxTokens,
+            tools: item.request.tools,
+          }),
+        );
+        this.monitor?.recordLLMCall(
+          result.usage.promptTokens + result.usage.completionTokens,
+          result.latencyMs,
+          result.model,
+        );
+        item.resolve(result);
+      } catch (err) {
+        this.monitor?.recordDropped();
+        item.reject(err instanceof Error ? err : new Error('Unknown error'));
+      } finally {
+        this.active--;
+        this.processQueue();
+      }
     }
   }
 
   async submit(request: LLMRequest): Promise<LLMResult> {
-    await this.waitForSlot();
-    this.active++;
-    try {
-      const provider = this.factory.getProvider(request.model);
-      const result = await this.resilience.executeWithRetry(() =>
-        provider.generateText({
-          model: request.model,
-          messages: request.messages,
-          maxTokens: request.maxTokens,
-          tools: request.tools,
-        }),
-      );
-      this.monitor?.recordLLMCall(
-        result.usage.promptTokens + result.usage.completionTokens,
-        result.latencyMs,
-        result.model,
-      );
-      return result;
-    } catch (err) {
-      this.monitor?.recordDropped();
-      throw err;
-    } finally {
-      this.active--;
+    const priority = this.getPriority(request.callType);
+
+    if (this.queue.length >= this.maxQueueSize) {
+      const lowestPriority = this.queue.reduce((min, item) => Math.min(min, item.priority), Infinity);
+      
+      if (priority > lowestPriority) {
+        const lowestIndex = this.queue.findIndex(item => item.priority === lowestPriority);
+        if (lowestIndex !== -1) {
+          const dropped = this.queue.splice(lowestIndex, 1)[0];
+          dropped.reject(new Error('Request dropped due to queue overload'));
+          this.droppedCount++;
+          this.monitor?.recordDropped();
+        }
+      } else {
+        this.droppedCount++;
+        this.monitor?.recordDropped();
+        throw new Error('LLM queue overloaded, request dropped');
+      }
     }
+
+    return new Promise<LLMResult>((resolve, reject) => {
+      this.queue.push({
+        request,
+        priority,
+        timestamp: Date.now(),
+        resolve,
+        reject,
+      });
+      this.processQueue();
+    });
   }
 
   async *submitStream(request: LLMRequest): AsyncIterable<string> {
-    await this.waitForSlot();
+    while (this.active >= this.maxConcurrent) {
+      if (this.queue.length >= this.maxQueueSize) {
+        throw new Error('LLM queue overloaded, stream request rejected');
+      }
+      await new Promise(r => setTimeout(r, 50));
+    }
+
     this.active++;
     try {
       const provider = this.factory.getProvider(request.model);
@@ -76,6 +145,7 @@ export class LLMScheduler {
       });
     } finally {
       this.active--;
+      this.processQueue();
     }
   }
 }

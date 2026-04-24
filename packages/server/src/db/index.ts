@@ -5,22 +5,40 @@ import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
-const dataDir = process.env.LORE_DATA_DIR || join(homedir(), '.lore');
-if (!existsSync(dataDir)) {
-  mkdirSync(dataDir, { recursive: true });
+let sqlite: Database.Database;
+
+function getDbPath(): string {
+  const dataDir = process.env.LORE_DATA_DIR || join(homedir(), '.lore');
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
+  }
+  return join(dataDir, 'lore.db');
 }
 
-const dbPath = join(dataDir, 'lore.db');
-const sqlite = new Database(dbPath);
+function initSqlite(): Database.Database {
+  if (sqlite && sqlite.open) return sqlite;
+  
+  const dbPath = getDbPath();
+  sqlite = new Database(dbPath);
+  
+  sqlite.exec('PRAGMA journal_mode = WAL;');
+  sqlite.exec('PRAGMA foreign_keys = ON;');
+  
+  return sqlite;
+}
 
-sqlite.exec('PRAGMA journal_mode = WAL;');
-sqlite.exec('PRAGMA foreign_keys = ON;');
-
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(initSqlite(), { schema });
 export type DB = typeof db;
 
+export function closeDb() {
+  if (sqlite && sqlite.open) {
+    sqlite.close();
+  }
+}
+
 export function initTables() {
-  sqlite.exec(`
+  const db = initSqlite();
+  db.exec(`
     CREATE TABLE IF NOT EXISTS worlds (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

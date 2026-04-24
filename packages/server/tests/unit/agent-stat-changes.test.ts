@@ -28,27 +28,31 @@ const profile: AgentProfile = {
 describe('AgentRuntime - applyStatChanges', () => {
   it('should apply positive stat changes', () => {
     const agent = new AgentRuntime('a1', 'w1', 'npc', profile, mockRepo, {} as any, mockConfig);
-    agent.applyStatChanges({ mood: 10, energy: 5 });
+    agent.applyStatChanges([{ stat: 'mood', delta: 10, reason: 'test' }, { stat: 'energy', delta: 5, reason: 'test' }]);
     expect(agent.stats.mood).toBe(80);
     expect(agent.stats.energy).toBe(100);
   });
 
   it('should clamp stats to 0-100 range', () => {
     const agent = new AgentRuntime('a1', 'w1', 'npc', profile, mockRepo, {} as any, mockConfig);
-    agent.applyStatChanges({ mood: -200 });
+    agent.applyStatChanges([{ stat: 'mood', delta: -200, reason: 'test' }]);
     expect(agent.stats.mood).toBe(0);
   });
 
   it('should detect death when health reaches 0', () => {
     const agent = new AgentRuntime('a1', 'w1', 'npc', profile, mockRepo, {} as any, mockConfig);
-    agent.stats.health = 5;
-    agent.applyStatChanges({ health: -10 });
+    // Set health to 5 first
+    agent.applyStatChanges([{ stat: 'health', delta: -95, reason: 'test' }]);
+    expect(agent.stats.health).toBe(5);
+    
+    // Now reduce to 0
+    agent.applyStatChanges([{ stat: 'health', delta: -10, reason: 'test' }]);
     expect(agent.state.status).toBe('dead');
   });
 
   it('should not die when health stays positive', () => {
     const agent = new AgentRuntime('a1', 'w1', 'npc', profile, mockRepo, {} as any, mockConfig);
-    agent.applyStatChanges({ health: -5 });
+    agent.applyStatChanges([{ stat: 'health', delta: -5, reason: 'test' }]);
     expect(agent.state.status).toBe('idle');
     expect(agent.stats.health).toBe(95);
   });

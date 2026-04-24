@@ -73,6 +73,8 @@ lore/
 │   ├── client/       # Frontend React PWA
 │   └── shared/       # Shared types
 ├── docs/             # Technical documentation
+├── AGENTS.md         # AI Agent coding guide
+├── CONTRIBUTING.md   # Contribution guide
 └── README.md
 ```
 
@@ -81,7 +83,16 @@ See [Technical Documentation](./docs/INDEX.md) for architecture details.
 ## Roadmap
 
 - [x] Phase 0: Project scaffolding + documentation
-- [ ] Phase 1: World initialization + single agent + basic sandbox + chat + basic economy (MVP)
+- [x] Phase 1: World initialization + single agent + basic sandbox + chat + basic economy (MVP)
+  - [x] Project setup with pnpm monorepo
+  - [x] Database layer (SQLite + Drizzle ORM)
+  - [x] REST API and WebSocket
+  - [x] LLM provider abstraction
+  - [x] Agent Runtime with memory system
+  - [x] World initialization system
+  - [x] Tick scheduler and world engine
+  - [x] Basic economy system
+  - [x] Frontend UI with React
 - [ ] Phase 2: Memory engine + multi-agent + relationships + virtual platforms + image generation
 - [ ] Phase 3: World Agent + autonomous behavior + god mode + push notifications
 - [ ] Phase 4: History mode + community presets + advanced sandbox + factions

@@ -43,6 +43,16 @@ export class AgentManager {
     return this.agents.get(id);
   }
 
+  /** Get all agents (for iteration) */
+  getAllAgents(): IterableIterator<AgentRuntime> {
+    return this.agents.values();
+  }
+
+  /** Get agents map (read-only access) */
+  getAgentsMap(): ReadonlyMap<string, AgentRuntime> {
+    return this.agents;
+  }
+
   async getWorldAgents(worldId: string): Promise<AgentRuntime[]> {
     const cached = [...this.agents.values()].filter((a) => a.worldId === worldId);
     if (cached.length > 0) return cached;

@@ -34,7 +34,7 @@ export class WorldPersistence {
 
   async restoreSnapshot(saveId: string): Promise<void> {
     const save = await this.repo.getSave(saveId);
-    if (!save) throw new Error('Save not found');
+    if (!save) throw new LoreError(ErrorCode.NOT_FOUND, `Save ${saveId} not found`, 404);
 
     const data = typeof save.snapshot === 'string' ? JSON.parse(save.snapshot) : save.snapshot;
 

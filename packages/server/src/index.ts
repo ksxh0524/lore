@@ -28,6 +28,16 @@ import { nanoid } from 'nanoid';
 async function main() {
   const config = loadConfig();
 
+  // Security check: warn if using default encryption key
+  if (!process.env.LORE_ENCRYPTION_KEY) {
+    console.error('⚠️  SECURITY WARNING: No encryption key set (LORE_ENCRYPTION_KEY)');
+    console.error('⚠️  API Keys stored in database will NOT be securely encrypted!');
+    console.error('⚠️  For production use, set a secure 32+ character key:');
+    console.error('⚠️    export LORE_ENCRYPTION_KEY="your-secure-key-here-32chars!"');
+    console.error('');
+    // Note: We allow startup for development/testing, but warn loudly
+  }
+
   const app = Fastify({
     logger: {
       level: 'info',
@@ -75,9 +85,9 @@ async function main() {
 
     monitor.resetTick();
 
-    const agents = (agentManager as any).agents as Map<string, any>;
+    const agents = agentManager.getAgentsMap();
     const aliveAgents = [...agents.values()]
-      .filter((a: any) => a.state.status !== 'dead');
+      .filter((a) => a.state.status !== 'dead');
 
     const worldEvents = await eventEngine.generate(worldClock, aliveAgents, worldState);
     for (const event of worldEvents) {
@@ -100,10 +110,10 @@ async function main() {
 
     const prevAlive = aliveAgents.length;
     await agentManager.tickAll(worldState, llmScheduler, config);
-    const nowAlive = [...agents.values()].filter((a: any) => a.state.status !== 'dead');
+    const nowAlive = [...agents.values()].filter((a) => a.state.status !== 'dead');
 
     if (nowAlive.length < prevAlive) {
-      const deadAgents = aliveAgents.filter((a: any) => a.state.status === 'dead');
+      const deadAgents = aliveAgents.filter((a) => a.state.status === 'dead');
       for (const dead of deadAgents) {
         pushManager.broadcast({
           type: 'agent_died',
@@ -132,7 +142,7 @@ async function main() {
     }
 
     if (tick % 20 === 0 && aliveAgents.length > 0) {
-      const activeAgents = aliveAgents.filter((a: any) =>
+      const activeAgents = aliveAgents.filter((a) =>
         a.state.status !== 'sleeping' && a.type === 'npc' && Math.random() < 0.15,
       );
 
@@ -144,14 +154,14 @@ async function main() {
     }
 
     if (tick % 50 === 0 && aliveAgents.length > 1) {
-      const socialCandidates = aliveAgents.filter((a: any) =>
+      const socialCandidates = aliveAgents.filter((a) =>
         a.state.status !== 'sleeping' && a.type === 'npc' && Math.random() < 0.1,
       );
 
       for (const agent of socialCandidates.slice(0, 2)) {
         try {
           const rels = await relationshipManager.getAll(agent.id);
-          const friends = rels.filter((r: any) => r.type === 'friend' || r.type === 'close_friend');
+          const friends = rels.filter((r) => r.type === 'friend' || r.type === 'close_friend');
           if (friends.length > 0) {
             const target = friends[Math.floor(Math.random() * friends.length)]!;
             await relationshipManager.update(agent.id, target.targetAgentId, {
@@ -188,7 +198,15 @@ async function main() {
     app.log.debug({ tick, events: worldEvents.length }, 'Tick completed');
   });
 
-  await app.register(cors, { origin: true });
+  // CORS configuration - restrict to allowed origins for security
+  const corsOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+    : ['http://localhost:39528', 'http://localhost:5173', 'http://127.0.0.1:39528', 'http://127.0.0.1:5173'];
+  
+  await app.register(cors, { 
+    origin: corsOrigins,
+    credentials: true,
+  });
   await app.register(websocket);
 
   const deps = {

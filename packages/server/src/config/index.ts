@@ -20,9 +20,9 @@ const DEFAULT_CONFIG = {
   // 数据目录
   dataDir: join(homedir(), '.lore'),
   
-  // 加密
+  // 加密 - SECURITY: Default key should NOT be used in production
   encryption: {
-    key: 'lore-default-encryption-key-32-chars',
+    key: process.env.LORE_ENCRYPTION_KEY || 'lore-development-key-DO-NOT-USE-IN-PRODUCTION',
   },
   
   // 日志

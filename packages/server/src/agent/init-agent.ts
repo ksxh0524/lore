@@ -1,4 +1,4 @@
-import type { InitRequest, InitResult, AgentProfile, AgentStats } from '@lore/shared';
+import type { InitRequest, InitResult, AgentProfile, AgentStats, WorldData } from '@lore/shared';
 import { nanoid } from 'nanoid';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { Repository } from '../db/repository.js';
@@ -122,7 +122,7 @@ export class InitAgent {
   ): Promise<InitResult> {
     const prompt = buildRandomWorldPrompt(params);
 
-    let worldData: any;
+    let worldData: WorldData;
     try {
       const result = await this.llmScheduler.submit({
         agentId: 'init-agent',

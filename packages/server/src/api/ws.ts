@@ -35,7 +35,21 @@ export function registerWebSocket(
 ) {
   const { agentManager, llmScheduler, config, pushManager, modeManager, worldClock, tickScheduler, repo } = deps;
 
-  app.get('/ws', { websocket: true }, (socket: ClientSocket) => {
+  app.get('/ws', { websocket: true }, (socket: ClientSocket, req: any) => {
+    // Basic validation: check for optional auth token in query or headers
+    // For production, implement proper authentication (JWT, session, etc.)
+    const authToken = req.query?.token || req.headers?.['x-ws-token'];
+    
+    // Optional: enforce auth token in production mode
+    if (process.env.NODE_ENV === 'production' && !authToken) {
+      socket.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
+      socket.terminate();
+      return;
+    }
+    
+    // Log connection for monitoring
+    app.log.info({ hasToken: !!authToken }, 'WebSocket client connected');
+    
     pushManager.addClient(socket);
     let lastPing = Date.now();
 

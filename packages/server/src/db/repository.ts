@@ -21,6 +21,10 @@ export class Repository {
     return rows[0] ?? null;
   }
 
+  async getAllWorlds() {
+    return db.select().from(s.worlds).orderBy(desc(s.worlds.createdAt));
+  }
+
   async updateWorld(id: string, data: Partial<typeof s.worlds.$inferInsert>) {
     const result = await db.update(s.worlds).set(data).where(eq(s.worlds.id, id)).returning();
     return result[0] ?? null;

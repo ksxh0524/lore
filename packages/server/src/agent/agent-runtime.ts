@@ -164,6 +164,17 @@ export class AgentRuntime {
 
   applyStatChanges(changes: StatChange[]): void {
     this.statsManager.applyChanges(changes);
+    
+    // Check for death condition
+    if (this.stats.health <= 0 && this.state.status !== 'dead') {
+      this.transitionTo('dead', '生命值耗尽');
+      agentEventBus.emitEvent({
+        agentId: this.id,
+        type: 'agent_died',
+        timestamp: new Date(),
+        payload: { reason: 'health_depleted' },
+      });
+    }
   }
 
   getThoughtFrequency(): ThoughtFrequency {

@@ -44,10 +44,19 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     const response = await this.client.chat.completions.create(params);
 
     const choice = response.choices[0];
-    const toolCalls = choice?.message?.tool_calls?.map((tc: any) => ({
-      name: tc.function?.name ?? '',
-      args: JSON.parse(tc.function?.arguments || '{}'),
-    }));
+    const toolCalls = choice?.message?.tool_calls?.map((tc: any) => {
+      let args = {};
+      try {
+        args = JSON.parse(tc.function?.arguments || '{}');
+      } catch {
+        // Invalid JSON in tool arguments - log warning
+        console.warn('Invalid tool arguments JSON:', tc.function?.arguments);
+      }
+      return {
+        name: tc.function?.name ?? '',
+        args,
+      };
+    });
 
     return {
       content: choice?.message?.content || '',

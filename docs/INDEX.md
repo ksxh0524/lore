@@ -1,10 +1,19 @@
 # Lore 技术文档
 
-> 最后更新：2026-04-08 | 版本 v0.02
+> 最后更新：2026-04-23 | 版本 v0.02
 
 ---
 
 ## 文档目录
+
+### 项目根目录
+
+| 文件 | 内容 | 什么时候看 |
+|------|------|-----------|
+| [README.md](../README.md) | 项目介绍、快速开始 | 第一次接触项目 |
+| [README.zh-CN.md](../README.zh-CN.md) | 中文版项目介绍 | 中文用户 |
+| [AGENTS.md](../AGENTS.md) | Agent 指南：项目结构、编码规范、开发指南 | AI 编码助手 |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | 贡献指南、开发环境设置 | 想要贡献代码 |
 
 ### architecture/ — 架构
 
@@ -74,3 +83,13 @@
 |------|------|-----------|
 | [ROADMAP.md](./ROADMAP.md) | Phase 1-6 路线、实施步骤、测试策略 | 开始编码前 |
 | [TECH-DECISIONS.md](./TECH-DECISIONS.md) | 技术调研和决策记录（D1-D9） | 想了解为什么这么设计时 |
+| [AGENTS.md](../AGENTS.md) | Agent 指南（项目结构、编码规范） | AI 编码助手快速入门 |
+
+---
+
+## 文档使用建议
+
+1. **新用户**：先看 README.md → AGENTS.md → architecture/overview.md
+2. **开发者**：AGENTS.md → 具体模块文档（agent/, world/, api/）
+3. **想了解技术选型**：TECH-DECISIONS.md
+4. **开始编码前**：ROADMAP.md → 相关模块文档

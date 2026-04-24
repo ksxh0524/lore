@@ -1,6 +1,6 @@
 # Lore 项目概述
 
-> 最后更新：2026-04-08 | 版本 v0.02
+> 最后更新：2026-04-23 | 版本 v0.02
 
 ---
 
@@ -264,4 +264,11 @@ tick() {
 
 ---
 
-> 相关文档：[技术栈](./tech-stack.md) | [目录结构](./directory.md) | [玩家模式](./player-modes.md) | [部署](./deployment.md) | [初始化系统](../world/initialization.md) | [虚拟平台](../world/platform.md)
+## 最近更新
+
+- **2026-04-23**: Phase 1 完成 - 基础世界引擎、Agent Runtime、初始化系统、前端 UI
+- **2026-04-08**: 文档重构，新增详细架构文档
+
+---
+
+> 相关文档：[技术栈](./tech-stack.md) | [目录结构](./directory.md) | [玩家模式](./player-modes.md) | [部署](./deployment.md) | [初始化系统](../world/initialization.md) | [虚拟平台](../world/platform.md) | [Agent 指南](../../AGENTS.md)

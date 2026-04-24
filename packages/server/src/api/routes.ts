@@ -86,6 +86,11 @@ export function registerRoutes(
 
   // ── World ──
 
+  app.get('/api/worlds', async () => {
+    const worlds = await repo.getAllWorlds();
+    return { data: worlds };
+  });
+
   app.post('/api/worlds', async (req) => {
     const { name, type } = z.object({ name: z.string().min(1), type: z.enum(['history', 'random']) }).parse(req.body);
     const world = await repo.createWorld({ id: nanoid(), name, type });
