@@ -22,7 +22,7 @@
 
 | 文件 | 内容 |
 |------|------|
-| [runtime.md](./agent/runtime.md) | AgentRuntime 核心 |
+| [runtime.md](./agent/runtime.md) | AgentRuntime 核心、tick/chat、状态机 |
 | [manager.md](./agent/manager.md) | AgentManager 注册中心 |
 | [init-agent.md](./agent/init-agent.md) | 世界初始化 Agent |
 | [personality.md](./agent/personality.md) | AgentProfile、Stats |
@@ -45,7 +45,6 @@
 | [clock.md](./world/clock.md) | 时间系统 |
 | [events.md](./world/events.md) | 事件系统 |
 | [economy.md](./world/economy.md) | 经济系统 |
-| [factions.md](./world/factions.md) | 势力系统（Phase 4） |
 | [persistence.md](./world/persistence.md) | 存档系统 |
 
 ## api/
@@ -60,7 +59,7 @@
 
 | 文件 | 内容 |
 |------|------|
-| [providers.md](./llm/providers.md) | Provider 架构 |
+| [providers.md](./llm/providers.md) | Provider 架构（OpenAI/Anthropic） |
 | [scheduler.md](./llm/scheduler.md) | 优先级队列、并发控制 |
 | [resilience.md](./llm/resilience.md) | 熔断器、重试 |
 

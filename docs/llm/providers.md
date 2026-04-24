@@ -1,35 +1,26 @@
 # LLM Provider 架构
 
-> 最后更新：2026-04-08 | 版本 v0.02
-
----
-
 ## 分层架构
 
 ```
 LLM 调用层
-├── Vercel AI SDK（统一接口）
-│   ├── streamText / generateText / embed
-│   ├── 内置 Provider: OpenAI, Anthropic, Google
-│   └── 自定义 Provider: createOpenAI() 改 baseURL
+├── 原生 SDK（底层）
+│   ├── OpenAI SDK → openai 包
+│   └── Anthropic SDK → @anthropic-ai/sdk
 │
-├── OpenAI 兼容层（国内厂商）
-│   ├── 只改 baseURL + apiKey + model
-│   └── 覆盖 DeepSeek、Kimi、千问、豆包、智谱等
+├── Provider 统一接口（中间层）
+│   ├── OpenAICompatibleProvider（支持 OpenAI + 国内厂商）
+│   └── AnthropicProvider（Claude 系列）
 │
-├── 原生 SDK 适配层
-│   ├── Anthropic Claude → @anthropic-ai/sdk
-│   └── Google Gemini → @google/generative-ai
-│
-└── 多模态
-    ├── 图片生成 → DALL-E / Stable Diffusion / Midjourney API
-    └── TTS / 视频生成（远期）
+└── LLMScheduler（上层）
+│   ├── 优先级队列、并发控制
+│   └── 熔断器、重试机制
 ```
 
-## LLMProvider 统一接口
+## ILLMProvider 统一接口
 
 ```typescript
-// packages/server/src/llm/llm-provider.ts
+// packages/server/src/llm/types.ts
 
 export interface ILLMProvider {
   readonly name: string;
@@ -40,140 +31,63 @@ export interface ILLMProvider {
 }
 ```
 
-## OpenAI 兼容实现
+## OpenAI Compatible Provider
+
+支持 OpenAI 及国内厂商（DeepSeek、Kimi、千问、豆包等）。
 
 ```typescript
-// packages/server/src/llm/openai-compatible.ts
+// packages/server/src/llm/openai-provider.ts
 
-import { createOpenAI } from '@ai-sdk/openai';
-import { generateText, streamText } from 'ai';
+import OpenAI from 'openai';
 
 export class OpenAICompatibleProvider implements ILLMProvider {
-  private client;
-  readonly name: string;
-
-  constructor(config: LLMProviderConfig) {
-    this.name = config.name;
-    this.client = createOpenAI({
-      baseURL: config.baseUrl,
+  constructor(config: { name: string; baseUrl?: string; apiKey: string; models: string[] }) {
+    this.client = new OpenAI({
       apiKey: config.apiKey,
+      baseURL: config.baseUrl || 'https://api.openai.com/v1',
     });
   }
 
-  async generateText(request: LLMCallRequest): Promise<LLMCallResult> {
-    const start = Date.now();
-    const result = await generateText({
-      model: this.client(request.model),
-      messages: request.messages,
-      maxTokens: request.maxTokens,
-      temperature: request.temperature,
-    });
-    return {
-      content: result.text,
-      usage: {
-        promptTokens: result.usage.promptTokens,
-        completionTokens: result.usage.completionTokens,
-      },
+  async generateText(request) {
+    const response = await this.client.chat.completions.create({
       model: request.model,
-      latencyMs: Date.now() - start,
-    };
-  }
-
-  async *streamText(request: LLMCallRequest): AsyncIterable<string> {
-    const stream = await streamText({
-      model: this.client(request.model),
       messages: request.messages,
-      maxTokens: request.maxTokens,
+      tools: request.tools, // 支持 function calling
     });
-    for await (const chunk of stream.textStream) {
-      yield chunk;
-    }
+    return { content, toolCalls, usage };
   }
 
-  isModelSupported(model: string): boolean {
-    return true;  // 接受任何模型名
+  async *streamText(request) {
+    const stream = await this.client.chat.completions.create({ stream: true });
+    for await (const chunk of stream) yield chunk.content;
   }
 
-  async embed(text: string): Promise<number[]> {
-    const { embed } = await import('ai');
-    const { embedding } = await embed({
-      model: this.client.embedding('text-embedding-3-small'),
-      value: text,
-    });
-    return embedding;
+  async embed(text) {
+    return this.client.embeddings.create({ model, input: text });
   }
-}
 }
 ```
 
-## 图片生成
-
-Agent 可以调用生图模型生成图片（发自拍、发到平台等）。
+## Anthropic Provider
 
 ```typescript
-// packages/server/src/llm/image-provider.ts
+// packages/server/src/llm/anthropic-provider.ts
 
-export interface IImageProvider {
-  readonly name: string;
-  generateImage(prompt: string, options?: ImageGenOptions): Promise<ImageResult>;
-}
+import Anthropic from '@anthropic-ai/sdk';
 
-export interface ImageGenOptions {
-  size?: '256x256' | '512x512' | '1024x1024';
-  style?: string;
-}
-
-export interface ImageResult {
-  url: string;
-  localPath: string;
-}
-```
-
-支持的图片生成服务：
-
-| 服务 | 说明 | Phase |
-|------|------|-------|
-| DALL-E | OpenAI 图片生成 | 2 |
-| Stable Diffusion | 开源图片生成 | 2 |
-| 其他兼容 API | 用户可配置 | 2 |
-
-## ProviderFactory
-
-```typescript
-// packages/server/src/llm/factory.ts
-
-export class ProviderFactory {
-  private providers: Map<string, ILLMProvider> = new Map();
-  private imageProvider?: IImageProvider;
-
-  registerAll(configs: LLMProviderConfig[]): void {
-    for (const config of configs) {
-      const provider = this.createProvider(config);
-      for (const model of config.models) {
-        this.providers.set(model, provider);
-      }
-    }
+export class AnthropicProvider implements ILLMProvider {
+  async generateText(request) {
+    const response = await this.client.messages.create({
+      model: request.model,
+      max_tokens: request.maxTokens,
+      messages: this.convertMessages(request.messages),
+      tools: request.tools,
+    });
+    return { content, toolCalls, usage };
   }
 
-  getProvider(model: string): ILLMProvider {
-    const provider = this.providers.get(model);
-    if (!provider) throw new Error(`No provider for model: ${model}`);
-    return provider;
-  }
-
-  getImageProvider(): IImageProvider | undefined {
-    return this.imageProvider;
-  }
-
-  private createProvider(config: LLMProviderConfig): ILLMProvider {
-    switch (config.type) {
-      case 'openai-compatible':
-        return new OpenAICompatibleProvider(config);
-      case 'anthropic':
-        return new AnthropicProvider(config);
-      case 'google':
-        return new GoogleProvider(config);
-    }
+  async embed() {
+    throw new LoreError('Claude does not support embeddings');
   }
 }
 ```
@@ -183,12 +97,7 @@ export class ProviderFactory {
 | 厂商 | Base URL | 兼容程度 |
 |------|----------|---------|
 | DeepSeek | `api.deepseek.com/v1` | 100% |
-| Kimi（月之暗面） | `api.moonshot.cn/v1` | 100% |
-| 阿里百炼（千问） | `dashscope.aliyuncs.com/compatible-mode/v1` | 高 |
-| 火山方舟（豆包） | `ark.cn-beijing.volces.com/api/v3` | 高 |
+| Kimi | `api.moonshot.cn/v1` | 100% |
+| 阿里百炼 | `dashscope.aliyuncs.com/compatible-mode/v1` | 高 |
+| 火山方舟 | `ark.cn-beijing.volces.com/api/v3` | 高 |
 | 智谱 GLM | `open.bigmodel.cn/api/paas/v4` | 高 |
-| MiniMax | `api.minimax.chat/v1` | 部分 |
-
----
-
-> 相关文档：[LLM 调度器](./scheduler.md) | [技术决策](../TECH-DECISIONS.md)
