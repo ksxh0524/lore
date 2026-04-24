@@ -144,11 +144,22 @@ export function registerWebSocket(
         }
 
         let full = '';
+        const chunks: string[] = [];
         for await (const chunk of agent.chat(content, llmScheduler, config)) {
           full += chunk;
-          socket.send(JSON.stringify({ type: 'chat_stream', agentId, chunk, done: false }));
+          chunks.push(chunk);
         }
-        socket.send(JSON.stringify({ type: 'chat_stream', agentId, chunk: '', done: true }));
+        for (let i = 0; i < chunks.length; i++) {
+          socket.send(JSON.stringify({
+            type: 'chat_stream',
+            agentId,
+            chunk: chunks[i],
+            done: i === chunks.length - 1,
+          }));
+        }
+        if (chunks.length === 0) {
+          socket.send(JSON.stringify({ type: 'chat_stream', agentId, chunk: '', done: true }));
+        }
 
         await repo.createMessage({ id: nanoid(), worldId: agent.worldId, fromAgentId: 'user', toAgentId: agentId, content, type: 'chat' });
         await repo.createMessage({ id: nanoid(), worldId: agent.worldId, fromAgentId: agentId, content: full, type: 'chat' });
