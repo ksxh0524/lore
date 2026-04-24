@@ -6,3 +6,4 @@ export * from './types/mode.js';
 export * from './types/initialization.js';
 export * from './types/platform.js';
 export * from './types/provider.js';
+export * from './types/world-data.js';

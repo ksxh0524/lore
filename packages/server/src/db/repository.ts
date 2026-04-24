@@ -1,7 +1,7 @@
-import { eq, desc, and, or, sql, lt } from 'drizzle-orm';
+import { eq, desc, and, or, sql, lt, gt } from 'drizzle-orm';
 import { db } from './index.js';
 import * as s from './schema.js';
-import type { WorldType, AgentType, AgentProfile, AgentState, AgentStats } from '@lore/shared';
+import type { WorldType, AgentType, AgentProfile, AgentState, AgentStats, WorldSnapshot } from '@lore/shared';
 import { encryptApiKey, decryptApiKey } from '../utils/encryption.js';
 
 export class Repository {
@@ -162,7 +162,7 @@ export class Repository {
     return result[0] ?? null;
   }
 
-  async createPlatform(data: { id: string; worldId: string; name: string; type: 'video_short' | 'video_long' | 'social' | 'image' | 'forum' | 'job' }) {
+  async createPlatform(data: { id: string; worldId: string; name: string; type: 'video_short' | 'video_long' | 'social' | 'image' | 'forum' | 'job' | 'dating' }) {
     const result = await db.insert(s.platforms).values({
       ...data,
       userCount: 0,
@@ -208,7 +208,7 @@ export class Repository {
     return rows[0] ?? null;
   }
 
-  async createSave(data: { id: string; worldId: string; name: string; snapshot: any }) {
+  async createSave(data: { id: string; worldId: string; name: string; snapshot: WorldSnapshot }) {
     const result = await db.insert(s.saves).values({
       ...data,
       createdAt: new Date(),
@@ -394,5 +394,28 @@ export class Repository {
       };
     }
     return null;
+  }
+
+  async decayInactiveRelationships(cutoff: Date): Promise<void> {
+    const rows = await db.select().from(s.relationships).where(
+      and(
+        lt(s.relationships.updatedAt, cutoff),
+        gt(s.relationships.intimacy, 0),
+      )
+    );
+
+    for (const row of rows) {
+      await db.update(s.relationships)
+        .set({ intimacy: Math.max(0, (row.intimacy ?? 0) - 1), updatedAt: new Date() })
+        .where(eq(s.relationships.id, row.id));
+    }
+  }
+
+  async getAllRelationships() {
+    return db.select().from(s.relationships);
+  }
+
+  async deleteAgent(id: string): Promise<void> {
+    await db.delete(s.agents).where(eq(s.agents.id, id));
   }
 }

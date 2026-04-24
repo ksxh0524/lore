@@ -1,4 +1,19 @@
-import type { AgentProfile, AgentStats } from './agent.js';
+import type { SerializedAgent } from './agent.js';
+import type { WorldEvent } from './event.js';
+
+export interface WorldSnapshot {
+  world: {
+    id: string;
+    name: string;
+    type: 'history' | 'random';
+    status: 'initializing' | 'running' | 'paused' | 'stopped';
+    currentTick: number;
+    worldTime: string | null;
+  } | null;
+  agents: SerializedAgent[];
+  events: WorldEvent[];
+  savedAt: string;
+}
 
 export interface WorldData {
   worldConfig?: {
@@ -8,10 +23,10 @@ export interface WorldData {
   };
   agents?: Array<{
     name?: string;
-    profile?: AgentProfile;
+    profile?: import('./agent.js').AgentProfile;
     backstory?: string;
     background?: string;
-    initialStats?: AgentStats;
+    initialStats?: import('./agent.js').AgentStats;
     relationship?: {
       type?: string;
       intimacy?: number;
@@ -19,9 +34,9 @@ export interface WorldData {
   }>;
   userAvatar?: {
     name?: string;
-    profile?: AgentProfile;
+    profile?: import('./agent.js').AgentProfile;
     backstory?: string;
-    initialStats?: AgentStats;
+    initialStats?: import('./agent.js').AgentStats;
   };
   worldState?: {
     economy?: string;

@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import type { Repository } from '../db/repository.js';
 import type { AgentManager } from '../agent/agent-manager.js';
+import type { WorldSnapshot } from '@lore/shared';
 import { LoreError, ErrorCode } from '../errors.js';
 import { createLogger } from '../logger/index.js';
 
@@ -19,10 +20,17 @@ export class WorldPersistence {
     const agents = await this.agentManager.getWorldAgents(worldId);
     const events = await this.repo.getWorldEvents(worldId);
     const world = await this.repo.getWorld(worldId);
-    const snapshot = {
-      world: world ?? null,
+    const snapshot: WorldSnapshot = {
+      world: world ? {
+        id: world.id,
+        name: world.name,
+        type: world.type,
+        status: world.status,
+        currentTick: world.currentTick ?? 0,
+        worldTime: world.worldTime?.toISOString() ?? null,
+      } : null,
       agents: agents.map((a) => a.serialize()),
-      events,
+      events: events as WorldSnapshot['events'],
       savedAt: new Date().toISOString(),
     };
     const saveId = nanoid();
@@ -30,10 +38,10 @@ export class WorldPersistence {
     return saveId;
   }
 
-  async loadSnapshot(saveId: string): Promise<{ worldId: string; snapshot: any } | null> {
+  async loadSnapshot(saveId: string): Promise<{ worldId: string; snapshot: WorldSnapshot } | null> {
     const save = await this.repo.getSave(saveId);
     if (!save) return null;
-    return { worldId: save.worldId, snapshot: save.snapshot };
+    return { worldId: save.worldId, snapshot: save.snapshot as WorldSnapshot };
   }
 
   async restoreSnapshot(saveId: string): Promise<void> {
