@@ -427,25 +427,52 @@ export class AgentRuntime {
 
     if (decision.toolCalls && decision.toolCalls.length > 0) {
       const context = this.getToolContext();
-      for (const call of decision.toolCalls) {
+      
+      const executionPromises = decision.toolCalls.map(async (call) => {
         const tool = this.tools.get(call.name);
-        if (tool) {
-          try {
-            const result = await tool.execute(call.args, context);
+        if (!tool) {
+          return { call, result: null, error: `Tool ${call.name} not found` };
+        }
+        
+        try {
+          const result = await tool.execute(call.args, context);
+          return { call, result, error: null };
+        } catch (err) {
+          return { call, result: null, error: String(err) };
+        }
+      });
+
+      const settled = await Promise.allSettled(executionPromises);
+      
+      for (const outcome of settled) {
+        if (outcome.status === 'fulfilled') {
+          const { call, result, error } = outcome.value;
+          
+          if (error) {
+            success = false;
+            toolResults.push({ error });
+            continue;
+          }
+          
+          if (result) {
             this.applyToolResult(result);
             toolResults.push(result.result);
-
-            if (call.name === 'send_message' && this.agentManager) {
-              await this.handleMessageDelivery(call.args);
-            }
-
+            
             if (!result.success) {
               success = false;
             }
-          } catch (err) {
-            success = false;
-            toolResults.push({ error: String(err) });
           }
+          
+          if (call.name === 'send_message' && this.agentManager) {
+            try {
+              await this.handleMessageDelivery(call.args);
+            } catch (err) {
+              logger.warn({ agentId: this.id, call, err }, 'Message delivery failed');
+            }
+          }
+        } else {
+          success = false;
+          toolResults.push({ error: outcome.reason });
         }
       }
     }
