@@ -1,6 +1,9 @@
 import type { WorldEvent } from '@lore/shared';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import { nanoid } from 'nanoid';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('world-agent');
 
 export class WorldAgent {
   private llmScheduler: LLMScheduler;
@@ -32,6 +35,7 @@ export class WorldAgent {
       priority: 30,
     });
 
+    logger.debug({ tick: worldState.currentTick, event: desc }, 'World event generated');
     return events;
   }
 }

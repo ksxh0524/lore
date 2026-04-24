@@ -4,6 +4,9 @@ import { AgentRuntime } from './agent-runtime.js';
 import type { Repository } from '../db/repository.js';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { LoreConfig } from '../config/loader.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('agent-manager');
 
 export class AgentManager {
   private agents = new Map<string, AgentRuntime>();
@@ -107,7 +110,7 @@ export class AgentManager {
           stats: agent.stats,
         });
       } catch (err) {
-        console.error(`Persist agent ${agent.id} failed:`, err);
+        logger.error({ agentId: agent.id, err }, 'Persist agent failed');
       }
     }
   }

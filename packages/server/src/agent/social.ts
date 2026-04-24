@@ -3,6 +3,9 @@ import type { Repository } from '../db/repository.js';
 import type { PlatformEngine } from '../world/platform-engine.js';
 import type { RelationshipManager } from './relationships.js';
 import { nanoid } from 'nanoid';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('social');
 
 interface AgentLike {
   id: string;
@@ -35,7 +38,10 @@ export class SocialEngine {
     let postContent = content;
     if (!postContent) {
       postContent = await this.generatePostContent(agent) ?? undefined;
-      if (!postContent) return null;
+      if (!postContent) {
+        logger.warn({ agentId: agent.id }, 'Failed to generate social post content');
+        return null;
+      }
     }
 
     const platforms = await this.platformEngine.getWorldPlatforms(agent.worldId);
@@ -43,7 +49,10 @@ export class SocialEngine {
       ? platforms.find((p: any) => p.id === platformId)
       : platforms[0];
 
-    if (!targetPlatform) return null;
+    if (!targetPlatform) {
+      logger.warn({ agentId: agent.id, worldId: agent.worldId }, 'No platform available for post');
+      return null;
+    }
 
     const post = await this.platformEngine.post({
       platformId: targetPlatform.id,
@@ -53,6 +62,7 @@ export class SocialEngine {
       content: postContent,
     });
 
+    logger.debug({ agentId: agent.id, platform: targetPlatform.name ?? 'unknown' }, 'Social post created');
     return post;
   }
 
@@ -78,7 +88,10 @@ export class SocialEngine {
 
   async handleFriendRequest(requestId: string, accept: boolean): Promise<void> {
     const request = this.friendRequests.get(requestId);
-    if (!request || request.status !== 'pending') return;
+    if (!request || request.status !== 'pending') {
+      logger.warn({ requestId, status: request?.status }, 'Friend request not found or already handled');
+      return;
+    }
 
     request.status = accept ? 'accepted' : 'rejected';
 
@@ -88,6 +101,9 @@ export class SocialEngine {
         type: 'acquaintance',
         historyEntry: '成为好友',
       });
+      logger.info({ fromAgentId: request.fromAgentId, toAgentId: request.toAgentId }, 'Friend request accepted');
+    } else {
+      logger.debug({ fromAgentId: request.fromAgentId, toAgentId: request.toAgentId }, 'Friend request rejected');
     }
   }
 

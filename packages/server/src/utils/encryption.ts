@@ -1,17 +1,19 @@
 import crypto from 'crypto';
 import { LoreError, ErrorCode } from '../errors.js';
+import { getLogger } from '../logger/index.js';
 
-// AES-256-GCM encryption key - MUST be set via environment variable for production
-// SECURITY WARNING: Using default key is insecure and should only be used for testing
 const DEFAULT_KEY = 'lore-development-key-DO-NOT-USE-IN-PRODUCTION';
 const ENCRYPTION_KEY = process.env.LORE_ENCRYPTION_KEY || DEFAULT_KEY;
 
-// Warn if using default key
-if (!process.env.LORE_ENCRYPTION_KEY && process.env.NODE_ENV !== 'test') {
-  console.warn('⚠️  SECURITY WARNING: Using default encryption key. API Keys will NOT be securely encrypted!');
-  console.warn('⚠️  Please set LORE_ENCRYPTION_KEY environment variable for production use.');
-  console.warn('⚠️  Example: LORE_ENCRYPTION_KEY="your-secure-32-character-key-here!"');
+function warnEncryptionKey(): void {
+  if (!process.env.LORE_ENCRYPTION_KEY && process.env.NODE_ENV !== 'test') {
+    const logger = getLogger();
+    logger.warn('Using default encryption key. API Keys will NOT be securely encrypted');
+    logger.warn('Please set LORE_ENCRYPTION_KEY environment variable for production use');
+  }
 }
+
+export { warnEncryptionKey };
 
 // Ensure key is exactly 32 bytes for AES-256
 const getKey = (): Buffer => {

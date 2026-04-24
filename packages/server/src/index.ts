@@ -24,32 +24,33 @@ import { Monitor } from './monitor/index.js';
 import { registerRoutes } from './api/routes.js';
 import { registerWebSocket } from './api/ws.js';
 import { registerProviderRoutes } from './api/provider-routes.js';
+import { initLogger, createLogger, logMonitorStats } from './logger/index.js';
 import { nanoid } from 'nanoid';
 
 async function main() {
   const config = loadConfig();
 
-  // Security check: warn if using default encryption key
+  initLogger({
+    level: config.log.level,
+    dir: config.dataDir + '/logs',
+    maxFiles: config.log.maxFiles,
+    maxSizeMB: config.log.maxSizeMB,
+    console: config.log.console,
+  });
+
+  const logger = createLogger('server');
+
   if (!process.env.LORE_ENCRYPTION_KEY) {
-    console.error('⚠️  SECURITY WARNING: No encryption key set (LORE_ENCRYPTION_KEY)');
-    console.error('⚠️  API Keys stored in database will NOT be securely encrypted!');
-    console.error('⚠️  For production use, set a secure 32+ character key:');
-    console.error('⚠️    export LORE_ENCRYPTION_KEY="your-secure-key-here-32chars!"');
-    console.error('');
-    // Note: We allow startup for development/testing, but warn loudly
+    logger.warn('No encryption key set (LORE_ENCRYPTION_KEY)');
+    logger.warn('API Keys stored in database will NOT be securely encrypted');
+    logger.warn('For production use, set a secure 32+ character key');
   }
 
   const app = Fastify({
-    logger: {
-      level: 'info',
-      transport: {
-        target: 'pino-pretty',
-        options: { colorize: true, translateTime: 'HH:MM:ss.l', ignore: 'pid,hostname' },
-      },
-    },
+    logger: false,
   });
 
-  app.log.info('[Lore] Starting...');
+  logger.info('[Lore] Starting...');
 
   initTables();
 
@@ -74,6 +75,8 @@ async function main() {
 
   let currentWorldId: string | null = null;
 
+  const tickLogger = createLogger('tick');
+
   const tickScheduler = new TickScheduler(config.world.defaultTickIntervalMs, async (tick) => {
     worldClock.advance(config.world.defaultTickIntervalMs);
     const worldState = {
@@ -85,10 +88,13 @@ async function main() {
     };
 
     monitor.resetTick();
+    monitor.startTick();
 
     const agents = agentManager.getAgentsMap();
     const aliveAgents = [...agents.values()]
       .filter((a) => a.state.status !== 'dead');
+
+    tickLogger.debug({ tick, aliveCount: aliveAgents.length }, 'Tick started');
 
     const worldEvents = await eventEngine.generate(worldClock, aliveAgents, worldState);
     for (const event of worldEvents) {
@@ -138,7 +144,7 @@ async function main() {
           }
         }
 
-        app.log.info({ agentId: dead.id, name: dead.profile?.name }, 'Agent died');
+        tickLogger.info({ agentId: dead.id, name: dead.profile?.name }, 'Agent died');
       }
     }
 
@@ -180,6 +186,7 @@ async function main() {
         await worldPersistence.saveWorldState(currentWorldId);
         await relationshipManager.decayInactive(currentWorldId);
       }
+      tickLogger.debug({ tick }, 'Persisted world state');
     }
 
     if (tick % 100 === 0 && currentWorldId) {
@@ -194,12 +201,13 @@ async function main() {
         timeSpeed: worldClock.getTimeSpeed(),
         monitor: monitor.getStats(),
       });
+      logMonitorStats(monitor.getStats());
     }
 
-    app.log.debug({ tick, events: worldEvents.length }, 'Tick completed');
+    monitor.endTick();
+    tickLogger.debug({ tick, events: worldEvents.length, durationMs: monitor.getStats().tickDurationMs }, 'Tick completed');
   });
 
-  // CORS configuration - restrict to allowed origins for security
   const corsOrigins = process.env.CORS_ORIGINS 
     ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
     : ['http://localhost:39528', 'http://localhost:5173', 'http://127.0.0.1:39528', 'http://127.0.0.1:5173'];
@@ -220,15 +228,15 @@ async function main() {
     setWorldId: (id: string | null) => { currentWorldId = id; },
   };
 
-registerRoutes(app, deps);
-registerWebSocket(app, deps);
-registerProviderRoutes(app, repo);
+  registerRoutes(app, deps);
+  registerWebSocket(app, deps);
+  registerProviderRoutes(app, repo);
 
   try {
     await app.listen({ port: config.server.port, host: config.server.host });
-    app.log.info(`[Lore] Server running at http://localhost:${config.server.port}`);
+    logger.info(`[Lore] Server running at http://localhost:${config.server.port}`);
   } catch (err) {
-    app.log.error(err, '[Lore] Failed to start');
+    logger.error(err, '[Lore] Failed to start');
     process.exit(1);
   }
 }

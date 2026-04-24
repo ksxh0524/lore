@@ -2,6 +2,9 @@ import type { ILLMProvider } from './types.js';
 import { MockLLMProvider } from './mock-provider.js';
 import { OpenAICompatibleProvider } from './openai-provider.js';
 import type { LoreConfig } from '../config/loader.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('provider-factory');
 
 export class ProviderFactory {
   private providers = new Map<string, ILLMProvider>();
@@ -12,7 +15,7 @@ export class ProviderFactory {
     
     for (const pc of config.llm.providers) {
       if (!pc.apiKey) {
-        console.warn(`[Lore] Provider ${pc.name} has no API key, skipping`);
+        logger.warn({ provider: pc.name }, 'Provider has no API key, skipping');
         continue;
       }
       

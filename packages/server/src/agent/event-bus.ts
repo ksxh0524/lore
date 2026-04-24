@@ -11,7 +11,8 @@ export type AgentEventType =
   | 'goal_failed'
   | 'emotion_changed'
   | 'location_changed'
-  | 'social_interaction';
+  | 'social_interaction'
+  | 'agent_died';
 
 export interface AgentEvent {
   agentId: string;

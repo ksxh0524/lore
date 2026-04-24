@@ -3,6 +3,9 @@ import { ProviderFactory } from './factory.js';
 import { LLMResilience } from './resilience.js';
 import type { LoreConfig } from '../config/loader.js';
 import type { Monitor } from '../monitor/index.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('llm-scheduler');
 
 const DEFAULT_PRIORITY_MAP: Record<string, number> = {
   'user-chat': 160,
@@ -84,9 +87,11 @@ export class LLMScheduler {
           result.latencyMs,
           result.model,
         );
+        logger.debug({ model: item.request.model, callType: item.request.callType, tokens: result.usage.promptTokens + result.usage.completionTokens, latencyMs: result.latencyMs }, 'LLM call completed');
         item.resolve(result);
       } catch (err) {
         this.monitor?.recordDropped();
+        logger.error({ model: item.request.model, callType: item.request.callType, err }, 'LLM call failed');
         item.reject(err instanceof Error ? err : new Error('Unknown error'));
       } finally {
         this.active--;
@@ -105,17 +110,23 @@ export class LLMScheduler {
         const lowestIndex = this.queue.findIndex(item => item.priority === lowestPriority);
         if (lowestIndex !== -1) {
           const dropped = this.queue.splice(lowestIndex, 1)[0];
-          dropped.reject(new Error('Request dropped due to queue overload'));
-          this.droppedCount++;
-          this.monitor?.recordDropped();
+          if (dropped) {
+            dropped.reject(new Error('Request dropped due to queue overload'));
+            this.droppedCount++;
+            this.monitor?.recordDropped();
+            logger.warn({ callType: dropped.request.callType, priority: dropped.priority }, 'Request dropped (queue overload)');
+          }
         }
       } else {
         this.droppedCount++;
         this.monitor?.recordDropped();
+        logger.warn({ callType: request.callType, priority, queueSize: this.queue.length }, 'Request rejected (queue full)');
         throw new Error('LLM queue overloaded, request dropped');
       }
     }
 
+    logger.debug({ callType: request.callType, model: request.model, priority, queueSize: this.queue.length }, 'LLM request queued');
+    
     return new Promise<LLMResult>((resolve, reject) => {
       this.queue.push({
         request,

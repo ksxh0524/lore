@@ -8,6 +8,9 @@ import type { ModeManager } from '../modes/mode-manager.js';
 import type { WorldClock } from '../world/clock.js';
 import type { TickScheduler } from '../scheduler/tick-scheduler.js';
 import type { Repository } from '../db/repository.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('websocket');
 
 const HEARTBEAT_INTERVAL = 30000;
 const HEARTBEAT_TIMEOUT = 60000;
@@ -48,7 +51,7 @@ export function registerWebSocket(
     }
     
     // Log connection for monitoring
-    app.log.info({ hasToken: !!authToken }, 'WebSocket client connected');
+    logger.info({ hasToken: !!authToken }, 'WebSocket client connected');
     
     pushManager.addClient(socket);
     let lastPing = Date.now();
@@ -76,7 +79,7 @@ export function registerWebSocket(
         const msg = JSON.parse(raw.toString());
         await handleMessage(socket, msg);
       } catch (err) {
-        app.log.error(err, 'WS message error');
+        logger.error(err, 'WS message error');
         socket.send(JSON.stringify({ type: 'error', message: err instanceof Error ? err.message : 'Unknown error' }));
       }
     });

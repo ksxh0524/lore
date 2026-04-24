@@ -4,6 +4,9 @@ import type { WorldAgent } from './world-agent.js';
 import type { AgentManager } from '../agent/agent-manager.js';
 import type { Repository } from '../db/repository.js';
 import { nanoid } from 'nanoid';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('event-engine');
 
 interface AgentLike {
   id: string;
@@ -58,6 +61,7 @@ export class EventEngine {
       }
     }
 
+    logger.debug({ tick: worldState.currentTick, eventCount: events.length, routine: this.lastRoutineHour }, 'Events generated');
     return events;
   }
 
@@ -70,10 +74,12 @@ export class EventEngine {
 
       if (c.statChanges) {
         agent.applyStatChanges(c.statChanges as any);
+        logger.info({ eventId: event.id, agentId: c.agentId, category: event.category, statChanges: c.statChanges }, 'Event consequence applied');
 
         if (agent.stats.health <= 0) {
           agent.state.status = 'dead';
           await agentManager.destroy(agent.id);
+          logger.warn({ eventId: event.id, agentId: c.agentId }, 'Agent died from event');
         }
       }
     }

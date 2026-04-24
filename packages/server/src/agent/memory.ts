@@ -6,6 +6,9 @@ import { storeEmbedding } from '../db/vector.js';
 import { nanoid } from 'nanoid';
 
 import type { LoreConfig } from '../config/loader.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('memory');
 
 export interface MemoryContext {
   working: string[];
@@ -62,7 +65,7 @@ export class MemoryManager {
           await storeEmbedding(longTermId, embedding);
         }
       } catch (err) {
-        console.warn(`Failed to store embedding for agent ${this.agentId}:`, err);
+        logger.warn({ agentId: this.agentId, err }, 'Failed to store embedding');
       }
     }
   }
@@ -116,7 +119,7 @@ export class MemoryManager {
         similarity: r.similarity,
       }));
     } catch (err) {
-      console.warn(`Memory search error for agent ${this.agentId}:`, err);
+      logger.warn({ agentId: this.agentId, err }, 'Memory search error');
       return [];
     }
   }
@@ -126,7 +129,7 @@ export class MemoryManager {
     try {
       await this.repo.deleteExpiredMemories(this.agentId, cutoff);
     } catch (err) {
-      console.warn(`Memory cleanup error for agent ${this.agentId}:`, err);
+      logger.warn({ agentId: this.agentId, err }, 'Memory cleanup error');
     }
   }
 
@@ -142,7 +145,7 @@ export class MemoryManager {
       }
       return await provider.embed(text);
     } catch (err) {
-      console.warn(`Failed to generate embedding for agent ${this.agentId}:`, err);
+      logger.warn({ agentId: this.agentId, err }, 'Failed to generate embedding');
       return [];
     }
   }

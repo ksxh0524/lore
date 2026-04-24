@@ -1,3 +1,7 @@
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('circuit-breaker');
+
 export class CircuitBreaker {
   private failures = 0;
   private lastFailureTime = 0;
@@ -22,14 +26,18 @@ export class CircuitBreaker {
 
   recordSuccess(): void {
     this.failures = 0;
+    if (this.state !== 'closed') {
+      logger.info({ prevState: this.state }, 'Circuit breaker recovered');
+    }
     this.state = 'closed';
   }
 
   recordFailure(): void {
     this.failures++;
     this.lastFailureTime = Date.now();
-    if (this.failures >= this.failureThreshold) {
+    if (this.failures >= this.failureThreshold && this.state !== 'open') {
       this.state = 'open';
+      logger.warn({ failures: this.failures, threshold: this.failureThreshold }, 'Circuit breaker opened');
     }
   }
 

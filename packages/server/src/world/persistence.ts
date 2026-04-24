@@ -1,6 +1,10 @@
 import { nanoid } from 'nanoid';
 import type { Repository } from '../db/repository.js';
 import type { AgentManager } from '../agent/agent-manager.js';
+import { LoreError, ErrorCode } from '../errors.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('persistence');
 
 export class WorldPersistence {
   private repo: Repository;
@@ -54,7 +58,7 @@ export class WorldPersistence {
             stats: agentData.stats,
           });
         } catch (err) {
-          console.warn(`Failed to restore agent ${agentData.id}:`, err);
+          logger.warn({ agentId: agentData.id, err }, 'Failed to restore agent');
         }
       }
     }

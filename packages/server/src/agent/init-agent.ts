@@ -1,9 +1,36 @@
-import type { InitRequest, InitResult, AgentProfile, AgentStats, WorldData } from '@lore/shared';
+import type { InitRequest, InitResult, AgentProfile, AgentStats } from '@lore/shared';
 import { nanoid } from 'nanoid';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { Repository } from '../db/repository.js';
 import type { LoreConfig } from '../config/loader.js';
 import { buildRandomWorldPrompt } from '../llm/prompts.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('init-agent');
+
+interface WorldData {
+  worldConfig?: { name?: string; startTime?: string; location?: string };
+  userAvatar?: {
+    name?: string;
+    profile?: AgentProfile;
+    initialStats?: AgentStats;
+    backstory?: string;
+  };
+  agents?: Array<{
+    name?: string;
+    age?: number;
+    gender?: string;
+    occupation?: string;
+    personality?: string;
+    backstory?: string;
+    background?: string;
+    speechStyle?: string;
+    likes?: string[];
+    dislikes?: string[];
+    profile?: AgentProfile;
+    initialStats?: AgentStats;
+  }>;
+}
 
 export class InitAgent {
   private llmScheduler: LLMScheduler;
@@ -18,6 +45,7 @@ export class InitAgent {
 
   async initialize(request: InitRequest): Promise<InitResult> {
     const worldId = nanoid();
+    logger.info({ worldId, worldType: request.worldType }, 'World initialization started');
 
     if (request.worldType === 'history' && request.historyParams) {
       return this.initHistoryWorld(worldId, request.historyParams);
@@ -57,7 +85,9 @@ export class InitAgent {
         maxTokens: 4096,
       });
       worldData = JSON.parse(result.content);
-    } catch {
+      logger.debug({ worldId, presetName: params.presetName }, 'History world generated');
+    } catch (err) {
+      logger.warn({ worldId, presetName: params.presetName, err }, 'History world generation failed, using fallback');
       worldData = this.generateHistoryFallback(params.presetName);
     }
 
@@ -103,6 +133,7 @@ export class InitAgent {
     };
 
     await this.repo.updateWorld(worldId, { status: 'running' });
+    logger.info({ worldId, agentCount: agents.length, worldName: worldData.worldConfig?.name ?? params.presetName }, 'History world initialized');
 
     return {
       worldId,
@@ -134,10 +165,13 @@ export class InitAgent {
       const parsed = JSON.parse(result.content);
       if (parsed.agents && Array.isArray(parsed.agents)) {
         worldData = parsed;
+        logger.debug({ worldId, location: params.location }, 'Random world generated');
       } else {
+        logger.warn({ worldId }, 'Random world generation invalid, using fallback');
         worldData = this.generateFallbackWorld(params);
       }
-    } catch {
+    } catch (err) {
+      logger.warn({ worldId, err }, 'Random world generation failed, using fallback');
       worldData = this.generateFallbackWorld(params);
     }
 
@@ -183,6 +217,7 @@ export class InitAgent {
     };
 
     await this.repo.updateWorld(worldId, { status: 'running' });
+    logger.info({ worldId, agentCount: agents.length, worldName: worldData.worldConfig?.name ?? '随机世界' }, 'Random world initialized');
 
     return {
       worldId,

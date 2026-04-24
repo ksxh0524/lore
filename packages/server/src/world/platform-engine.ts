@@ -1,6 +1,9 @@
 import type { Repository } from '../db/repository.js';
 import { nanoid } from 'nanoid';
 import type { PlatformPost } from '@lore/shared';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('platform');
 
 export class PlatformEngine {
   private repo: Repository;
@@ -17,6 +20,7 @@ export class PlatformEngine {
     for (const p of defaults) {
       await this.repo.createPlatform({ id: nanoid(), worldId, ...p });
     }
+    logger.info({ worldId, platforms: defaults.map(p => p.name) }, 'World platforms initialized');
   }
 
   async post(data: {
@@ -26,6 +30,7 @@ export class PlatformEngine {
     const post = await this.repo.createPlatformPost({
       id: nanoid(), ...data,
     });
+    logger.debug({ postId: post.id, authorId: data.authorId, platformId: data.platformId }, 'Post created');
     return {
       id: post.id,
       platformId: post.platformId,
@@ -43,7 +48,10 @@ export class PlatformEngine {
 
   async likePost(agentId: string, postId: string): Promise<void> {
     const post = await this.repo.getPlatformPost(postId);
-    if (post) await this.repo.updatePlatformPost(postId, { likes: (post.likes ?? 0) + 1 });
+    if (post) {
+      await this.repo.updatePlatformPost(postId, { likes: (post.likes ?? 0) + 1 });
+      logger.debug({ postId, agentId }, 'Post liked');
+    }
   }
 
   async commentPost(agentId: string, postId: string, content: string): Promise<void> {
@@ -52,6 +60,7 @@ export class PlatformEngine {
     const comments = (post.comments as any[]) ?? [];
     comments.push({ id: nanoid(), authorId: agentId, content, timestamp: new Date().toISOString() });
     await this.repo.updatePlatformPost(postId, { comments });
+    logger.debug({ postId, agentId }, 'Comment added');
   }
 
   async getFeed(platformId: string) {

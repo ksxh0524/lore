@@ -20,6 +20,9 @@ import type { FactionSystem } from '../world/faction-system.js';
 import type { RelationshipManager } from '../agent/relationships.js';
 import type { SocialEngine } from '../agent/social.js';
 import { ErrorCode, LoreError } from '../errors.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('routes');
 
 export function registerRoutes(
   app: FastifyInstance,
@@ -55,7 +58,7 @@ export function registerRoutes(
     if (err instanceof Error && 'validation' in err) {
       return reply.status(400).send({ error: { code: ErrorCode.VALIDATION_ERROR, message: err.message } });
     }
-    app.log.error(err);
+    logger.error(err, 'Unhandled error');
     return reply.status(500).send({ error: { code: ErrorCode.INTERNAL_ERROR, message: 'Internal server error' } });
   });
 
@@ -122,7 +125,7 @@ export function registerRoutes(
       pushManager.broadcast({ type: 'init_complete', worldId: result.worldId, agentCount: result.agents.length });
       return { data: result };
     } catch (err) {
-      app.log.error(err, 'World init failed');
+      logger.error(err, 'World init failed');
       return reply.status(500).send({ error: { code: ErrorCode.INIT_GENERATION_FAILED, message: err instanceof Error ? err.message : 'Init failed' } });
     }
   });
@@ -424,7 +427,7 @@ export function registerRoutes(
 
   app.get('/api/config', async () => {
     const safe = { world: config.world, server: config.server, dataDir: config.dataDir };
-    return { data: { ...safe, llm: { ...config.llm, providers: config.llm.providers.map(p => ({ name: p.name, type: p.type, baseUrl: p.baseUrl, models: p.models, apiKey: '***' })) } } };
+    return { data: { ...safe, llm: { ...config.llm, providers: config.llm.providers.map(p => ({ name: p.name, type: p.type ?? 'openai', baseUrl: p.baseUrl, models: p.models, apiKey: '***' })) } } };
   });
 
   app.put('/api/config', async () => {

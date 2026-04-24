@@ -209,8 +209,8 @@ export function registerProviderRoutes(app: FastifyInstance, repo: Repository) {
         });
       }
 
-      const data = await response.json();
-      const models = data.data?.map((m: any) => m.id) || [];
+      const data = await response.json() as { data?: Array<{ id: string }> };
+      const models = data.data?.map((m) => m.id) || [];
 
       return { data: { models } };
     } catch (error) {

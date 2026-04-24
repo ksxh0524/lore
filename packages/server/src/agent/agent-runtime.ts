@@ -18,6 +18,9 @@ import { StatsManager, type StatChange } from './stats-manager.js';
 import { nanoid } from 'nanoid';
 import type { LoreConfig } from '../config/loader.js';
 import { buildDecisionPrompt, buildChatPrompt } from '../llm/prompts.js';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('agent-runtime');
 
 export interface ActionResult {
   success: boolean;
@@ -235,7 +238,7 @@ export class AgentRuntime {
       }
     } catch (err) {
       this.consecutiveFailures++;
-      console.error(`Agent ${this.id} tick failed:`, err);
+      logger.error({ agentId: this.id, err }, 'Agent tick failed');
       if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
         await this.fallbackBehavior();
         this.consecutiveFailures = 0;

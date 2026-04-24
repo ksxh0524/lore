@@ -3,29 +3,21 @@ import { z } from 'zod';
 const ProviderSchema = z.object({
   name: z.string(),
   apiKey: z.string(),
+  type: z.string().optional(),
   baseUrl: z.string().optional(),
-  models: z.array(z.object({
-    name: z.string(),
-    tier: z.enum(['premium', 'standard', 'cheap']),
-    maxTokens: z.number(),
-    cost: z.number().optional(),
-  })),
+  models: z.array(z.string()).default([]),
+  embeddingModel: z.string().optional(),
   priority: z.number().default(50),
   enabled: z.boolean().default(true),
 });
 
-const WorldSchema = z.object({
-  tickIntervalMs: z.number().default(3000),
-  maxAgents: z.number().default(100),
-  autoSave: z.boolean().default(true),
-  autoSaveIntervalMs: z.number().default(60000),
-  persistenceIntervalMs: z.number().default(10000),
-  defaultTickIntervalMs: z.number().default(3000),
-  tickTimeoutMs: z.number().default(30000),
-});
-
 const LLMConfigSchema = z.object({
   providers: z.array(ProviderSchema).default([]),
+  defaults: z.object({
+    premiumModel: z.string().default('gpt-4'),
+    standardModel: z.string().default('gpt-3.5-turbo'),
+    cheapModel: z.string().default('gpt-3.5-turbo'),
+  }).default({}),
   limits: z.object({
     maxConcurrent: z.number().default(5),
     maxQueueSize: z.number().default(50),
@@ -34,6 +26,7 @@ const LLMConfigSchema = z.object({
     maxRetryDelayMs: z.number().default(10000),
     circuitBreakerThreshold: z.number().default(5),
     circuitBreakerResetMs: z.number().default(60000),
+    timeoutMs: z.number().default(30000),
   }).default({}),
   prompts: z.object({
     maxMessageLength: z.number().default(2000),
@@ -50,6 +43,17 @@ const LLMConfigSchema = z.object({
     creative: z.number().default(50),
     worldEvent: z.number().default(40),
   }).default({}),
+}).default({});
+
+const WorldSchema = z.object({
+  tickIntervalMs: z.number().default(3000),
+  maxAgents: z.number().default(100),
+  autoSave: z.boolean().default(true),
+  autoSaveIntervalMs: z.number().default(60000),
+  persistenceIntervalMs: z.number().default(10000),
+  defaultTickIntervalMs: z.number().default(3000),
+  tickTimeoutMs: z.number().default(30000),
+  defaultTimeSpeed: z.number().default(1),
 }).default({});
 
 const AgentSchema = z.object({
@@ -93,25 +97,32 @@ const ApiSchema = z.object({
   }).default({}),
 }).default({});
 
+const LogSchema = z.object({
+  level: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  maxFiles: z.number().default(7),
+  maxSizeMB: z.number().default(50),
+  console: z.boolean().default(true),
+}).default({});
+
 const ConfigSchema = z.object({
-  world: WorldSchema.default({}),
-  llm: LLMConfigSchema.default({}),
-  agent: AgentSchema.default({}),
-  stats: StatsSchema.default({}),
-  api: ApiSchema.default({}),
+  world: WorldSchema,
+  llm: LLMConfigSchema,
+  agent: AgentSchema,
+  stats: StatsSchema,
+  api: ApiSchema,
   server: z.object({
     port: z.number().default(3952),
     host: z.string().default('localhost'),
-  }).default({}),
+  }),
   client: z.object({
     port: z.number().default(39528),
     host: z.string().default('localhost'),
-  }).default({}),
+  }),
   dataDir: z.string().default(`${process.env.HOME ?? '~'}/.lore`),
   encryption: z.object({
     key: z.string().optional(),
-  }).default({}),
-  logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  }),
+  log: LogSchema,
   enableMockProvider: z.boolean().default(true),
 });
 
@@ -131,6 +142,12 @@ export function loadConfig(): LoreConfig {
       port: process.env.LORE_CLIENT_PORT ? parseInt(process.env.LORE_CLIENT_PORT, 10) : undefined,
     },
     encryption: process.env.LORE_ENCRYPTION_KEY ? { key: process.env.LORE_ENCRYPTION_KEY } : undefined,
+    log: {
+      level: process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error' | undefined,
+      maxFiles: process.env.LOG_MAX_FILES ? parseInt(process.env.LOG_MAX_FILES, 10) : undefined,
+      maxSizeMB: process.env.LOG_MAX_SIZE_MB ? parseInt(process.env.LOG_MAX_SIZE_MB, 10) : undefined,
+      console: process.env.LOG_CONSOLE === 'false' ? false : undefined,
+    },
     enableMockProvider: process.env.ENABLE_MOCK_PROVIDER === 'true' ? true : undefined,
   });
 }
@@ -144,36 +161,38 @@ export function validateConfig(data: unknown): LoreConfig {
 }
 
 export function mergeConfig(...configs: Partial<LoreConfig>[]): LoreConfig {
-  const merged = configs.reduce((acc, config) => ({
+  const merged = configs.reduce((acc: LoreConfig, config: Partial<LoreConfig>) => ({
     ...acc,
     ...config,
     world: { ...acc.world, ...config.world },
     llm: {
       ...acc.llm,
       ...config.llm,
-      limits: { ...acc.llm?.limits, ...config.llm?.limits },
-      prompts: { ...acc.llm?.prompts, ...config.llm?.prompts },
-      priorities: { ...acc.llm?.priorities, ...config.llm?.priorities },
+      defaults: { ...acc.llm.defaults, ...config.llm?.defaults },
+      limits: { ...acc.llm.limits, ...config.llm?.limits },
+      prompts: { ...acc.llm.prompts, ...config.llm?.prompts },
+      priorities: { ...acc.llm.priorities, ...config.llm?.priorities },
     },
     agent: {
       ...acc.agent,
       ...config.agent,
-      initialStats: { ...acc.agent?.initialStats, ...config.agent?.initialStats },
-      moneyRanges: { ...acc.agent?.moneyRanges, ...config.agent?.moneyRanges },
-      limits: { ...acc.agent?.limits, ...config.agent?.limits },
+      initialStats: { ...acc.agent.initialStats, ...config.agent?.initialStats },
+      moneyRanges: { ...acc.agent.moneyRanges, ...config.agent?.moneyRanges },
+      limits: { ...acc.agent.limits, ...config.agent?.limits },
     },
     stats: {
       ...acc.stats,
       ...config.stats,
-      bounds: { ...acc.stats?.bounds, ...config.stats?.bounds },
-      money: { ...acc.stats?.money, ...config.stats?.money },
+      bounds: { ...acc.stats.bounds, ...config.stats?.bounds },
+      money: { ...acc.stats.money, ...config.stats?.money },
     },
     api: {
       ...acc.api,
       ...config.api,
-      defaults: { ...acc.api?.defaults, ...config.api?.defaults },
-      websocket: { ...acc.api?.websocket, ...config.api?.websocket },
+      defaults: { ...acc.api.defaults, ...config.api?.defaults },
+      websocket: { ...acc.api.websocket, ...config.api?.websocket },
     },
+    log: { ...acc.log, ...config.log },
   }), createDefaultConfig());
   
   return validateConfig(merged);

@@ -65,5 +65,5 @@ export function getPresetById(id: string): ProviderPreset | undefined {
 }
 
 export function getAllPresets(): ProviderPreset[] {
-  return Object.entries(getPresets()).map(([id, preset]) => ({ id, ...preset }));
+  return Object.entries(getPresets()).map(([id, preset]) => ({ ...preset, id }));
 }

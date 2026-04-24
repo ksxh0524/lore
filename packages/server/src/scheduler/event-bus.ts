@@ -1,3 +1,7 @@
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('event-bus');
+
 export class EventBus {
   private handlers = new Map<string, Set<(data: any) => void>>();
   private static instance: EventBus;
@@ -14,6 +18,6 @@ export class EventBus {
   }
 
   emit(event: string, data: any): void {
-    this.handlers.get(event)?.forEach(h => { try { h(data); } catch (e) { console.error('EventBus error:', e); } });
+    this.handlers.get(event)?.forEach(h => { try { h(data); } catch (e) { logger.error({ event, err: e }, 'EventBus handler error'); } });
   }
 }

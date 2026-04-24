@@ -1,5 +1,8 @@
 import type { ILLMProvider, LLMCallRequest, LLMCallResult } from './types.js';
 import OpenAI from 'openai';
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('openai-provider');
 
 export class OpenAICompatibleProvider implements ILLMProvider {
   readonly name: string;
@@ -49,8 +52,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       try {
         args = JSON.parse(tc.function?.arguments || '{}');
       } catch {
-        // Invalid JSON in tool arguments - log warning
-        console.warn('Invalid tool arguments JSON:', tc.function?.arguments);
+        logger.warn({ args: tc.function?.arguments }, 'Invalid tool arguments JSON');
       }
       return {
         name: tc.function?.name ?? '',

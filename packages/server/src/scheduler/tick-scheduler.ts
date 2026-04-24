@@ -1,3 +1,7 @@
+import { createLogger } from '../logger/index.js';
+
+const logger = createLogger('tick-scheduler');
+
 export class TickScheduler {
   private interval: ReturnType<typeof setInterval> | null = null;
   private tickNumber = 0;
@@ -31,12 +35,11 @@ export class TickScheduler {
         
         this.lastTickDuration = Date.now() - startTime;
         
-        // Warn if tick took > 50% of interval
         if (this.lastTickDuration > this.intervalMs * 0.5) {
-          console.warn(`⚠️  Tick ${this.tickNumber} took ${this.lastTickDuration}ms (> 50% of ${this.intervalMs}ms interval)`);
+          logger.warn({ tick: this.tickNumber, durationMs: this.lastTickDuration, intervalMs: this.intervalMs }, 'Tick took > 50% of interval');
         }
       } catch (err) {
-        console.error(`Tick ${this.tickNumber} error:`, err);
+        logger.error({ tick: this.tickNumber, err }, 'Tick error');
         this.lastTickDuration = Date.now() - startTime;
       }
     }, this.intervalMs);
