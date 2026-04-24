@@ -30,8 +30,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   loadPresets: async () => {
     try {
-      const { presets } = await providerApi.getPresets();
-      set({ presets });
+      const { data } = await providerApi.getPresets();
+      set({ presets: data });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to load presets' });
     }
@@ -40,8 +40,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   loadProviders: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { providers } = await providerApi.getProviders();
-      set({ providers, isLoading: false });
+      const { data } = await providerApi.getProviders();
+      set({ providers: data, isLoading: false });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to load providers', isLoading: false });
     }
@@ -56,7 +56,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       const defaultModel = preset.defaultModels[0] ?? '';
       const enabledModels = models?.length ? models.filter((m): m is string => !!m) : [defaultModel];
       
-      await providerApi.createProvider({
+      const result = await providerApi.createProvider({
         presetId,
         name: preset.name,
         apiKey,
@@ -64,6 +64,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         defaultModel: enabledModels[0],
       });
       
+      if (!result.data?.id) throw new Error('Failed to create provider');
       await get().loadProviders();
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to add provider', isLoading: false });
@@ -95,8 +96,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   testProvider: async (id) => {
     try {
-      const result = await providerApi.testProvider(id);
-      return { success: result.success, message: result.message };
+      const { data } = await providerApi.testProvider(id);
+      return { success: data.success, message: data.message };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Test failed';
       return { success: false, message };

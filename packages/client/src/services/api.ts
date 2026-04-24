@@ -27,19 +27,19 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 // Provider API
 export const providerApi = {
   // Get all presets
-  getPresets: (): Promise<{ presets: ProviderPreset[] }> => 
+  getPresets: (): Promise<{ data: ProviderPreset[] }> => 
     fetchJson('/provider-presets'),
   
   // Get all user providers
-  getProviders: (): Promise<{ providers: UserProvider[] }> => 
+  getProviders: (): Promise<{ data: UserProvider[] }> => 
     fetchJson('/providers'),
   
   // Get single provider
-  getProvider: (id: string): Promise<{ provider: UserProvider }> => 
+  getProvider: (id: string): Promise<{ data: UserProvider }> => 
     fetchJson(`/providers/${id}`),
   
   // Create new provider
-  createProvider: (data: CreateProviderRequest): Promise<{ id: string }> => 
+  createProvider: (data: CreateProviderRequest): Promise<{ data: { id: string } }> => 
     fetchJson('/providers', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -59,7 +59,7 @@ export const providerApi = {
     }),
   
   // Test provider connection
-  testProvider: (id: string): Promise<TestProviderResponse> => 
+  testProvider: (id: string): Promise<{ data: TestProviderResponse }> => 
     fetchJson(`/providers/${id}/test`, {
       method: 'POST',
     }),
