@@ -10,13 +10,13 @@ set -euo pipefail
 # 全局配置
 # ============================================================================
 
-readonly SCRIPT_VERSION="0.0.1"
+readonly SCRIPT_VERSION="2.0.0"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 readonly LOG_DIR="$SCRIPT_DIR/logs"
 readonly PID_DIR="$SCRIPT_DIR/.pids"
 
-# 默认端口配置 (10000+)
-readonly DEFAULT_SERVER_PORT=39527
+# 默认端口配置
+readonly DEFAULT_SERVER_PORT=3952
 readonly DEFAULT_CLIENT_PORT=39528
 
 # 超时配置
@@ -61,7 +61,7 @@ load_env() {
 get_server_port() {
     local port="${LORE_SERVER_PORT:-$DEFAULT_SERVER_PORT}"
     # 确保端口在有效范围内
-    if [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 10000 ] && [ "$port" -le 65535 ]; then
+    if [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ]; then
         echo "$port"
     else
         echo "$DEFAULT_SERVER_PORT"
@@ -72,7 +72,7 @@ get_server_port() {
 get_client_port() {
     local port="${LORE_CLIENT_PORT:-$DEFAULT_CLIENT_PORT}"
     # 确保端口在有效范围内
-    if [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 10000 ] && [ "$port" -le 65535 ]; then
+    if [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ]; then
         echo "$port"
     else
         echo "$DEFAULT_CLIENT_PORT"
@@ -127,6 +127,31 @@ get_service_info() {
     esac
 }
 
+# 获取 PID 文件路径
+get_pid_file() {
+    local service_name="$1"
+    echo "$PID_DIR/$service_name.pid"
+}
+
+# 保存 PID 到文件
+save_pid() {
+    local service_name="$1"
+    local pid="$2"
+    echo "$pid" > "$(get_pid_file "$service_name")"
+}
+
+# 从文件读取 PID
+read_pid() {
+    local service_name="$1"
+    local pid_file="$(get_pid_file "$service_name")"
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            echo "$pid"
+        fi
+    fi
+}
+
 # 根据端口获取 PID
 get_pids_by_port() {
     local port="$1"
@@ -136,9 +161,8 @@ get_pids_by_port() {
 # 检查服务是否运行
 is_service_running() {
     local service_name="$1"
-    local port=$(get_service_info "$service_name" port)
-    local pids=$(get_pids_by_port "$port")
-    [ -n "$pids" ]
+    local pid=$(read_pid "$service_name")
+    [ -n "$pid" ]
 }
 
 # 等待服务健康检查
@@ -208,19 +232,24 @@ start_service() {
     
     # 启动服务
     local log_file="$LOG_DIR/$service_name.log"
-    (
-        cd "$SCRIPT_DIR/$dir"
-        export LORE_SERVER_PORT=$(get_server_port)
-        export LORE_CLIENT_PORT=$(get_client_port)
-        $cmd > "$log_file" 2>&1 &
-    )
+    local pid_file="$(get_pid_file "$service_name")"
+    
+    cd "$SCRIPT_DIR/$dir"
+    export LORE_SERVER_PORT=$(get_server_port)
+    export LORE_CLIENT_PORT=$(get_client_port)
+    nohup $cmd > "$log_file" 2>&1 &
+    local pid=$!
+    cd "$SCRIPT_DIR"
+    
+    save_pid "$service_name" "$pid"
     
     # 等待服务启动
     if wait_for_health "$service_name"; then
-        log_success "$name 启动成功 (端口 $port)"
+        log_success "$name 启动成功 (端口 $port, PID $pid)"
         return 0
     else
         log_error "$name 启动失败，查看日志: $log_file"
+        rm -f "$pid_file"
         return 1
     fi
 }
@@ -229,33 +258,40 @@ stop_service() {
     local service_name="$1"
     local port=$(get_service_info "$service_name" port)
     local name=$(get_service_info "$service_name" name)
+    local pid_file="$(get_pid_file "$service_name")"
     
     log_info "停止 $name..."
     
-    local pids=$(get_pids_by_port "$port")
-    if [ -z "$pids" ]; then
-        log_info "$name 未运行"
-        return 0
+    local pid=$(read_pid "$service_name")
+    if [ -z "$pid" ]; then
+        # 尝试通过端口查找
+        local pids=$(get_pids_by_port "$port")
+        if [ -z "$pids" ]; then
+            log_info "$name 未运行"
+            return 0
+        fi
+        pid="$pids"
     fi
     
     # 先尝试优雅停止
-    echo "$pids" | xargs kill 2>/dev/null || true
+    kill "$pid" 2>/dev/null || true
     
     # 等待停止
     local waited=0
     while [ $waited -lt $MAX_STOP_WAIT ]; do
-        pids=$(get_pids_by_port "$port")
-        [ -z "$pids" ] && break
+        if ! kill -0 "$pid" 2>/dev/null; then
+            break
+        fi
         sleep 1
         ((waited++))
     done
     
     # 强制停止
-    pids=$(get_pids_by_port "$port")
-    if [ -n "$pids" ]; then
-        echo "$pids" | xargs kill -9 2>/dev/null || true
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null || true
     fi
     
+    rm -f "$pid_file"
     log_success "$name 已停止"
 }
 
@@ -450,8 +486,9 @@ cmd_test() {
 }
 
 cmd_clean() {
-    log_info "清理旧日志..."
+    log_info "清理旧日志和 PID 文件..."
     find "$LOG_DIR" -name "*.log" -mtime +$LOG_RETENTION_DAYS -delete 2>/dev/null || true
+    find "$PID_DIR" -name "*.pid" -delete 2>/dev/null || true
     log_success "清理完成"
 }
 
