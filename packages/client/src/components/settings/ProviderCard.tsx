@@ -87,13 +87,13 @@ export function ProviderCard({ provider, onEdit }: ProviderCardProps) {
         </div>
         <div className="provider-card-models-list">
           {provider.models.map((model) => (
-            <span
-              key={model}
-              className={`provider-card-model-tag ${model === provider.defaultModel ? 'default' : 'other'}`}
-            >
-              {model}
-              {model === provider.defaultModel && ' ★'}
-            </span>
+<span
+               key={model}
+               className={`provider-card-model-tag ${model === (provider.defaultModel || provider.models[0]) ? 'default' : 'other'}`}
+             >
+               {model}
+               {model === (provider.defaultModel || provider.models[0]) && ' ★'}
+             </span>
           ))}
         </div>
       </div>

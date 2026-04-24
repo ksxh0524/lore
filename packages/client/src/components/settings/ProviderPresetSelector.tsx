@@ -49,7 +49,7 @@ export function ProviderPresetSelector({ onSelect, onCancel }: ProviderPresetSel
                 </div>
                 <div className="provider-preset-selector-item-content">
                   <div className="provider-preset-selector-item-name">{preset.name}</div>
-                  <div className="provider-preset-selector-item-desc">{preset.description}</div>
+                  <div className="provider-preset-selector-item-desc">{preset.baseUrl}</div>
                 </div>
                 <ChevronRight className="provider-preset-selector-item-arrow" />
               </div>
