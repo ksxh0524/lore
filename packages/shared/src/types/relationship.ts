@@ -3,14 +3,24 @@ export type RelationshipType =
   | 'acquaintance'
   | 'friend'
   | 'close_friend'
+  | 'best_friend'
+  | 'dating'
   | 'partner'
+  | 'spouse'
   | 'ex'
   | 'enemy'
   | 'rival'
   | 'family'
+  | 'parent'
+  | 'child'
+  | 'sibling'
   | 'colleague'
+  | 'coworker'
   | 'boss'
-  | 'subordinate';
+  | 'subordinate'
+  | 'neighbor'
+  | 'mentor'
+  | 'student';
 
 export interface Relationship {
   agentId: string;

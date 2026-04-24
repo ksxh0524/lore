@@ -9,7 +9,7 @@ import { AgentList } from '../components/agent/AgentList';
 import { EventList } from '../components/events/EventList';
 import { ChatPanel } from '../components/chat/ChatPanel';
 import { Timeline } from '../components/world/Timeline';
-import type { CSSProperties } from 'react';
+import './world-page.css';
 
 type TabType = 'agents' | 'events' | 'chat' | 'timeline';
 
@@ -32,7 +32,6 @@ export function WorldPage() {
   const setGodMode = useWorldStore((s) => s.setGodMode);
   const godMode = useWorldStore((s) => s.godMode);
 
-  // WebSocket connection
   useEffect(() => {
     if (wsInitialized.current || !worldId) return;
     wsInitialized.current = true;
@@ -83,14 +82,12 @@ export function WorldPage() {
     try {
       let fullResponse = '';
       
-      // Try streaming first
       try {
         for await (const chunk of api.streamChat(selectedAgentId, content)) {
           fullResponse += chunk;
           addMessage('agent_stream', chunk);
         }
       } catch {
-        // Fallback to non-streaming
         const res = await api.sendMessage(selectedAgentId, content);
         fullResponse = res.content;
         addMessage('agent', fullResponse);
@@ -109,46 +106,6 @@ export function WorldPage() {
     }
   };
 
-  // Desktop layout
-  const desktopStyles: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    background: 'var(--bg-primary)',
-  };
-
-  const desktopContentStyles: CSSProperties = {
-    flex: 1,
-    display: 'grid',
-    gridTemplateColumns: '280px 1fr 320px',
-    overflow: 'hidden',
-    gap: '1px',
-    background: 'var(--bg-secondary)',
-  };
-
-  const panelStyles: CSSProperties = {
-    background: 'var(--bg-primary)',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-  };
-
-  // Mobile layout
-  const mobileStyles: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    background: 'var(--bg-primary)',
-    paddingBottom: '60px', // Space for bottom nav
-  };
-
-  const mobileContentStyles: CSSProperties = {
-    flex: 1,
-    overflow: 'hidden',
-    position: 'relative',
-  };
-
-  // Render content based on active tab (mobile)
   const renderMobileContent = () => {
     switch (activeTab) {
       case 'agents':
@@ -177,27 +134,17 @@ export function WorldPage() {
     }
   };
 
-  // Desktop layout
   if (!isMobile) {
     return (
-      <div style={desktopStyles}>
+      <div className="world-page">
         <Header onToggleGodMode={() => setGodMode(!godMode)} />
         
-        <div style={desktopContentStyles}>
-          {/* Left Panel - Agent List */}
-          <div style={panelStyles}>
-            <div style={{ 
-              padding: 'var(--space-md)', 
-              borderBottom: '1px solid var(--border-subtle)',
-              fontWeight: 600,
-              fontSize: 'var(--text-sm)',
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}>
+        <div className="world-page-content">
+          <div className="world-page-panel">
+            <div className="world-page-panel-header">
               角色 ({agents.filter(a => a.profile.name !== '玩家').length})
             </div>
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div className="world-page-panel-content">
               <AgentList 
                 onSelectAgent={handleSelectAgent}
                 selectedAgentId={selectedAgentId}
@@ -205,53 +152,36 @@ export function WorldPage() {
             </div>
           </div>
 
-          {/* Center Panel - Main Content */}
-          <div style={panelStyles}>
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {/* Events Section */}
-              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ 
-                  padding: 'var(--space-md)', 
-                  borderBottom: '1px solid var(--border-subtle)',
-                  fontWeight: 600,
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-secondary)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                }}>
-                  事件
-                </div>
-                <div style={{ flex: 1, overflow: 'auto' }}>
-                  <EventList />
-                </div>
+          <div className="world-page-panel">
+            <div className="world-page-section">
+              <div className="world-page-section-header">事件</div>
+              <div className="world-page-section-content">
+                <EventList />
               </div>
-              
-              {/* Timeline Section */}
-              <Timeline />
             </div>
+            
+            <Timeline />
           </div>
 
-          {/* Right Panel - Chat */}
-          <div style={panelStyles}>
+          <div className="world-page-panel">
             <ChatPanel
               agentName={selectedAgent?.profile?.name}
               agentOccupation={selectedAgent?.profile?.occupation}
-            messages={messages.map(m => ({ ...m, id: m.id || Math.random().toString() }))}
-            onSend={handleSendMessage}
-            sending={sending}
-          />
+              messages={messages.map(m => ({ ...m, id: m.id || Math.random().toString() }))}
+              onSend={handleSendMessage}
+              sending={sending}
+            />
           </div>
         </div>
       </div>
     );
   }
 
-  // Mobile layout
   return (
-    <div style={mobileStyles}>
+    <div className="world-page mobile">
       <Header onToggleGodMode={() => setGodMode(!godMode)} />
       
-      <div style={mobileContentStyles}>
+      <div className="world-page-content mobile">
         {renderMobileContent()}
       </div>
 

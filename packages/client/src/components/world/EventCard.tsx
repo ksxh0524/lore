@@ -1,10 +1,27 @@
 import type { EventInfo } from '../../lib/types';
 import { useState, useEffect } from 'react';
+import './event-card.css';
 
 interface EventCardProps {
   event: EventInfo;
   onClose?: () => void;
 }
+
+const categoryEmoji: Record<string, string> = {
+  routine: '📅',
+  random: '🎲',
+  social: '👥',
+  romantic: '💕',
+  career: '💼',
+  crisis: '⚠️',
+  user: '👤',
+  world: '🌍',
+  economic: '💰',
+  work: '🏢',
+  purchase: '🛒',
+  health: '🏥',
+  disaster: '🌊',
+};
 
 export function EventCard({ event, onClose }: EventCardProps) {
   const [visible, setVisible] = useState(false);
@@ -22,51 +39,27 @@ export function EventCard({ event, onClose }: EventCardProps) {
     };
   }, [onClose]);
 
-  const categoryEmoji: Record<string, string> = {
-    routine: '📅',
-    random: '🎲',
-    social: '👥',
-    romantic: '💕',
-    career: '💼',
-    crisis: '⚠️',
-    user: '👤',
-    world: '🌍',
-    economy: '💰',
-    work: '🏢',
-    purchase: '🛒',
-  };
+  const priorityClass = event.priority >= 80 ? 'high-priority' : event.priority >= 50 ? 'medium-priority' : 'low-priority';
 
-  const priorityColor = event.priority >= 80 ? '#ef4444' : event.priority >= 50 ? '#f59e0b' : '#6b7280';
+  const handleClick = () => {
+    setExiting(true);
+    setTimeout(() => onClose?.(), 300);
+  };
 
   return (
     <div
-      style={{
-        position: 'relative',
-        background: '#1a1a25',
-        border: `2px solid ${priorityColor}`,
-        borderRadius: '12px',
-        padding: '1rem',
-        marginBottom: '0.75rem',
-        opacity: visible && !exiting ? 1 : 0,
-        transform: visible && !exiting ? 'translateX(0)' : 'translateX(100%)',
-        transition: 'all 0.3s ease',
-        cursor: 'pointer',
-      }}
-      onClick={() => {
-        setExiting(true);
-        setTimeout(() => onClose?.(), 300);
-      }}
+      className={`event-card ${priorityClass} ${visible && !exiting ? 'animate-fadeInScale' : ''}`}
+      style={{ opacity: visible && !exiting ? 1 : 0 }}
+      onClick={handleClick}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-        <span style={{ fontSize: '1.5rem' }}>{categoryEmoji[event.type] || '📌'}</span>
-        <span style={{ fontWeight: 'bold', color: '#f0f0f5' }}>{event.type}</span>
-        <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#8888a0' }}>
+      <div className="event-card-header">
+        <span className="event-card-emoji">{categoryEmoji[event.type] || '📌'}</span>
+        <span className="event-card-type">{event.type}</span>
+        <span className="event-card-time">
           {new Date(event.timestamp).toLocaleTimeString()}
         </span>
       </div>
-      <p style={{ margin: 0, color: '#c0c0d0', fontSize: '0.9rem', lineHeight: 1.5 }}>
-        {event.description}
-      </p>
+      <p className="event-card-desc">{event.description}</p>
     </div>
   );
 }
@@ -85,7 +78,7 @@ export function EventCardList({ events }: { events: EventInfo[] }) {
   };
 
   return (
-    <div style={{ position: 'fixed', top: '1rem', right: '1rem', width: '350px', maxHeight: '80vh', overflow: 'auto', zIndex: 1000 }}>
+    <div className="event-card-list hide-scrollbar">
       {displayedEvents.map(event => (
         <EventCard key={event.id} event={event} onClose={() => removeEvent(event.id)} />
       ))}
