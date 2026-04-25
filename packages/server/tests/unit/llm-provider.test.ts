@@ -14,7 +14,7 @@ describe('MockLLMProvider', () => {
 
   it('should generate text', async () => {
     const result = await provider.generateText({
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user' as const, content: 'Hello' }],
       model: 'mock-model',
     });
 
@@ -28,7 +28,7 @@ describe('MockLLMProvider', () => {
   it('should stream text', async () => {
     const chunks: string[] = [];
     for await (const chunk of provider.streamText({
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user' as const, content: 'Hello' }],
       model: 'mock-model',
     })) {
       chunks.push(chunk);

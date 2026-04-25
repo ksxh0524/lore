@@ -3,7 +3,7 @@ import type { ChatMessage, MessageContent } from '@lore/shared';
 import OpenAI from 'openai';
 import { createLogger } from '../logger/index.js';
 
-const logger = createLogger('deepseek-provider');
+const logger = createLogger('zhipu-provider');
 
 function contentToOpenAI(content: string | MessageContent[]): OpenAI.ChatCompletionContentPart[] {
   if (typeof content === 'string') {
@@ -29,18 +29,18 @@ function messageToOpenAI(msg: ChatMessage): OpenAI.ChatCompletionMessageParam {
   }
 }
 
-export class DeepSeekProvider implements ILLMProvider {
-  readonly id = 'deepseek';
-  readonly name = 'deepseek';
-  readonly type: ProviderType = 'deepseek';
+export class ZhipuProvider implements ILLMProvider {
+  readonly id = 'zhipu';
+  readonly name = 'zhipu';
+  readonly type: ProviderType = 'zhipu';
   private client: OpenAI;
   private supportedModels: Set<string>;
 
-  constructor(config: { apiKey: string; models?: string[] }) {
-    this.supportedModels = new Set(config.models ?? ['deepseek-chat', 'deepseek-coder']);
+  constructor(config: { apiKey: string; baseUrl?: string; models?: string[] }) {
+    this.supportedModels = new Set(config.models ?? ['glm-4', 'glm-4-flash', 'glm-4-plus', 'glm-4-air', 'glm-4-airx', 'glm-4-long', 'glm-5', 'glm-5.1']);
     this.client = new OpenAI({
       apiKey: config.apiKey,
-      baseURL: 'https://api.deepseek.com/v1',
+      baseURL: config.baseUrl || 'https://open.bigmodel.cn/api/paas/v4',
     });
   }
 
@@ -60,6 +60,7 @@ export class DeepSeekProvider implements ILLMProvider {
       messages: request.messages.map(messageToOpenAI),
       max_tokens: request.maxTokens,
       temperature: request.temperature,
+      top_p: request.topP,
     };
 
     if (request.tools && request.tools.length > 0) {
@@ -95,7 +96,7 @@ export class DeepSeekProvider implements ILLMProvider {
     const promptTokens = response.usage?.prompt_tokens ?? 0;
     const completionTokens = response.usage?.completion_tokens ?? 0;
 
-    logger.debug({ model: request.model, tokens: response.usage?.total_tokens }, 'DeepSeek call completed');
+    logger.debug({ model: request.model, tokens: response.usage?.total_tokens }, 'Zhipu call completed');
 
     return {
       id: response.id,
@@ -117,6 +118,8 @@ export class DeepSeekProvider implements ILLMProvider {
       model: request.model,
       messages: request.messages.map(messageToOpenAI),
       stream: true,
+      temperature: request.temperature,
+      top_p: request.topP,
     });
 
     for await (const chunk of stream) {
@@ -147,7 +150,7 @@ export class DeepSeekProvider implements ILLMProvider {
         latencyMs: Date.now() - start,
       };
     } catch {
-      logger.warn('DeepSeek embedding not available, returning empty');
+      logger.warn('Zhipu embedding not available, returning empty');
       return {
         embeddings: [],
         model: request.model,

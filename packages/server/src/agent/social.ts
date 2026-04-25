@@ -5,7 +5,7 @@ import type { RelationshipManager } from './relationships.js';
 import type { AgentRuntime } from './agent-runtime.js';
 import type { platformPosts } from '../db/schema.js';
 import type { LoreConfig } from '../config/loader.js';
-import type { RelationshipType } from '@lore/shared';
+import type { RelationshipType, ChatMessage } from '@lore/shared';
 import { nanoid } from 'nanoid';
 import { createLogger } from '../logger/index.js';
 import { agentEventBus } from './event-bus.js';
@@ -432,11 +432,11 @@ export class SocialEngine {
         model: this.config.llm.defaults.cheapModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，性格：${agent.profile.personality}，说话风格：${agent.profile.speechStyle}。
 你要给${target.profile.name}发一条简短的消息。心情：${agent.stats.mood}/100。只输出消息内容，不要加引号。`,
           },
-          { role: 'user', content: '发一条消息给对方' },
+          { role: 'user' as const, content: '发一条消息给对方' },
         ],
         maxTokens: 100,
       });
@@ -458,11 +458,11 @@ export class SocialEngine {
         model: this.config.llm.defaults.standardModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，正在和${target.profile.name}约会。
 描述约会场景（1-2句话）。性格：${agent.profile.personality}。心情：${agent.stats.mood}/100。`,
           },
-          { role: 'user', content: '描述约会' },
+          { role: 'user' as const, content: '描述约会' },
         ],
         maxTokens: 150,
       });
@@ -484,11 +484,11 @@ export class SocialEngine {
         model: this.config.llm.defaults.standardModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，要向${target.profile.name}表白。
 生成表白的话（真诚、符合你的性格）。说话风格：${agent.profile.speechStyle}。`,
           },
-          { role: 'user', content: '表白' },
+          { role: 'user' as const, content: '表白' },
         ],
         maxTokens: 100,
       });
@@ -510,11 +510,11 @@ export class SocialEngine {
         model: this.config.llm.defaults.cheapModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，心情不好(${agent.stats.mood}/100)，对${target.profile.name}发火。
 生成一句带情绪的话。说话风格：${agent.profile.speechStyle}。`,
           },
-          { role: 'user', content: '表达不满' },
+          { role: 'user' as const, content: '表达不满' },
         ],
         maxTokens: 80,
       });
@@ -536,11 +536,11 @@ export class SocialEngine {
         model: this.config.llm.defaults.cheapModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，要向${target.profile.name}道歉。
 生成道歉的话。说话风格：${agent.profile.speechStyle}。`,
           },
-          { role: 'user', content: '道歉' },
+          { role: 'user' as const, content: '道歉' },
         ],
         maxTokens: 80,
       });
@@ -565,11 +565,11 @@ export class SocialEngine {
         model: this.config.llm.defaults.cheapModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，想邀请${target.profile.name}${activity}。
 生成邀请的话。说话风格：${agent.profile.speechStyle}。`,
           },
-          { role: 'user', content: '邀请对方' },
+          { role: 'user' as const, content: '邀请对方' },
         ],
         maxTokens: 80,
       });
@@ -591,12 +591,12 @@ export class SocialEngine {
         model: this.config.llm.defaults.cheapModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，性格：${agent.profile.personality}。
 看到这条动态：「${postContent.slice(0, 100)}」
 生成一条简短评论（1-2句话）。`,
           },
-          { role: 'user', content: '评论' },
+          { role: 'user' as const, content: '评论' },
         ],
         maxTokens: 60,
       });
@@ -621,12 +621,12 @@ export class SocialEngine {
         model: this.config.llm.defaults.cheapModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，性格：${agent.profile.personality}，说话风格：${agent.profile.speechStyle}。
 当前心情：${agent.stats.mood}/100，正在：${agent.state.currentActivity}。
 生成一条适合发在社交媒体上的简短动态（1-2句话），只输出动态内容，不要加引号。`,
           },
-          { role: 'user', content: '发一条动态' },
+          { role: 'user' as const, content: '发一条动态' },
         ],
         maxTokens: 100,
       });

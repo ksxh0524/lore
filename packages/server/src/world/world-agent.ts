@@ -1,4 +1,4 @@
-import type { WorldEvent, AgentStats } from '@lore/shared';
+import type { WorldEvent, AgentStats, ChatMessage } from '@lore/shared';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { LoreConfig } from '../config/loader.js';
 import type { Repository } from '../db/repository.js';
@@ -149,13 +149,13 @@ export class WorldAgent {
       stats: AgentStats;
       state: { status: string };
     }>,
-  ): Array<{ role: 'system' | 'user'; content: string }> {
+  ): ChatMessage[] {
     const recentHistory = this.worldHistory.slice(-10).join('\n');
     const agentSummary = this.summarizeAgents(agents);
 
     return [
       {
-        role: 'system',
+        role: 'system' as const,
         content: `你是 World Agent，负责管理虚拟世界的宏观事件和变化。
 
 你的职责：
@@ -184,7 +184,7 @@ export class WorldAgent {
 - 事件要符合世界设定和逻辑`,
       },
       {
-        role: 'user',
+        role: 'user' as const,
         content: `当前世界状态：
 
 时间：第 ${worldState.day} 天，${worldState.currentTime}

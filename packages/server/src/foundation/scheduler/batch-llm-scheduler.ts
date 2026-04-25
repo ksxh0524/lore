@@ -1,4 +1,5 @@
-import type { LLMRequest, LLMResult, ILLMProvider } from '../../llm/types.js';
+import type { LLMRequest, LLMResponse, LLMResult, ILLMProvider } from '../../llm/types.js';
+import type { ChatMessage } from '@lore/shared';
 import { ProviderFactory } from '../../llm/factory.js';
 import { LLMResilience } from '../../llm/resilience.js';
 import type { LoreConfig } from '../../config/loader.js';
@@ -29,7 +30,7 @@ interface QueuedRequest {
   request: LLMRequest;
   priority: number;
   timestamp: number;
-  resolve: (value: LLMResult) => void;
+  resolve: (value: LLMResponse) => void;
   reject: (error: Error) => void;
   isBatch: boolean;
 }
@@ -71,7 +72,11 @@ export class BatchLLMScheduler {
   constructor(config: LoreConfig) {
     this.baseConfig = config;
     this.factory = new ProviderFactory(config);
-    this.resilience = new LLMResilience(config);
+    this.resilience = new LLMResilience({
+      maxRetries: 3,
+      retryDelayMs: 1000,
+      timeoutMs: config.llm.limits.timeoutMs,
+    });
     this.dynamicConcurrentConfig = DEFAULT_CONCURRENT_CONFIG;
   }
 
@@ -116,8 +121,9 @@ export class BatchLLMScheduler {
   }
 
   async submit(request: LLMRequest): Promise<LLMResult> {
-    const priority = this.getPriority(request.callType);
-    const model = request.model || this.selectModel(request.callType);
+    const callType = request.callType ?? 'decision';
+    const priority = this.getPriority(callType);
+    const model = request.model || this.selectModel(callType);
     
     const enhancedRequest = { ...request, model };
 
@@ -142,7 +148,7 @@ export class BatchLLMScheduler {
       }
     }
 
-    logger.debug({ callType: request.callType, model: enhancedRequest.model, priority, queueSize: this.queue.length }, 'LLM request queued');
+    logger.debug({ callType: request.callType ?? 'unknown', model: enhancedRequest.model, priority, queueSize: this.queue.length }, 'LLM request queued');
     
     return new Promise<LLMResult>((resolve, reject) => {
       this.queue.push({
@@ -186,7 +192,7 @@ export class BatchLLMScheduler {
   private buildBatchDecisionPrompt(
     agents: BatchDecisionInput[],
     worldState: { currentTime: string; day: number; currentTick: number },
-  ): Array<{ role: 'system' | 'user'; content: string }> {
+  ): ChatMessage[] {
     const agentDescriptions = agents.map((a, i) => {
       const eventsStr = a.pendingEvents.length > 0 ? a.pendingEvents.join('\n') : '无待处理事件';
       return `【Agent ${i + 1}】id=${a.agentId}
@@ -203,7 +209,7 @@ export class BatchLLMScheduler {
 
     return [
       {
-        role: 'system',
+        role: 'system' as const,
         content: `你是批量决策引擎，同时处理多个Agent的决策。
 
 规则：
@@ -230,7 +236,7 @@ export class BatchLLMScheduler {
 - action要具体，不能只写"思考"`,
       },
       {
-        role: 'user',
+        role: 'user' as const,
         content: `当前世界时间：${worldState.currentTime}（第 ${worldState.day} 天，tick ${worldState.currentTick}）
 
 以下是${agents.length}个Agent的状态：
@@ -323,7 +329,7 @@ ${agentDescriptions}
       this.active++;
       try {
         const provider = this.factory.getProvider(item.request.model);
-        const result = await this.resilience.executeWithRetry(() =>
+        const result = await this.resilience.execute(provider.id, () =>
           provider.generateText({
             model: item.request.model,
             messages: item.request.messages,
@@ -370,7 +376,8 @@ ${agentDescriptions}
 
     this.active++;
     try {
-      const model = request.model || this.selectModel(request.callType);
+      const callType = request.callType ?? 'decision';
+      const model = request.model || this.selectModel(callType);
       const provider = this.factory.getProvider(model);
       yield* provider.streamText({
         model,

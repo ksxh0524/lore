@@ -204,9 +204,66 @@ export function initTables() {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS llm_usage_logs (
+      id TEXT PRIMARY KEY,
+      world_id TEXT,
+      provider_id TEXT NOT NULL,
+      provider_type TEXT NOT NULL,
+      model TEXT NOT NULL,
+      agent_id TEXT,
+      call_type TEXT,
+      prompt_tokens INTEGER NOT NULL,
+      completion_tokens INTEGER NOT NULL,
+      total_tokens INTEGER NOT NULL,
+      latency_ms INTEGER NOT NULL,
+      cached INTEGER DEFAULT 0,
+      success INTEGER DEFAULT 1,
+      error_message TEXT,
+      timestamp INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS llm_daily_stats (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL,
+      provider_type TEXT NOT NULL,
+      model TEXT NOT NULL,
+      date TEXT NOT NULL,
+      request_count INTEGER NOT NULL,
+      prompt_tokens INTEGER NOT NULL,
+      completion_tokens INTEGER NOT NULL,
+      total_tokens INTEGER NOT NULL,
+      cache_hits INTEGER DEFAULT 0,
+      cache_misses INTEGER DEFAULT 0,
+      avg_latency_ms REAL NOT NULL,
+      max_latency_ms INTEGER NOT NULL,
+      min_latency_ms INTEGER NOT NULL,
+      error_count INTEGER DEFAULT 0,
+      estimated_cost REAL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS model_pricing (
+      id TEXT PRIMARY KEY,
+      provider_type TEXT NOT NULL,
+      model TEXT NOT NULL,
+      prompt_price_per_million REAL NOT NULL,
+      completion_price_per_million REAL NOT NULL,
+      currency TEXT DEFAULT 'USD',
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   sqlite.exec(`
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_provider ON llm_usage_logs(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_model ON llm_usage_logs(model);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_timestamp ON llm_usage_logs(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_world ON llm_usage_logs(world_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_agent ON llm_usage_logs(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_daily_provider ON llm_daily_stats(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_daily_model ON llm_daily_stats(model);
+    CREATE INDEX IF NOT EXISTS idx_llm_daily_date ON llm_daily_stats(date);
+    CREATE INDEX IF NOT EXISTS idx_model_pricing_model ON model_pricing(model);
     CREATE INDEX IF NOT EXISTS idx_agents_world_id ON agents(world_id);
     CREATE INDEX IF NOT EXISTS idx_agents_alive ON agents(alive);
     CREATE INDEX IF NOT EXISTS idx_memories_agent_id ON memories(agent_id);

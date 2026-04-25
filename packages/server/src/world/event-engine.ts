@@ -1,4 +1,4 @@
-import type { WorldEvent, EventConsequence, AgentStats } from '@lore/shared';
+import type { WorldEvent, EventConsequence, AgentStats, ChatMessage } from '@lore/shared';
 import type { WorldClock } from './clock.js';
 import type { WorldAgent, WorldStateSummary } from './world-agent.js';
 import type { AgentManager } from '../agent/agent-manager.js';
@@ -663,7 +663,7 @@ export class EventEngine {
     agent: AgentLike,
     worldState: WorldStateSummary,
     relationships: RelationshipInfo[],
-  ): Array<{ role: 'system' | 'user'; content: string }> {
+  ): ChatMessage[] {
     const relSummary = relationships
       .filter(r => r.agentId === agent.id)
       .map(r => `${r.type}(${r.intimacy})`)
@@ -671,7 +671,7 @@ export class EventEngine {
 
     return [
       {
-        role: 'system',
+        role: 'system' as const,
         content: `为这个角色生成一个今天可能发生的个人事件。
 事件要符合角色的当前状态、职业、性格、关系。
 
@@ -684,7 +684,7 @@ export class EventEngine {
 }`,
       },
       {
-        role: 'user',
+        role: 'user' as const,
         content: `角色：${agent.profile.name}，${agent.profile.age}岁${agent.profile.gender}，${agent.profile.occupation}
 状态：心情${agent.stats.mood}/100，健康${agent.stats.health}/100，精力${agent.stats.energy}/100，金钱${agent.stats.money}
 关系：${relSummary || '无密切关系'}

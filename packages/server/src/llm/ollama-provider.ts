@@ -1,4 +1,5 @@
-import type { ILLMProvider, LLMCallRequest, LLMCallResult } from './types.js';
+import type { ILLMProvider, LLMRequest, LLMResponse, EmbeddingRequest, EmbeddingResponse, ProviderType } from './types.js';
+import type { ChatMessage } from '@lore/shared';
 import { createLogger } from '../logger/index.js';
 
 const logger = createLogger('ollama-provider');
@@ -19,15 +20,28 @@ interface OllamaResponse {
   eval_count?: number;
 }
 
+function messageToOllama(msg: ChatMessage): { role: string; content: string } {
+  const content = typeof msg.content === 'string' 
+    ? msg.content 
+    : msg.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+  
+  return {
+    role: msg.role,
+    content,
+  };
+}
+
 export class OllamaProvider implements ILLMProvider {
+  readonly id = 'ollama';
   readonly name = 'ollama';
+  readonly type: ProviderType = 'ollama';
   private baseUrl: string;
   private supportedModels: Set<string>;
   private embeddingModel: string;
 
   constructor(config: { baseUrl?: string; models?: string[]; embeddingModel?: string }) {
     this.baseUrl = config.baseUrl ?? 'http://localhost:11434';
-    this.supportedModels = new Set(config.models ?? ['llama3', 'llama3.1', 'llama3.2', 'mistral', 'qwen2']);
+    this.supportedModels = new Set(config.models ?? ['llama3', 'llama3.1', 'llama3.2', 'mistral', 'qwen2', 'qwen2.5']);
     this.embeddingModel = config.embeddingModel ?? 'nomic-embed-text';
   }
 
@@ -35,15 +49,20 @@ export class OllamaProvider implements ILLMProvider {
     return this.supportedModels.has(model);
   }
 
-  async generateText(request: LLMCallRequest): Promise<LLMCallResult> {
+  getSupportedModels(): string[] {
+    return Array.from(this.supportedModels);
+  }
+
+  async generateText(request: LLMRequest): Promise<LLMResponse> {
     const start = Date.now();
 
     const body = {
       model: request.model,
-      messages: request.messages,
+      messages: request.messages.map(messageToOllama),
       stream: false,
       options: {
         num_predict: request.maxTokens ?? 1024,
+        temperature: request.temperature,
       },
     };
 
@@ -72,24 +91,29 @@ export class OllamaProvider implements ILLMProvider {
       };
     });
 
-    logger.debug({ model: request.model, tokens: (data.prompt_eval_count ?? 0) + (data.eval_count ?? 0) }, 'Ollama call completed');
+    const promptTokens = data.prompt_eval_count ?? 0;
+    const completionTokens = data.eval_count ?? 0;
+
+    logger.debug({ model: request.model, tokens: promptTokens + completionTokens }, 'Ollama call completed');
 
     return {
       content: data.message?.content ?? '',
       toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
       usage: {
-        promptTokens: data.prompt_eval_count ?? 0,
-        completionTokens: data.eval_count ?? 0,
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
       },
       model: data.model ?? request.model,
       latencyMs: Date.now() - start,
+      finishReason: 'stop',
     };
   }
 
-  async *streamText(request: LLMCallRequest): AsyncIterable<string> {
+  async *streamText(request: LLMRequest): AsyncIterable<string> {
     const body = {
       model: request.model,
-      messages: request.messages,
+      messages: request.messages.map(messageToOllama),
       stream: true,
     };
 
@@ -132,22 +156,43 @@ export class OllamaProvider implements ILLMProvider {
     }
   }
 
-  async embed(text: string): Promise<number[]> {
-    const response = await fetch(`${this.baseUrl}/api/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: this.embeddingModel,
-        prompt: text,
-      }),
-    });
+  async embed(request: EmbeddingRequest): Promise<EmbeddingResponse> {
+    const start = Date.now();
+    const input = Array.isArray(request.input) ? request.input : [request.input];
 
-    if (!response.ok) {
-      logger.warn('Ollama embedding failed');
-      return [];
+    const embeddings: number[][] = [];
+    let totalTokens = 0;
+
+    for (const text of input) {
+      const response = await fetch(`${this.baseUrl}/api/embeddings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: this.embeddingModel,
+          prompt: text,
+        }),
+      });
+
+      if (!response.ok) {
+        logger.warn('Ollama embedding failed');
+        embeddings.push([]);
+        continue;
+      }
+
+      const data = await response.json() as { embedding?: number[] };
+      embeddings.push(data.embedding ?? []);
+      totalTokens += text.length / 4;
     }
 
-    const data = await response.json() as { embedding?: number[] };
-    return data.embedding ?? [];
+    return {
+      embeddings,
+      model: this.embeddingModel,
+      usage: {
+        promptTokens: totalTokens,
+        completionTokens: 0,
+        totalTokens: totalTokens,
+      },
+      latencyMs: Date.now() - start,
+    };
   }
 }

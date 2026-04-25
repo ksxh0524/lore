@@ -1,6 +1,6 @@
 import type { Repository } from '../db/repository.js';
 import type { AgentRuntime } from '../agent/agent-runtime.js';
-import type { PlatformPost } from '@lore/shared';
+import type { PlatformPost, ChatMessage } from '@lore/shared';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { ImageGenerator } from '../llm/image-generator.js';
 import type { LoreConfig } from '../config/loader.js';
@@ -381,12 +381,12 @@ export class PlatformEngine {
         model: this.config.llm.defaults.cheapModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，性格：${agent.profile.personality}，说话风格：${agent.profile.speechStyle}。
 心情：${agent.stats.mood}/100。要发一条社交媒体动态，主题是"${template}"。
 只输出动态内容，不要加引号，简短有趣。`,
           },
-          { role: 'user', content: '发动态' },
+          { role: 'user' as const, content: '发动态' },
         ],
         maxTokens: 100,
       });
@@ -410,12 +410,12 @@ export class PlatformEngine {
         model: this.config.llm.defaults.cheapModel,
         messages: [
           {
-            role: 'system',
+            role: 'system' as const,
             content: `你是${agent.profile.name}，性格：${agent.profile.personality}。
 看到这条动态：「${post.content.slice(0, 100)}」
 生成一条简短评论（1-2句话）。`,
           },
-          { role: 'user', content: '评论' },
+          { role: 'user' as const, content: '评论' },
         ],
         maxTokens: 50,
       });

@@ -229,14 +229,65 @@ export const jobApplications = sqliteTable('job_applications', {
 // User configured LLM providers
 export const userProviders = sqliteTable('user_providers', {
   id: text('id').primaryKey(),
-  presetId: text('preset_id').notNull(), // dashscope, openai, gemini, claude
+  presetId: text('preset_id').notNull(),
   name: text('name').notNull(),
-  apiKey: text('api_key').notNull(), // encrypted
-  baseUrl: text('base_url'), // optional override
+  apiKey: text('api_key').notNull(),
+  baseUrl: text('base_url'),
   enabled: integer('enabled', { mode: 'boolean' }).default(true),
   priority: integer('priority').default(50),
-  models: text('models', { mode: 'json' }).$type<string[]>(), // enabled models
-  defaultModel: text('default_model'), // first enabled model
+  models: text('models', { mode: 'json' }).$type<string[]>(),
+  defaultModel: text('default_model'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// LLM usage statistics
+export const llmUsageLogs = sqliteTable('llm_usage_logs', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id'),
+  providerId: text('provider_id').notNull(),
+  providerType: text('provider_type').notNull(),
+  model: text('model').notNull(),
+  agentId: text('agent_id'),
+  callType: text('call_type'),
+  promptTokens: integer('prompt_tokens').notNull(),
+  completionTokens: integer('completion_tokens').notNull(),
+  totalTokens: integer('total_tokens').notNull(),
+  latencyMs: integer('latency_ms').notNull(),
+  cached: integer('cached', { mode: 'boolean' }).default(false),
+  success: integer('success', { mode: 'boolean' }).default(true),
+  errorMessage: text('error_message'),
+  timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
+});
+
+// LLM daily statistics aggregation
+export const llmDailyStats = sqliteTable('llm_daily_stats', {
+  id: text('id').primaryKey(),
+  providerId: text('provider_id').notNull(),
+  providerType: text('provider_type').notNull(),
+  model: text('model').notNull(),
+  date: text('date').notNull(),
+  requestCount: integer('request_count').notNull(),
+  promptTokens: integer('prompt_tokens').notNull(),
+  completionTokens: integer('completion_tokens').notNull(),
+  totalTokens: integer('total_tokens').notNull(),
+  cacheHits: integer('cache_hits').default(0),
+  cacheMisses: integer('cache_misses').default(0),
+  avgLatencyMs: real('avg_latency_ms').notNull(),
+  maxLatencyMs: integer('max_latency_ms').notNull(),
+  minLatencyMs: integer('min_latency_ms').notNull(),
+  errorCount: integer('error_count').default(0),
+  estimatedCost: real('estimated_cost').default(0),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Model pricing configuration
+export const modelPricing = sqliteTable('model_pricing', {
+  id: text('id').primaryKey(),
+  providerType: text('provider_type').notNull(),
+  model: text('model').notNull(),
+  promptPricePerMillion: real('prompt_price_per_million').notNull(),
+  completionPricePerMillion: real('completion_price_per_million').notNull(),
+  currency: text('currency').default('USD'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });

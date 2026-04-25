@@ -3,7 +3,7 @@ import type { ChatMessage, MessageContent } from '@lore/shared';
 import OpenAI from 'openai';
 import { createLogger } from '../logger/index.js';
 
-const logger = createLogger('deepseek-provider');
+const logger = createLogger('minimax-provider');
 
 function contentToOpenAI(content: string | MessageContent[]): OpenAI.ChatCompletionContentPart[] {
   if (typeof content === 'string') {
@@ -29,18 +29,18 @@ function messageToOpenAI(msg: ChatMessage): OpenAI.ChatCompletionMessageParam {
   }
 }
 
-export class DeepSeekProvider implements ILLMProvider {
-  readonly id = 'deepseek';
-  readonly name = 'deepseek';
-  readonly type: ProviderType = 'deepseek';
+export class MinimaxProvider implements ILLMProvider {
+  readonly id = 'minimax';
+  readonly name = 'minimax';
+  readonly type: ProviderType = 'minimax';
   private client: OpenAI;
   private supportedModels: Set<string>;
 
-  constructor(config: { apiKey: string; models?: string[] }) {
-    this.supportedModels = new Set(config.models ?? ['deepseek-chat', 'deepseek-coder']);
+  constructor(config: { apiKey: string; baseUrl?: string; models?: string[] }) {
+    this.supportedModels = new Set(config.models ?? ['abab6.5s-chat', 'abab6.5g-chat', 'abab6.5-chat', 'abab5.5-chat', 'minimax-m2.5']);
     this.client = new OpenAI({
       apiKey: config.apiKey,
-      baseURL: 'https://api.deepseek.com/v1',
+      baseURL: config.baseUrl || 'https://api.minimax.chat/v1',
     });
   }
 
@@ -95,7 +95,7 @@ export class DeepSeekProvider implements ILLMProvider {
     const promptTokens = response.usage?.prompt_tokens ?? 0;
     const completionTokens = response.usage?.completion_tokens ?? 0;
 
-    logger.debug({ model: request.model, tokens: response.usage?.total_tokens }, 'DeepSeek call completed');
+    logger.debug({ model: request.model, tokens: response.usage?.total_tokens }, 'Minimax call completed');
 
     return {
       id: response.id,
@@ -147,7 +147,7 @@ export class DeepSeekProvider implements ILLMProvider {
         latencyMs: Date.now() - start,
       };
     } catch {
-      logger.warn('DeepSeek embedding not available, returning empty');
+      logger.warn('Minimax embedding not available, returning empty');
       return {
         embeddings: [],
         model: request.model,

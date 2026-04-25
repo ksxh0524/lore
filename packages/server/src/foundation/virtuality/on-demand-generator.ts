@@ -269,8 +269,8 @@ export class OnDemandGenerator {
       .replace('{context}', contextStr);
 
     const messages = [
-      { role: 'system', content: promptTemplate.system },
-      { role: 'user', content: userPrompt },
+      { role: 'system' as const, content: promptTemplate.system },
+      { role: 'user' as const, content: userPrompt },
     ];
 
     logger.debug({

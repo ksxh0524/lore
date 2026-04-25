@@ -1,18 +1,43 @@
-import type { ILLMProvider, LLMCallRequest, LLMCallResult } from './types.js';
+import type { ILLMProvider, LLMRequest, LLMResponse, EmbeddingRequest, EmbeddingResponse, ProviderType } from './types.js';
+import type { ChatMessage, MessageContent } from '@lore/shared';
 import OpenAI from 'openai';
 import { createLogger } from '../logger/index.js';
 
 const logger = createLogger('kimi-provider');
 
+function contentToOpenAI(content: string | MessageContent[]): OpenAI.ChatCompletionContentPart[] {
+  if (typeof content === 'string') {
+    return [{ type: 'text', text: content }];
+  }
+  return content
+    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+    .map((part) => ({ type: 'text', text: part.text }));
+}
+
+function messageToOpenAI(msg: ChatMessage): OpenAI.ChatCompletionMessageParam {
+  switch (msg.role) {
+    case 'system':
+      return { role: 'system', content: typeof msg.content === 'string' ? msg.content : msg.content.filter((c): c is { type: 'text'; text: string } => c.type === 'text').map(c => c.text).join('\n') };
+    case 'user':
+      return { role: 'user', content: contentToOpenAI(msg.content) };
+    case 'assistant':
+      return { role: 'assistant', content: typeof msg.content === 'string' ? msg.content : msg.content.filter((c): c is { type: 'text'; text: string } => c.type === 'text').map(c => c.text).join('\n') };
+    case 'tool':
+      return { role: 'tool', content: typeof msg.content === 'string' ? msg.content : '', tool_call_id: msg.toolCallId ?? '' };
+    default:
+      return { role: 'user', content: contentToOpenAI(msg.content) };
+  }
+}
+
 export class KimiProvider implements ILLMProvider {
+  readonly id = 'kimi';
   readonly name = 'kimi';
+  readonly type: ProviderType = 'moonshot';
   private client: OpenAI;
   private supportedModels: Set<string>;
-  private embeddingModel: string;
 
-  constructor(config: { apiKey: string; models?: string[]; embeddingModel?: string }) {
-    this.supportedModels = new Set(config.models ?? ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']);
-    this.embeddingModel = config.embeddingModel ?? 'moonshot-embedding';
+  constructor(config: { apiKey: string; models?: string[] }) {
+    this.supportedModels = new Set(config.models ?? ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k', 'kimi-k2.5']);
     this.client = new OpenAI({
       apiKey: config.apiKey,
       baseURL: 'https://api.moonshot.cn/v1',
@@ -23,18 +48,22 @@ export class KimiProvider implements ILLMProvider {
     return this.supportedModels.has(model);
   }
 
-  async generateText(request: LLMCallRequest): Promise<LLMCallResult> {
+  getSupportedModels(): string[] {
+    return Array.from(this.supportedModels);
+  }
+
+  async generateText(request: LLMRequest): Promise<LLMResponse> {
     const start = Date.now();
 
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
       model: request.model,
-      messages: request.messages as OpenAI.ChatCompletionMessageParam[],
+      messages: request.messages.map(messageToOpenAI),
       max_tokens: request.maxTokens,
       temperature: request.temperature ?? 0.7,
     };
 
     if (request.tools && request.tools.length > 0) {
-      params.tools = request.tools.map(t => ({
+      params.tools = request.tools.map((t) => ({
         type: 'function' as const,
         function: {
           name: t.name,
@@ -47,37 +76,46 @@ export class KimiProvider implements ILLMProvider {
     const response = await this.client.chat.completions.create(params);
 
     const choice = response.choices[0];
-    const toolCalls = choice?.message?.tool_calls?.map((tc: any) => {
-      let args = {};
-      try {
-        args = JSON.parse(tc.function?.arguments || '{}');
-      } catch {
-        logger.warn({ args: tc.function?.arguments }, 'Invalid tool arguments JSON');
-      }
-      return {
-        name: tc.function?.name ?? '',
-        args,
-      };
-    });
+    const toolCalls = choice?.message?.tool_calls
+      ?.filter((tc): tc is OpenAI.ChatCompletionMessageFunctionToolCall => tc.type === 'function')
+      .map((tc: OpenAI.ChatCompletionMessageFunctionToolCall) => {
+        let args = {};
+        try {
+          args = JSON.parse(tc.function.arguments || '{}');
+        } catch {
+          logger.warn({ args: tc.function.arguments }, 'Invalid tool arguments JSON');
+        }
+        return {
+          id: tc.id,
+          name: tc.function.name ?? '',
+          args,
+        };
+      });
+
+    const promptTokens = response.usage?.prompt_tokens ?? 0;
+    const completionTokens = response.usage?.completion_tokens ?? 0;
 
     logger.debug({ model: request.model, tokens: response.usage?.total_tokens }, 'Kimi call completed');
 
     return {
+      id: response.id,
       content: choice?.message?.content || '',
       toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
       usage: {
-        promptTokens: response.usage?.prompt_tokens ?? 0,
-        completionTokens: response.usage?.completion_tokens ?? 0,
+        promptTokens,
+        completionTokens,
+        totalTokens: response.usage?.total_tokens ?? promptTokens + completionTokens,
       },
       model: response.model,
       latencyMs: Date.now() - start,
+      finishReason: choice?.finish_reason === 'stop' ? 'stop' : choice?.finish_reason === 'length' ? 'length' : 'stop',
     };
   }
 
-  async *streamText(request: LLMCallRequest): AsyncIterable<string> {
+  async *streamText(request: LLMRequest): AsyncIterable<string> {
     const stream = await this.client.chat.completions.create({
       model: request.model,
-      messages: request.messages as OpenAI.ChatCompletionMessageParam[],
+      messages: request.messages.map(messageToOpenAI),
       stream: true,
       temperature: request.temperature ?? 0.7,
     });
@@ -88,16 +126,35 @@ export class KimiProvider implements ILLMProvider {
     }
   }
 
-  async embed(text: string): Promise<number[]> {
+  async embed(request: EmbeddingRequest): Promise<EmbeddingResponse> {
+    const start = Date.now();
     try {
+      const input = Array.isArray(request.input) ? request.input : [request.input];
       const response = await this.client.embeddings.create({
-        model: this.embeddingModel,
-        input: text,
+        model: request.model,
+        input,
       });
-      return response.data[0]?.embedding ?? [];
+
+      const promptTokens = response.usage?.prompt_tokens ?? 0;
+
+      return {
+        embeddings: response.data.map((d) => d.embedding),
+        model: response.model,
+        usage: {
+          promptTokens,
+          completionTokens: 0,
+          totalTokens: response.usage?.total_tokens ?? promptTokens,
+        },
+        latencyMs: Date.now() - start,
+      };
     } catch {
       logger.warn('Kimi embedding not available, returning empty');
-      return [];
+      return {
+        embeddings: [],
+        model: request.model,
+        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        latencyMs: Date.now() - start,
+      };
     }
   }
 }

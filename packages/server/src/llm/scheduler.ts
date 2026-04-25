@@ -36,7 +36,11 @@ export class LLMScheduler {
 
   constructor(config: LoreConfig) {
     this.factory = new ProviderFactory(config);
-    this.resilience = new LLMResilience(config);
+    this.resilience = new LLMResilience({
+      maxRetries: 3,
+      retryDelayMs: 1000,
+      timeoutMs: config.llm.limits.timeoutMs,
+    });
     this.maxConcurrent = config.llm.limits.maxConcurrent;
     this.maxQueueSize = 50;
     this.priorityMap = DEFAULT_PRIORITY_MAP;
@@ -74,7 +78,7 @@ export class LLMScheduler {
       this.active++;
       try {
         const provider = this.factory.getProvider(item.request.model);
-        const result = await this.resilience.executeWithRetry(() =>
+        const result = await this.resilience.execute(provider.id, () =>
           provider.generateText({
             model: item.request.model,
             messages: item.request.messages,
@@ -101,7 +105,8 @@ export class LLMScheduler {
   }
 
   async submit(request: LLMRequest): Promise<LLMResult> {
-    const priority = this.getPriority(request.callType);
+    const callType = request.callType ?? 'decision';
+    const priority = this.getPriority(callType);
 
     if (this.queue.length >= this.maxQueueSize) {
       const lowestPriority = this.queue.reduce((min, item) => Math.min(min, item.priority), Infinity);

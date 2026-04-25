@@ -175,7 +175,8 @@ export class MemoryManager {
       if (!provider) {
         return [];
       }
-      return await provider.embed(text);
+      const response = await provider.embed({ model: 'text-embedding-3-small', input: text });
+      return response.embeddings[0] ?? [];
     } catch (err) {
       logger.warn({ agentId: this.agentId, err }, 'Failed to generate embedding');
       return [];

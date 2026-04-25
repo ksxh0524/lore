@@ -17,6 +17,7 @@ export class CircuitBreaker {
     if (this.state === 'open') {
       if (Date.now() - this.lastFailureTime > this.resetTimeoutMs) {
         this.state = 'half-open';
+        logger.info('Circuit breaker entering half-open state');
         return false;
       }
       return true;
@@ -35,11 +36,27 @@ export class CircuitBreaker {
   recordFailure(): void {
     this.failures++;
     this.lastFailureTime = Date.now();
-    if (this.failures >= this.failureThreshold && this.state !== 'open') {
+    if (this.state === 'half-open') {
+      this.state = 'open';
+      logger.warn('Circuit breaker reopened from half-open state');
+    } else if (this.failures >= this.failureThreshold && this.state !== 'open') {
       this.state = 'open';
       logger.warn({ failures: this.failures, threshold: this.failureThreshold }, 'Circuit breaker opened');
     }
   }
 
-  getState(): string { return this.state; }
+  getState(): 'closed' | 'open' | 'half-open' {
+    return this.state;
+  }
+
+  reset(): void {
+    this.failures = 0;
+    this.lastFailureTime = 0;
+    this.state = 'closed';
+    logger.info('Circuit breaker manually reset');
+  }
+
+  getFailureCount(): number {
+    return this.failures;
+  }
 }

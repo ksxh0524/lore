@@ -137,6 +137,7 @@ export function registerProviderRoutes(app: FastifyInstance, repo: Repository) {
       if (preset.type === 'anthropic') {
         const { AnthropicProvider } = await import('../llm/anthropic-provider.js');
         testProvider = new AnthropicProvider({
+          id: 'test',
           name: provider.name,
           apiKey: provider.apiKey,
           baseUrl: provider.baseUrl || undefined,
@@ -145,7 +146,9 @@ export function registerProviderRoutes(app: FastifyInstance, repo: Repository) {
       } else {
         const { OpenAICompatibleProvider } = await import('../llm/openai-provider.js');
         testProvider = new OpenAICompatibleProvider({
+          id: 'test',
           name: provider.name,
+          type: preset.type as 'openai' | 'anthropic' | 'google' | 'zhipu' | 'moonshot' | 'minimax' | 'dashscope' | 'deepseek' | 'ollama' | 'mock',
           apiKey: provider.apiKey,
           baseUrl: provider.baseUrl || preset.baseUrl,
           models: provider.models || [],
@@ -154,7 +157,7 @@ export function registerProviderRoutes(app: FastifyInstance, repo: Repository) {
 
       const result = await testProvider.generateText({
         model,
-        messages: [{ role: 'user', content: 'Hi' }],
+        messages: [{ role: 'user' as const, content: 'Hi' }],
         maxTokens: 10,
       });
 

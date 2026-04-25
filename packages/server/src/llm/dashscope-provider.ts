@@ -3,15 +3,40 @@ import type { ChatMessage, MessageContent } from '@lore/shared';
 import OpenAI from 'openai';
 import { createLogger } from '../logger/index.js';
 
-const logger = createLogger('deepseek-provider');
+const logger = createLogger('dashscope-provider');
 
 function contentToOpenAI(content: string | MessageContent[]): OpenAI.ChatCompletionContentPart[] {
   if (typeof content === 'string') {
     return [{ type: 'text', text: content }];
   }
-  return content
-    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-    .map((part) => ({ type: 'text', text: part.text }));
+  return content.map((part): OpenAI.ChatCompletionContentPart => {
+    switch (part.type) {
+      case 'text':
+        return { type: 'text', text: part.text };
+      case 'image':
+        if (part.source === 'url') {
+          return { type: 'image_url', image_url: { url: part.data } };
+        }
+        return {
+          type: 'image_url',
+          image_url: { url: `data:${part.mediaType ?? 'image/png'};base64,${part.data}` },
+        };
+      case 'audio':
+        return {
+          type: 'image_url',
+          image_url: { url: `data:${part.mediaType ?? 'audio/mp3'};base64,${part.data}` },
+        };
+      case 'video':
+        return {
+          type: 'image_url',
+          image_url: { url: `data:${part.mediaType ?? 'video/mp4'};base64,${part.data}` },
+        };
+      case 'file':
+        return { type: 'text', text: `[file: ${part.filename ?? 'unknown'}]` };
+      default:
+        return { type: 'text', text: '' };
+    }
+  });
 }
 
 function messageToOpenAI(msg: ChatMessage): OpenAI.ChatCompletionMessageParam {
@@ -29,37 +54,55 @@ function messageToOpenAI(msg: ChatMessage): OpenAI.ChatCompletionMessageParam {
   }
 }
 
-export class DeepSeekProvider implements ILLMProvider {
-  readonly id = 'deepseek';
-  readonly name = 'deepseek';
-  readonly type: ProviderType = 'deepseek';
+export class DashscopeProvider implements ILLMProvider {
+  readonly id = 'dashscope';
+  readonly name = 'dashscope';
+  readonly type: ProviderType = 'dashscope';
   private client: OpenAI;
+  private codingClient: OpenAI;
   private supportedModels: Set<string>;
+  private codingModels: Set<string>;
 
   constructor(config: { apiKey: string; models?: string[] }) {
-    this.supportedModels = new Set(config.models ?? ['deepseek-chat', 'deepseek-coder']);
+    this.supportedModels = new Set(config.models ?? ['qwen-turbo', 'qwen-plus', 'qwen-max', 'qwen-max-longcontext', 'qwen-long', 'qwen3.5-plus']);
+    this.codingModels = new Set(['qwen3.5-plus', 'qwen3-coder-plus', 'glm-5', 'glm-4.7', 'kimi-k2.5', 'minimax-m2.5']);
+
     this.client = new OpenAI({
       apiKey: config.apiKey,
-      baseURL: 'https://api.deepseek.com/v1',
+      baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    });
+
+    this.codingClient = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: 'https://coding.dashscope.aliyuncs.com/v1',
     });
   }
 
   isModelSupported(model: string): boolean {
-    return this.supportedModels.has(model);
+    return this.supportedModels.has(model) || this.codingModels.has(model);
   }
 
   getSupportedModels(): string[] {
-    return Array.from(this.supportedModels);
+    return Array.from([...this.supportedModels, ...this.codingModels]);
+  }
+
+  private getClient(model: string): OpenAI {
+    if (this.codingModels.has(model)) {
+      return this.codingClient;
+    }
+    return this.client;
   }
 
   async generateText(request: LLMRequest): Promise<LLMResponse> {
     const start = Date.now();
+    const client = this.getClient(request.model);
 
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
       model: request.model,
       messages: request.messages.map(messageToOpenAI),
       max_tokens: request.maxTokens,
       temperature: request.temperature,
+      top_p: request.topP,
     };
 
     if (request.tools && request.tools.length > 0) {
@@ -73,7 +116,7 @@ export class DeepSeekProvider implements ILLMProvider {
       }));
     }
 
-    const response = await this.client.chat.completions.create(params);
+    const response = await client.chat.completions.create(params);
 
     const choice = response.choices[0];
     const toolCalls = choice?.message?.tool_calls
@@ -95,7 +138,7 @@ export class DeepSeekProvider implements ILLMProvider {
     const promptTokens = response.usage?.prompt_tokens ?? 0;
     const completionTokens = response.usage?.completion_tokens ?? 0;
 
-    logger.debug({ model: request.model, tokens: response.usage?.total_tokens }, 'DeepSeek call completed');
+    logger.debug({ model: request.model, tokens: response.usage?.total_tokens, endpoint: this.codingModels.has(request.model) ? 'coding' : 'standard' }, 'Dashscope call completed');
 
     return {
       id: response.id,
@@ -113,10 +156,13 @@ export class DeepSeekProvider implements ILLMProvider {
   }
 
   async *streamText(request: LLMRequest): AsyncIterable<string> {
-    const stream = await this.client.chat.completions.create({
+    const client = this.getClient(request.model);
+    const stream = await client.chat.completions.create({
       model: request.model,
       messages: request.messages.map(messageToOpenAI),
       stream: true,
+      temperature: request.temperature,
+      top_p: request.topP,
     });
 
     for await (const chunk of stream) {
@@ -147,7 +193,7 @@ export class DeepSeekProvider implements ILLMProvider {
         latencyMs: Date.now() - start,
       };
     } catch {
-      logger.warn('DeepSeek embedding not available, returning empty');
+      logger.warn('Dashscope embedding not available, returning empty');
       return {
         embeddings: [],
         model: request.model,

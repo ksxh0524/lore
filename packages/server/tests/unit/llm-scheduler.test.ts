@@ -27,7 +27,7 @@ describe('LLMScheduler', () => {
       agentId: 'test-agent',
       callType: 'decision',
       model: 'mock-premium',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user' as const, content: 'Hello' }],
     });
 
     expect(result.content).toBeDefined();
@@ -40,7 +40,7 @@ describe('LLMScheduler', () => {
       agentId: 'test-agent',
       callType: 'user-chat',
       model: 'mock-standard',
-      messages: [{ role: 'user', content: 'Hello' }],
+      messages: [{ role: 'user' as const, content: 'Hello' }],
     })) {
       chunks.push(chunk);
     }
@@ -55,7 +55,7 @@ describe('LLMScheduler', () => {
         agentId: `agent-${i}`,
         callType: 'decision',
         model: 'mock-cheap',
-        messages: [{ role: 'user', content: `Request ${i}` }],
+        messages: [{ role: 'user' as const, content: `Request ${i}` }],
       }));
     }
 

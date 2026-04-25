@@ -1,17 +1,15 @@
-import type { AgentProfile, AgentState, AgentStats } from '@lore/shared';
+import type { AgentProfile, AgentState, AgentStats, ChatMessage } from '@lore/shared';
 
 export function buildChatPrompt(
   agent: { profile: AgentProfile; state: AgentState; stats: AgentStats },
   userMessage: string,
   memoryContext: string[],
-): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
-  // Security: limit user message length to prevent prompt injection attacks
+): ChatMessage[] {
   const MAX_MESSAGE_LENGTH = 2000;
   const sanitizedMessage = userMessage.length > MAX_MESSAGE_LENGTH 
     ? userMessage.slice(0, MAX_MESSAGE_LENGTH) + '...(消息过长被截断)'
     : userMessage;
   
-  // Security: sanitize memory context
   const sanitizedMemory = memoryContext.slice(-6).map(m => 
     m.length > 500 ? m.slice(0, 500) + '...' : m
   );
@@ -46,7 +44,7 @@ ${a.speechStyle}
 - 不要主动透露你的内部数值`,
     },
     ...sanitizedMemory.map((m) => ({ role: 'user' as const, content: m })),
-    { role: 'user', content: sanitizedMessage },
+    { role: 'user' as const, content: sanitizedMessage },
   ];
 }
 
@@ -54,7 +52,7 @@ export function buildDecisionPrompt(
   agent: { profile: AgentProfile; state: AgentState; stats: AgentStats },
   worldState: { currentTime: string; day: number; currentTick: number },
   pendingEvents: Array<{ description: string }>,
-): Array<{ role: 'system' | 'user'; content: string }> {
+): ChatMessage[] {
   const a = agent.profile;
   return [
     {
@@ -78,7 +76,7 @@ ${worldState.currentTime}（第 ${worldState.day} 天）
 - 没有任何限制，按照你的人格自由决定`,
     },
     {
-      role: 'user',
+      role: 'user' as const,
       content: pendingEvents.length > 0
         ? `以下事件需要你做出决定：
 
@@ -101,7 +99,7 @@ export function buildRandomWorldPrompt(params: {
   age: number;
   location: string;
   background: string;
-}): Array<{ role: 'system' | 'user'; content: string }> {
+}): ChatMessage[] {
   return [
     {
       role: 'system',
@@ -110,7 +108,7 @@ export function buildRandomWorldPrompt(params: {
 返回纯 JSON（不要 markdown 代码块）。使用中文。`,
     },
     {
-      role: 'user',
+      role: 'user' as const,
       content: `创建一个虚拟世界，参数如下：
 
 用户角色：${params.age}岁，地点：${params.location}，背景：${params.background}

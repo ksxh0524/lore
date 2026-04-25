@@ -1,9 +1,42 @@
+import type {
+  ChatMessage,
+  LLMRequest,
+  LLMResponse,
+  EmbeddingRequest,
+  EmbeddingResponse,
+  ToolDefinition,
+  ProviderConfig,
+  ProviderType,
+  LLMUsage,
+  ToolCall,
+  MessageContent,
+} from '@lore/shared';
+
+export {
+  ChatMessage,
+  LLMRequest,
+  LLMResponse,
+  EmbeddingRequest,
+  EmbeddingResponse,
+  ToolDefinition,
+  ProviderConfig,
+  ProviderType,
+  LLMUsage,
+  ToolCall,
+  MessageContent,
+};
+
+export type LLMResult = LLMResponse;
+
 export interface ILLMProvider {
+  readonly id: string;
   readonly name: string;
-  generateText(request: LLMCallRequest): Promise<LLMCallResult>;
-  streamText(request: LLMCallRequest): AsyncIterable<string>;
-  embed(text: string): Promise<number[]>;
+  readonly type: ProviderType;
+  generateText(request: LLMRequest): Promise<LLMResponse>;
+  streamText(request: LLMRequest): AsyncIterable<string>;
+  embed(request: EmbeddingRequest): Promise<EmbeddingResponse>;
   isModelSupported(model: string): boolean;
+  getSupportedModels(): string[];
 }
 
 export interface IImageProvider {
@@ -27,43 +60,21 @@ export interface ImageGenerationResult {
   latencyMs: number;
 }
 
-export interface ToolDefinition {
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>;
-}
-
-export interface LLMCallRequest {
-  model: string;
-  messages: Array<{ role: string; content: string }>;
-  maxTokens?: number;
-  temperature?: number;
-  tools?: ToolDefinition[];
-}
-
-export interface LLMCallResult {
-  content: string;
-  toolCalls?: Array<{ name: string; args: Record<string, unknown> }>;
-  usage: { promptTokens: number; completionTokens: number };
-  model: string;
-  latencyMs: number;
-}
-
 export type LLMCallType = 'user-chat' | 'decision' | 'social' | 'creative' | 'world-event';
 
-export interface LLMRequest {
-  agentId: string;
-  callType: LLMCallType;
-  model: string;
-  messages: Array<{ role: string; content: string }>;
-  maxTokens?: number;
-  tools?: ToolDefinition[];
+export interface CacheConfig {
+  enabled: boolean;
+  ttlMs: number;
+  maxSize: number;
+  hashAlgorithm: 'sha256' | 'md5';
 }
 
-export interface LLMResult {
-  content: string;
-  toolCalls?: Array<{ name: string; args: Record<string, unknown> }>;
-  usage: { promptTokens: number; completionTokens: number };
-  model: string;
-  latencyMs: number;
+export interface ProviderPresetConfig {
+  id: string;
+  name: string;
+  type: ProviderType;
+  baseUrl: string;
+  models: string[];
+  defaultModel?: string;
+  embeddingModel?: string;
 }
