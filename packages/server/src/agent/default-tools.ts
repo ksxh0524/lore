@@ -3,6 +3,483 @@ import type { Repository } from '../db/repository.js';
 import type { AgentTool } from './tools.js';
 import { nanoid } from 'nanoid';
 
+export function createCreateCompanyTool(repo: Repository): AgentTool {
+  return {
+    name: 'create_company',
+    description: '创建一家公司，成为企业主',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '公司名称' },
+        type: { type: 'string', description: '公司类型：tech/retail/service/finance/manufacturing/entertainment/other' },
+        description: { type: 'string', description: '公司描述' },
+        capital: { type: 'number', description: '启动资金' },
+      },
+      required: ['name', 'type'],
+    },
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+      const name = String(args.name ?? '我的公司');
+      const type = String(args.type ?? 'other') as 'tech' | 'retail' | 'service' | 'finance' | 'manufacturing' | 'entertainment' | 'other';
+      const description = args.description ? String(args.description) : '';
+      const capital = Number(args.capital ?? 5000);
+
+      if (context.stats.money < capital) {
+        return {
+          success: false,
+          message: `资金不足！创建公司需要${capital}元，但你只有${context.stats.money}元。`,
+          result: { created: false },
+        };
+      }
+
+      const company = await repo.createCompany({
+        id: nanoid(),
+        worldId: context.worldId,
+        name,
+        type,
+        ownerId: context.id,
+        employees: [context.id],
+        valuation: capital * 2,
+        description,
+      });
+
+      await repo.createStock({
+        id: nanoid(),
+        worldId: context.worldId,
+        companyId: company.id,
+        symbol: name.slice(0, 4).toUpperCase(),
+        price: capital / 100,
+      });
+
+      await repo.createStockHolding({
+        id: nanoid(),
+        worldId: context.worldId,
+        agentId: context.id,
+        companyId: company.id,
+        shares: 1000,
+        averagePrice: capital / 100,
+      });
+
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: context.worldId,
+        type: 'company_created',
+        description: `${context.profile.name}创建了公司"${name}"（${type}），投入资金${capital}元`,
+        involvedAgents: [context.id],
+        priority: 40,
+        timestamp: new Date(),
+      });
+
+      return {
+        success: true,
+        message: `恭喜！你创建了公司"${name}"，投入资金${capital}元。你拥有100%的股份。`,
+        result: { companyId: company.id, name, type, shares: 1000 },
+        statChanges: [
+          { stat: 'money', delta: -capital, reason: 'create_company' },
+          { stat: 'mood', delta: 15, reason: 'create_company' },
+        ],
+        stateChanges: [{ activity: `经营${name}`, status: 'working' }],
+      };
+    },
+  };
+}
+
+export function createHireAgentTool(repo: Repository): AgentTool {
+  return {
+    name: 'hire_agent',
+    description: '招聘员工到你的公司',
+    parameters: {
+      type: 'object',
+      properties: {
+        companyId: { type: 'string', description: '公司ID（可选，默认为你拥有的公司）' },
+        targetName: { type: 'string', description: '招聘对象的名字' },
+        position: { type: 'string', description: '职位' },
+        salary: { type: 'number', description: '月薪' },
+      },
+      required: ['targetName', 'position'],
+    },
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+      const targetName = String(args.targetName ?? '');
+      const position = String(args.position ?? '员工');
+      const salary = Number(args.salary ?? 3000);
+
+      let companyId = args.companyId ? String(args.companyId) : null;
+      if (!companyId) {
+        const companies = await repo.getWorldCompanies(context.worldId);
+        const myCompany = companies.find(c => c.ownerId === context.id);
+        if (!myCompany) {
+          return {
+            success: false,
+            message: '你没有公司！请先使用 create_company 创建公司。',
+            result: { hired: false },
+          };
+        }
+        companyId = myCompany.id;
+      }
+
+      const company = await repo.getCompany(companyId);
+      if (!company) {
+        return { success: false, message: '公司不存在', result: { hired: false } };
+      }
+
+      if (company.ownerId !== context.id) {
+        return { success: false, message: '你不是这家公司的老板', result: { hired: false } };
+      }
+
+      await repo.createJobApplication({
+        id: nanoid(),
+        worldId: context.worldId,
+        companyId,
+        applicantId: targetName,
+        position,
+        salary,
+      });
+
+      const employees = company.employees as string[] ?? [];
+      await repo.updateCompany(companyId, { employees: [...employees, targetName] });
+
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: context.worldId,
+        type: 'hire',
+        description: `${context.profile.name}招聘了${targetName}加入公司"${company.name}"，职位：${position}，月薪：${salary}元`,
+        involvedAgents: [context.id],
+        priority: 30,
+        timestamp: new Date(),
+      });
+
+      return {
+        success: true,
+        message: `你向${targetName}发送了招聘邀请，职位：${position}，月薪：${salary}元`,
+        result: { hired: true, companyId, targetName, position, salary },
+        stateChanges: [{ activity: `招聘${targetName}` }],
+      };
+    },
+  };
+}
+
+export function createBuyStockTool(repo: Repository): AgentTool {
+  return {
+    name: 'buy_stock',
+    description: '购买股票',
+    parameters: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: '股票代码' },
+        shares: { type: 'number', description: '购买股数' },
+        companyId: { type: 'string', description: '公司ID（可选）' },
+      },
+      required: ['shares'],
+    },
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+      const shares = Number(args.shares ?? 10);
+      const symbol = args.symbol ? String(args.symbol) : null;
+      const companyId = args.companyId ? String(args.companyId) : null;
+
+      let stock;
+      if (companyId) {
+        stock = await repo.getStock(companyId);
+      } else if (symbol) {
+        const stocks = await repo.getWorldStocks(context.worldId);
+        stock = stocks.find(s => s.symbol === symbol);
+      } else {
+        const stocks = await repo.getWorldStocks(context.worldId);
+        stock = stocks[0];
+      }
+
+      if (!stock || stock.price === null) {
+        return { success: false, message: '找不到对应的股票或价格无效', result: { purchased: false } };
+      }
+
+      const company = await repo.getCompany(stock.companyId);
+      if (!company || !company.public) {
+        return { success: false, message: '这家公司还未上市，无法公开交易', result: { purchased: false } };
+      }
+
+      const price = stock.price;
+      const totalCost = price * shares;
+      if (context.stats.money < totalCost) {
+        return {
+          success: false,
+          message: `资金不足！购买${shares}股需要${totalCost.toFixed(2)}元，但你只有${context.stats.money}元。`,
+          result: { purchased: false },
+        };
+      }
+
+      const holding = await repo.getStockHolding(context.id, stock.companyId);
+      if (holding) {
+        const newShares = (holding.shares ?? 0) + shares;
+        const newAvgPrice = ((holding.averagePrice ?? 0) * (holding.shares ?? 0) + totalCost) / newShares;
+        await repo.updateStockHolding(holding.id, { shares: newShares, averagePrice: newAvgPrice });
+      } else {
+        await repo.createStockHolding({
+          id: nanoid(),
+          worldId: context.worldId,
+          agentId: context.id,
+          companyId: stock.companyId,
+          shares,
+          averagePrice: price,
+        });
+      }
+
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: context.worldId,
+        type: 'stock_purchase',
+        description: `${context.profile.name}购买了${shares}股${company.name}股票，花费${totalCost.toFixed(2)}元`,
+        involvedAgents: [context.id],
+        priority: 25,
+        timestamp: new Date(),
+      });
+
+      return {
+        success: true,
+        message: `成功购买${shares}股${company.name}股票，每股${price.toFixed(2)}元，花费${totalCost.toFixed(2)}元`,
+        result: { purchased: true, shares, price, companyId: stock.companyId },
+        statChanges: [{ stat: 'money', delta: -totalCost, reason: 'buy_stock' }],
+        stateChanges: [{ activity: '投资股票' }],
+      };
+    },
+  };
+}
+
+export function createSellStockTool(repo: Repository): AgentTool {
+  return {
+    name: 'sell_stock',
+    description: '卖出股票',
+    parameters: {
+      type: 'object',
+      properties: {
+        companyId: { type: 'string', description: '公司ID' },
+        shares: { type: 'number', description: '卖出股数' },
+      },
+      required: ['companyId', 'shares'],
+    },
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+      const companyId = String(args.companyId ?? '');
+      const shares = Number(args.shares ?? 0);
+
+      const holding = await repo.getStockHolding(context.id, companyId);
+      if (!holding || (holding.shares ?? 0) < shares) {
+        return {
+          success: false,
+          message: `持股不足！你只有${holding?.shares ?? 0}股`,
+          result: { sold: false },
+        };
+      }
+
+      const stock = await repo.getStock(companyId);
+      if (!stock || stock.price === null) {
+        return { success: false, message: '股票不存在', result: { sold: false } };
+      }
+
+      const company = await repo.getCompany(companyId);
+      const price = stock.price;
+      const totalValue = price * shares;
+      const profit = totalValue - (holding.averagePrice ?? 0) * shares;
+
+      const newShares = (holding.shares ?? 0) - shares;
+      if (newShares <= 0) {
+        await repo.updateStockHolding(holding.id, { shares: 0 });
+      } else {
+        await repo.updateStockHolding(holding.id, { shares: newShares });
+      }
+
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: context.worldId,
+        type: 'stock_sale',
+        description: `${context.profile.name}卖出${shares}股${company?.name ?? '股票'}，获得${totalValue.toFixed(2)}元${profit > 0 ? `，盈利${profit.toFixed(2)}元` : ''}`,
+        involvedAgents: [context.id],
+        priority: 25,
+        timestamp: new Date(),
+      });
+
+      return {
+        success: true,
+        message: `成功卖出${shares}股${company?.name ?? ''}股票，获得${totalValue.toFixed(2)}元${profit > 0 ? `，盈利${profit.toFixed(2)}元！` : profit < 0 ? `，亏损${Math.abs(profit).toFixed(2)}元` : ''}`,
+        result: { sold: true, shares, price, totalValue, profit },
+        statChanges: [
+          { stat: 'money', delta: totalValue, reason: 'sell_stock' },
+          { stat: 'mood', delta: profit > 0 ? 10 : profit < 0 ? -5 : 0, reason: 'sell_stock' },
+        ],
+        stateChanges: [{ activity: '卖出股票' }],
+      };
+    },
+  };
+}
+
+export function createInvestTool(repo: Repository): AgentTool {
+  return {
+    name: 'invest',
+    description: '投资项目、公司或其他人',
+    parameters: {
+      type: 'object',
+      properties: {
+        targetId: { type: 'string', description: '投资目标ID' },
+        targetType: { type: 'string', description: '投资类型：company/agent/project' },
+        amount: { type: 'number', description: '投资金额' },
+        description: { type: 'string', description: '投资说明' },
+      },
+      required: ['targetId', 'targetType', 'amount'],
+    },
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+      const targetId = String(args.targetId ?? '');
+      const targetType = String(args.targetType ?? 'company') as 'company' | 'agent' | 'project';
+      const amount = Number(args.amount ?? 1000);
+      const description = args.description ? String(args.description) : '';
+
+      if (context.stats.money < amount) {
+        return {
+          success: false,
+          message: `资金不足！投资需要${amount}元，但你只有${context.stats.money}元。`,
+          result: { invested: false },
+        };
+      }
+
+      await repo.createInvestment({
+        id: nanoid(),
+        worldId: context.worldId,
+        investorId: context.id,
+        targetId,
+        targetType,
+        amount,
+      });
+
+      if (targetType === 'company') {
+        const company = await repo.getCompany(targetId);
+        if (company) {
+          const newValuation = (company.valuation ?? 0) + amount;
+          await repo.updateCompany(targetId, { valuation: newValuation });
+        }
+      }
+
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: context.worldId,
+        type: 'investment',
+        description: `${context.profile.name}投资${targetType}"${targetId}"${amount}元${description ? `：${description}` : ''}`,
+        involvedAgents: [context.id],
+        priority: 35,
+        timestamp: new Date(),
+      });
+
+      return {
+        success: true,
+        message: `成功投资${amount}元到${targetType}"${targetId}"`,
+        result: { invested: true, targetId, targetType, amount },
+        statChanges: [{ stat: 'money', delta: -amount, reason: 'invest' }],
+        stateChanges: [{ activity: `投资${targetType}` }],
+      };
+    },
+  };
+}
+
+export function createCreatePlatformTool(repo: Repository): AgentTool {
+  return {
+    name: 'create_platform',
+    description: '创建虚拟社交/媒体平台',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: '平台名称' },
+        type: { type: 'string', description: '平台类型：video_short/video_long/social/image/forum/job/dating' },
+        description: { type: 'string', description: '平台描述' },
+      },
+      required: ['name', 'type'],
+    },
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+      const name = String(args.name ?? '新平台');
+      const type = String(args.type ?? 'social') as 'video_short' | 'video_long' | 'social' | 'image' | 'forum' | 'job' | 'dating';
+      const description = args.description ? String(args.description) : '';
+
+      const cost = 10000;
+      if (context.stats.money < cost) {
+        return {
+          success: false,
+          message: `资金不足！创建平台需要${cost}元，但你只有${context.stats.money}元。`,
+          result: { created: false },
+        };
+      }
+
+      const platform = await repo.createPlatform({
+        id: nanoid(),
+        worldId: context.worldId,
+        name,
+        type,
+      });
+
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: context.worldId,
+        type: 'platform_created',
+        description: `${context.profile.name}创建了${type}平台"${name}"${description ? `：${description}` : ''}`,
+        involvedAgents: [context.id],
+        priority: 45,
+        timestamp: new Date(),
+      });
+
+      return {
+        success: true,
+        message: `成功创建平台"${name}"（${type}），投入${cost}元`,
+        result: { platformId: platform.id, name, type },
+        statChanges: [{ stat: 'money', delta: -cost, reason: 'create_platform' }],
+        stateChanges: [{ activity: `运营平台${name}` }],
+      };
+    },
+  };
+}
+
+export function createWriteCodeTool(repo: Repository): AgentTool {
+  return {
+    name: 'write_code',
+    description: '在沙盒中编写代码',
+    parameters: {
+      type: 'object',
+      properties: {
+        code: { type: 'string', description: '代码内容' },
+        language: { type: 'string', description: '语言：javascript/python/typescript' },
+        description: { type: 'string', description: '代码用途说明' },
+      },
+      required: ['code'],
+    },
+    execute: async (args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> => {
+      const code = String(args.code ?? '');
+      const language = String(args.language ?? 'javascript') as 'javascript' | 'python' | 'typescript';
+      const description = args.description ? String(args.description) : '';
+
+      if (code.length > 5000) {
+        return { success: false, message: '代码太长（限制5000字符）', result: { written: false } };
+      }
+
+      const sandbox = await repo.createSandboxCode({
+        id: nanoid(),
+        worldId: context.worldId,
+        agentId: context.id,
+        code,
+        language,
+      });
+
+      await repo.createEvent({
+        id: nanoid(),
+        worldId: context.worldId,
+        type: 'code_written',
+        description: `${context.profile.name}编写了${language}代码${description ? `：${description}` : ''}`,
+        involvedAgents: [context.id],
+        priority: 20,
+        timestamp: new Date(),
+      });
+
+      return {
+        success: true,
+        message: `代码已提交到沙盒，等待执行。ID: ${sandbox.id}`,
+        result: { sandboxId: sandbox.id, language },
+        statChanges: [{ stat: 'energy', delta: -15, reason: 'write_code' }],
+        stateChanges: [{ activity: '编写代码' }],
+      };
+    },
+  };
+}
+
 export function createFindJobTool(): AgentTool {
   return {
     name: 'find_job',
@@ -450,4 +927,11 @@ export function registerDefaultTools(registry: { register: (tool: AgentTool) => 
   registry.register(createCheckRelationshipTool(repo));
   registry.register(createSendFriendRequestTool());
   registry.register(createSearchMemoryTool());
+  registry.register(createCreateCompanyTool(repo));
+  registry.register(createHireAgentTool(repo));
+  registry.register(createBuyStockTool(repo));
+  registry.register(createSellStockTool(repo));
+  registry.register(createInvestTool(repo));
+  registry.register(createCreatePlatformTool(repo));
+  registry.register(createWriteCodeTool(repo));
 }

@@ -418,4 +418,158 @@ export class Repository {
   async deleteAgent(id: string): Promise<void> {
     await db.delete(s.agents).where(eq(s.agents.id, id));
   }
+
+  async createCompany(data: {
+    id: string; worldId: string; name: string; type: 'tech' | 'retail' | 'service' | 'finance' | 'manufacturing' | 'entertainment' | 'other';
+    ownerId: string; employees?: string[]; revenue?: number; valuation?: number; description?: string;
+  }) {
+    const result = await db.insert(s.companies).values({
+      ...data,
+      employees: data.employees ?? [],
+      revenue: data.revenue ?? 0,
+      valuation: data.valuation ?? 10000,
+      stockPrice: data.valuation ? data.valuation / 1000 : 10,
+      totalShares: 1000,
+      public: false,
+      createdAt: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getCompany(id: string) {
+    const rows = await db.select().from(s.companies).where(eq(s.companies.id, id)).limit(1);
+    return rows[0] ?? null;
+  }
+
+  async getWorldCompanies(worldId: string) {
+    return db.select().from(s.companies).where(eq(s.companies.worldId, worldId));
+  }
+
+  async updateCompany(id: string, data: Partial<typeof s.companies.$inferInsert>) {
+    const result = await db.update(s.companies).set(data).where(eq(s.companies.id, id)).returning();
+    return result[0] ?? null;
+  }
+
+  async createStock(data: { id: string; worldId: string; companyId: string; symbol: string; price?: number }) {
+    const result = await db.insert(s.stocks).values({
+      ...data,
+      price: data.price ?? 10,
+      previousPrice: data.price ?? 10,
+      updatedAt: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getStock(companyId: string) {
+    const rows = await db.select().from(s.stocks).where(eq(s.stocks.companyId, companyId)).limit(1);
+    return rows[0] ?? null;
+  }
+
+  async getWorldStocks(worldId: string) {
+    return db.select().from(s.stocks).where(eq(s.stocks.worldId, worldId));
+  }
+
+  async updateStock(id: string, data: Partial<typeof s.stocks.$inferInsert>) {
+    const result = await db.update(s.stocks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(s.stocks.id, id)).returning();
+    return result[0] ?? null;
+  }
+
+  async createStockHolding(data: { id: string; worldId: string; agentId: string; companyId: string; shares?: number; averagePrice?: number }) {
+    const result = await db.insert(s.stockHoldings).values({
+      ...data,
+      shares: data.shares ?? 0,
+      averagePrice: data.averagePrice ?? 0,
+      updatedAt: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getAgentStockHoldings(agentId: string) {
+    return db.select().from(s.stockHoldings).where(eq(s.stockHoldings.agentId, agentId));
+  }
+
+  async getStockHolding(agentId: string, companyId: string) {
+    const rows = await db.select().from(s.stockHoldings)
+      .where(and(eq(s.stockHoldings.agentId, agentId), eq(s.stockHoldings.companyId, companyId)))
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  async updateStockHolding(id: string, data: Partial<typeof s.stockHoldings.$inferInsert>) {
+    const result = await db.update(s.stockHoldings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(s.stockHoldings.id, id)).returning();
+    return result[0] ?? null;
+  }
+
+  async createInvestment(data: {
+    id: string; worldId: string; investorId: string; targetId: string;
+    targetType: 'company' | 'agent' | 'project'; amount: number;
+  }) {
+    const result = await db.insert(s.investments).values({
+      ...data,
+      returnRate: 0,
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getAgentInvestments(agentId: string) {
+    return db.select().from(s.investments).where(eq(s.investments.investorId, agentId));
+  }
+
+  async updateInvestment(id: string, data: Partial<typeof s.investments.$inferInsert>) {
+    const result = await db.update(s.investments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(s.investments.id, id)).returning();
+    return result[0] ?? null;
+  }
+
+  async createSandboxCode(data: { id: string; worldId: string; agentId: string; code: string; language?: 'javascript' | 'python' | 'typescript' }) {
+    const result = await db.insert(s.sandboxCode).values({
+      ...data,
+      language: data.language ?? 'javascript',
+      status: 'pending',
+      createdAt: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getSandboxCode(id: string) {
+    const rows = await db.select().from(s.sandboxCode).where(eq(s.sandboxCode.id, id)).limit(1);
+    return rows[0] ?? null;
+  }
+
+  async updateSandboxCode(id: string, data: Partial<typeof s.sandboxCode.$inferInsert>) {
+    const result = await db.update(s.sandboxCode).set(data).where(eq(s.sandboxCode.id, id)).returning();
+    return result[0] ?? null;
+  }
+
+  async createJobApplication(data: {
+    id: string; worldId: string; companyId: string; applicantId: string; position: string; salary?: number;
+  }) {
+    const result = await db.insert(s.jobApplications).values({
+      ...data,
+      status: 'pending',
+      salary: data.salary ?? 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0]!;
+  }
+
+  async getCompanyJobApplications(companyId: string) {
+    return db.select().from(s.jobApplications).where(eq(s.jobApplications.companyId, companyId));
+  }
+
+  async updateJobApplication(id: string, data: Partial<typeof s.jobApplications.$inferInsert>) {
+    const result = await db.update(s.jobApplications)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(s.jobApplications.id, id)).returning();
+    return result[0] ?? null;
+  }
 }

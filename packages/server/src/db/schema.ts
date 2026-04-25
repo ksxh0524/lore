@@ -152,6 +152,80 @@ export const factions = sqliteTable('factions', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const companies = sqliteTable('companies', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull().references(() => worlds.id),
+  name: text('name').notNull(),
+  type: text('type', { enum: ['tech', 'retail', 'service', 'finance', 'manufacturing', 'entertainment', 'other'] }).notNull(),
+  ownerId: text('owner_id').notNull(),
+  employees: text('employees', { mode: 'json' }).$type<string[]>(),
+  revenue: real('revenue').default(0),
+  valuation: real('valuation').default(0),
+  stockPrice: real('stock_price').default(0),
+  totalShares: integer('total_shares').default(1000),
+  public: integer('public', { mode: 'boolean' }).default(false),
+  description: text('description'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const stocks = sqliteTable('stocks', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull().references(() => worlds.id),
+  companyId: text('company_id').notNull().references(() => companies.id),
+  symbol: text('symbol').notNull(),
+  price: real('price').default(0),
+  previousPrice: real('previous_price').default(0),
+  volatility: real('volatility').default(0.1),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const stockHoldings = sqliteTable('stock_holdings', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull(),
+  agentId: text('agent_id').notNull(),
+  companyId: text('company_id').notNull().references(() => companies.id),
+  shares: integer('shares').default(0),
+  averagePrice: real('average_price').default(0),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const investments = sqliteTable('investments', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull(),
+  investorId: text('investor_id').notNull(),
+  targetId: text('target_id').notNull(),
+  targetType: text('target_type', { enum: ['company', 'agent', 'project'] }).notNull(),
+  amount: real('amount').notNull(),
+  returnRate: real('return_rate').default(0),
+  status: text('status', { enum: ['active', 'completed', 'failed'] }).default('active'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const sandboxCode = sqliteTable('sandbox_code', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull(),
+  agentId: text('agent_id').notNull(),
+  code: text('code').notNull(),
+  language: text('language', { enum: ['javascript', 'python', 'typescript'] }).default('javascript'),
+  result: text('result'),
+  error: text('error'),
+  status: text('status', { enum: ['pending', 'running', 'completed', 'failed'] }).default('pending'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const jobApplications = sqliteTable('job_applications', {
+  id: text('id').primaryKey(),
+  worldId: text('world_id').notNull(),
+  companyId: text('company_id').notNull().references(() => companies.id),
+  applicantId: text('applicant_id').notNull(),
+  position: text('position').notNull(),
+  status: text('status', { enum: ['pending', 'accepted', 'rejected'] }).default('pending'),
+  salary: real('salary').default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 // User configured LLM providers
 export const userProviders = sqliteTable('user_providers', {
   id: text('id').primaryKey(),
