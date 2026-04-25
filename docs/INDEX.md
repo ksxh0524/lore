@@ -63,6 +63,12 @@
 | [scheduler.md](./llm/scheduler.md) | 优先级队列、并发控制 |
 | [resilience.md](./llm/resilience.md) | 熔断器、重试 |
 
+## foundation/
+
+| 文件 | 内容 |
+|------|------|
+| [world-simulator-foundation.md](./foundation/world-simulator-foundation.md) | 世界模拟器底层框架技术方案 |
+
 ## 其他
 
 | 文件 | 内容 |

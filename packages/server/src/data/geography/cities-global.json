@@ -1,0 +1,110 @@
+[
+  { "id": "US-NY-NEWYORK", "provinceId": "US-NY", "countryId": "US", "name": "纽约", "nameEn": "New York", "lat": 40.7128, "lng": -74.0060, "timezone": "UTC-5", "population": 8400000, "climateType": "continental", "cityType": "major" },
+  { "id": "US-CA-LOSANGELES", "provinceId": "US-CA", "countryId": "US", "name": "洛杉矶", "nameEn": "Los Angeles", "lat": 34.0522, "lng": -118.2437, "timezone": "UTC-8", "population": 4000000, "climateType": "subtropical", "cityType": "major" },
+  { "id": "US-IL-CHICAGO", "provinceId": "US-IL", "countryId": "US", "name": "芝加哥", "nameEn": "Chicago", "lat": 41.8781, "lng": -87.6298, "timezone": "UTC-6", "population": 2700000, "climateType": "continental", "cityType": "major" },
+  { "id": "US-TX-HOUSTON", "provinceId": "US-TX", "countryId": "US", "name": "休斯顿", "nameEn": "Houston", "lat": 29.7604, "lng": -95.3698, "timezone": "UTC-6", "population": 2300000, "climateType": "subtropical", "cityType": "major" },
+  { "id": "US-PA-PHILADELPHIA", "provinceId": "US-PA", "countryId": "US", "name": "费城", "nameEn": "Philadelphia", "lat": 39.9526, "lng": -75.1652, "timezone": "UTC-5", "population": 1600000, "climateType": "continental", "cityType": "major" },
+  { "id": "US-CA-SANFRANCISCO", "provinceId": "US-CA", "countryId": "US", "name": "旧金山", "nameEn": "San Francisco", "lat": 37.7749, "lng": -122.4194, "timezone": "UTC-8", "population": 900000, "climateType": "maritime", "cityType": "major" },
+  { "id": "US-WA-SEATTLE", "provinceId": "US-WA", "countryId": "US", "name": "西雅图", "nameEn": "Seattle", "lat": 47.6062, "lng": -122.3321, "timezone": "UTC-8", "population": 750000, "climateType": "maritime", "cityType": "major" },
+  { "id": "US-MA-BOSTON", "provinceId": "US-MA", "countryId": "US", "name": "波士顿", "nameEn": "Boston", "lat": 42.3601, "lng": -71.0589, "timezone": "UTC-5", "population": 700000, "climateType": "continental", "cityType": "major" },
+  { "id": "US-GA-ATLANTA", "provinceId": "US-GA", "countryId": "US", "name": "亚特兰大", "nameEn": "Atlanta", "lat": 33.7490, "lng": -84.3880, "timezone": "UTC-5", "population": 500000, "climateType": "subtropical", "cityType": "major" },
+  { "id": "US-TX-DALLAS", "provinceId": "US-TX", "countryId": "US", "name": "达拉斯", "nameEn": "Dallas", "lat": 32.7767, "lng": -96.7970, "timezone": "UTC-6", "population": 1400000, "climateType": "continental", "cityType": "major" },
+  
+  { "id": "JP-TK-TOKYO", "provinceId": "JP-TK", "countryId": "JP", "name": "东京", "nameEn": "Tokyo", "lat": 35.6762, "lng": 139.6503, "timezone": "UTC+9", "population": 14000000, "climateType": "subtropical", "cityType": "capital" },
+  { "id": "JP-OS-OSAKA", "provinceId": "JP-OS", "countryId": "JP", "name": "大阪", "nameEn": "Osaka", "lat": 34.6937, "lng": 135.5023, "timezone": "UTC+9", "population": 2700000, "climateType": "subtropical", "cityType": "major" },
+  { "id": "JP-KY-KYOTO", "provinceId": "JP-KY", "countryId": "JP", "name": "京都", "nameEn": "Kyoto", "lat": 35.0116, "lng": 135.7681, "timezone": "UTC+9", "population": 1500000, "climateType": "subtropical", "cityType": "major" },
+  { "id": "JP-YK-YOKOHAMA", "provinceId": "JP-KN", "countryId": "JP", "name": "横滨", "nameEn": "Yokohama", "lat": 35.4437, "lng": 139.6380, "timezone": "UTC+9", "population": 3700000, "climateType": "subtropical", "cityType": "major" },
+  
+  { "id": "UK-LN-LONDON", "provinceId": "UK-LN", "countryId": "UK", "name": "伦敦", "nameEn": "London", "lat": 51.5074, "lng": -0.1278, "timezone": "UTC+0", "population": 9000000, "climateType": "maritime", "cityType": "capital" },
+  { "id": "UK-MN-MANCHESTER", "provinceId": "UK-MN", "countryId": "UK", "name": "曼彻斯特", "nameEn": "Manchester", "lat": 53.4808, "lng": -2.2426, "timezone": "UTC+0", "population": 500000, "climateType": "maritime", "cityType": "major" },
+  { "id": "UK-ED-EDINBURGH", "provinceId": "UK-ED", "countryId": "UK", "name": "爱丁堡", "nameEn": "Edinburgh", "lat": 55.9533, "lng": -3.1883, "timezone": "UTC+0", "population": 500000, "climateType": "maritime", "cityType": "major" },
+  
+  { "id": "DE-BE-BERLIN", "provinceId": "DE-BE", "countryId": "DE", "name": "柏林", "nameEn": "Berlin", "lat": 52.5200, "lng": 13.4050, "timezone": "UTC+1", "population": 3700000, "climateType": "continental", "cityType": "capital" },
+  { "id": "DE-BV-MUNICH", "provinceId": "DE-BV", "countryId": "DE", "name": "慕尼黑", "nameEn": "Munich", "lat": 48.1351, "lng": 11.5820, "timezone": "UTC+1", "population": 1500000, "climateType": "continental", "cityType": "major" },
+  { "id": "DE-HH-FRANKFURT", "provinceId": "DE-HE", "countryId": "DE", "name": "法兰克福", "nameEn": "Frankfurt", "lat": 50.1109, "lng": 8.6821, "timezone": "UTC+1", "population": 750000, "climateType": "continental", "cityType": "major" },
+  
+  { "id": "FR-PA-PARIS", "provinceId": "FR-PA", "countryId": "FR", "name": "巴黎", "nameEn": "Paris", "lat": 48.8566, "lng": 2.3522, "timezone": "UTC+1", "population": 2200000, "climateType": "continental", "cityType": "capital" },
+  { "id": "FR-LY-LYON", "provinceId": "FR-LY", "countryId": "FR", "name": "里昂", "nameEn": "Lyon", "lat": 45.7640, "lng": 4.8357, "timezone": "UTC+1", "population": 500000, "climateType": "continental", "cityType": "major" },
+  { "id": "FR-MR-MARSEILLE", "provinceId": "FR-MR", "countryId": "FR", "name": "马赛", "nameEn": "Marseille", "lat": 43.2965, "lng": 5.3698, "timezone": "UTC+1", "population": 900000, "climateType": "subtropical", "cityType": "major" },
+  
+  { "id": "AU-SY-SYDNEY", "provinceId": "AU-NS", "countryId": "AU", "name": "悉尼", "nameEn": "Sydney", "lat": -33.8688, "lng": 151.2093, "timezone": "UTC+10", "population": 5300000, "climateType": "subtropical", "cityType": "major" },
+  { "id": "AU-MB-MELBOURNE", "provinceId": "AU-VI", "countryId": "AU", "name": "墨尔本", "nameEn": "Melbourne", "lat": -37.8136, "lng": 144.9631, "timezone": "UTC+10", "population": 5000000, "climateType": "temperate", "cityType": "major" },
+  { "id": "AU-BB-BRISBANE", "provinceId": "AU-QL", "countryId": "AU", "name": "布里斯班", "nameEn": "Brisbane", "lat": -27.4698, "lng": 153.0251, "timezone": "UTC+10", "population": 2500000, "climateType": "subtropical", "cityType": "major" },
+  
+  { "id": "CA-TO-TORONTO", "provinceId": "CA-ON", "countryId": "CA", "name": "多伦多", "nameEn": "Toronto", "lat": 43.6532, "lng": -79.3832, "timezone": "UTC-5", "population": 2900000, "climateType": "continental", "cityType": "major" },
+  { "id": "CA-VC-VANCOUVER", "provinceId": "CA-BC", "countryId": "CA", "name": "温哥华", "nameEn": "Vancouver", "lat": 49.2827, "lng": -123.1207, "timezone": "UTC-8", "population": 630000, "climateType": "maritime", "cityType": "major" },
+  { "id": "CA-MO-MONTREAL", "provinceId": "CA-QC", "countryId": "CA", "name": "蒙特利尔", "nameEn": "Montreal", "lat": 45.5017, "lng": -73.5673, "timezone": "UTC-5", "population": 1800000, "climateType": "continental", "cityType": "major" },
+  
+  { "id": "KR-SL-SEOUL", "provinceId": "KR-SL", "countryId": "KR", "name": "首尔", "nameEn": "Seoul", "lat": 37.5665, "lng": 126.9780, "timezone": "UTC+9", "population": 10000000, "climateType": "continental", "cityType": "capital" },
+  { "id": "KR-BU-BUSAN", "provinceId": "KR-BU", "countryId": "KR", "name": "釜山", "nameEn": "Busan", "lat": 35.1796, "lng": 129.0756, "timezone": "UTC+9", "population": 3500000, "climateType": "continental", "cityType": "major" },
+  
+  { "id": "IN-DL-DELHI", "provinceId": "IN-DL", "countryId": "IN", "name": "德里", "nameEn": "Delhi", "lat": 28.6139, "lng": 77.2090, "timezone": "UTC+5:30", "population": 31000000, "climateType": "continental", "cityType": "capital" },
+  { "id": "IN-MH-MUMBAI", "provinceId": "IN-MH", "countryId": "IN", "name": "孟买", "nameEn": "Mumbai", "lat": 19.0760, "lng": 72.8777, "timezone": "UTC+5:30", "population": 20000000, "climateType": "tropical", "cityType": "major" },
+  { "id": "IN-KA-BANGALORE", "provinceId": "IN-KA", "countryId": "IN", "name": "班加罗尔", "nameEn": "Bangalore", "lat": 12.9716, "lng": 77.5946, "timezone": "UTC+5:30", "population": 12000000, "climateType": "tropical", "cityType": "major" },
+  
+  { "id": "SG-SG-SINGAPORE", "provinceId": "SG-SG", "countryId": "SG", "name": "新加坡", "nameEn": "Singapore", "lat": 1.3521, "lng": 103.8198, "timezone": "UTC+8", "population": 5800000, "climateType": "tropical", "cityType": "capital" },
+  
+  { "id": "TH-BK-BANGKOK", "provinceId": "TH-BK", "countryId": "TH", "name": "曼谷", "nameEn": "Bangkok", "lat": 13.7563, "lng": 100.5018, "timezone": "UTC+7", "population": 11000000, "climateType": "tropical", "cityType": "capital" },
+  
+  { "id": "VN-HC-HOCHIMINH", "provinceId": "VN-HC", "countryId": "VN", "name": "胡志明市", "nameEn": "Ho Chi Minh City", "lat": 10.8231, "lng": 106.6297, "timezone": "UTC+7", "population": 9000000, "climateType": "tropical", "cityType": "major" },
+  { "id": "VN-HN-HANOI", "provinceId": "VN-HN", "countryId": "VN", "name": "河内", "nameEn": "Hanoi", "lat": 21.0285, "lng": 105.8542, "timezone": "UTC+7", "population": 8000000, "climateType": "subtropical", "cityType": "capital" },
+  
+  { "id": "MY-KL-KUALALUMPUR", "provinceId": "MY-KL", "countryId": "MY", "name": "吉隆坡", "nameEn": "Kuala Lumpur", "lat": 3.1390, "lng": 101.6869, "timezone": "UTC+8", "population": 1800000, "climateType": "tropical", "cityType": "capital" },
+  
+  { "id": "PH-MK-MANILA", "provinceId": "PH-MK", "countryId": "PH", "name": "马尼拉", "nameEn": "Manila", "lat": 14.5995, "lng": 120.9842, "timezone": "UTC+8", "population": 18000000, "climateType": "tropical", "cityType": "capital" },
+  
+  { "id": "ID-JK-JAKARTA", "provinceId": "ID-JK", "countryId": "ID", "name": "雅加达", "nameEn": "Jakarta", "lat": -6.2088, "lng": 106.8456, "timezone": "UTC+7", "population": 11000000, "climateType": "tropical", "cityType": "capital" },
+  
+  { "id": "AE-DU-DUBAI", "provinceId": "AE-DU", "countryId": "AE", "name": "迪拜", "nameEn": "Dubai", "lat": 25.2048, "lng": 55.2708, "timezone": "UTC+4", "population": 3300000, "climateType": "desert", "cityType": "major" },
+  
+  { "id": "SA-RY-RIYADH", "provinceId": "SA-RY", "countryId": "SA", "name": "利雅得", "nameEn": "Riyadh", "lat": 24.7136, "lng": 46.6753, "timezone": "UTC+3", "population": 7600000, "climateType": "desert", "cityType": "capital" },
+  
+  { "id": "RU-MO-MOSCOW", "provinceId": "RU-MO", "countryId": "RU", "name": "莫斯科", "nameEn": "Moscow", "lat": 55.7558, "lng": 37.6173, "timezone": "UTC+3", "population": 12500000, "climateType": "continental", "cityType": "capital" },
+  { "id": "RU-SP-SAINTPETERSBURG", "provinceId": "RU-SP", "countryId": "RU", "name": "圣彼得堡", "nameEn": "Saint Petersburg", "lat": 59.9343, "lng": 30.3351, "timezone": "UTC+3", "population": 5000000, "climateType": "continental", "cityType": "major" },
+  
+  { "id": "IT-MI-MILAN", "provinceId": "IT-MI", "countryId": "IT", "name": "米兰", "nameEn": "Milan", "lat": 45.4642, "lng": 9.1900, "timezone": "UTC+1", "population": 1400000, "climateType": "continental", "cityType": "major" },
+  { "id": "IT-RO-ROME", "provinceId": "IT-RO", "countryId": "IT", "name": "罗马", "nameEn": "Rome", "lat": 41.9028, "lng": 12.4964, "timezone": "UTC+1", "population": 4300000, "climateType": "subtropical", "cityType": "capital" },
+  
+  { "id": "ES-MD-MADRID", "provinceId": "ES-MD", "countryId": "ES", "name": "马德里", "nameEn": "Madrid", "lat": 40.4168, "lng": -3.7038, "timezone": "UTC+1", "population": 3200000, "climateType": "continental", "cityType": "capital" },
+  { "id": "ES-BC-BARCELONA", "provinceId": "ES-CT", "countryId": "ES", "name": "巴塞罗那", "nameEn": "Barcelona", "lat": 41.3851, "lng": 2.1734, "timezone": "UTC+1", "population": 1600000, "climateType": "subtropical", "cityType": "major" },
+  
+  { "id": "BR-SP-SAOPAULO", "provinceId": "BR-SP", "countryId": "BR", "name": "圣保罗", "nameEn": "Sao Paulo", "lat": -23.5505, "lng": -46.6333, "timezone": "UTC-3", "population": 12000000, "climateType": "subtropical", "cityType": "major" },
+  { "id": "BR-RJ-RIODEJANEIRO", "provinceId": "BR-RJ", "countryId": "BR", "name": "里约热内卢", "nameEn": "Rio de Janeiro", "lat": -22.9068, "lng": -43.1729, "timezone": "UTC-3", "population": 6700000, "climateType": "tropical", "cityType": "major" },
+  
+  { "id": "AR-BU-BUENOSAIRES", "provinceId": "AR-BU", "countryId": "AR", "name": "布宜诺斯艾利斯", "nameEn": "Buenos Aires", "lat": -34.6037, "lng": -58.3816, "timezone": "UTC-3", "population": 15000000, "climateType": "subtropical", "cityType": "capital" },
+  
+  { "id": "ZA-JB-JOHANNESBURG", "provinceId": "ZA-GP", "countryId": "ZA", "name": "约翰内斯堡", "nameEn": "Johannesburg", "lat": -26.2041, "lng": 28.0473, "timezone": "UTC+2", "population": 5800000, "climateType": "highland", "cityType": "major" },
+  
+  { "id": "EG-CA-CAIRO", "provinceId": "EG-CA", "countryId": "EG", "name": "开罗", "nameEn": "Cairo", "lat": 30.0444, "lng": 31.2357, "timezone": "UTC+2", "population": 20000000, "climateType": "desert", "cityType": "capital" },
+  
+  { "id": "NG-LA-LAGOS", "provinceId": "NG-LA", "countryId": "NG", "name": "拉各斯", "nameEn": "Lagos", "lat": 6.5244, "lng": 3.3792, "timezone": "UTC+1", "population": 15000000, "climateType": "tropical", "cityType": "major" },
+  
+  { "id": "NZ-AK-AUCKLAND", "provinceId": "NZ-AK", "countryId": "NZ", "name": "奥克兰", "nameEn": "Auckland", "lat": -36.8509, "lng": 174.7645, "timezone": "UTC+12", "population": 1500000, "climateType": "subtropical", "cityType": "major" },
+  { "id": "NZ-WL-WELLINGTON", "provinceId": "NZ-WL", "countryId": "NZ", "name": "惠灵顿", "nameEn": "Wellington", "lat": -41.2865, "lng": 174.7762, "timezone": "UTC+12", "population": 400000, "climateType": "temperate", "cityType": "capital" },
+  
+  { "id": "IL-TL-TELAVIV", "provinceId": "IL-TL", "countryId": "IL", "name": "特拉维夫", "nameEn": "Tel Aviv", "lat": 32.0853, "lng": 34.7818, "timezone": "UTC+2", "population": 450000, "climateType": "subtropical", "cityType": "major" },
+  
+  { "id": "CH-ZH-ZURICH", "provinceId": "CH-ZH", "countryId": "CH", "name": "苏黎世", "nameEn": "Zurich", "lat": 47.3769, "lng": 8.5417, "timezone": "UTC+1", "population": 400000, "climateType": "continental", "cityType": "major" },
+  { "id": "CH-GE-GENEVA", "provinceId": "CH-GE", "countryId": "CH", "name": "日内瓦", "nameEn": "Geneva", "lat": 46.2044, "lng": 6.1432, "timezone": "UTC+1", "population": 500000, "climateType": "continental", "cityType": "major" },
+  
+  { "id": "AT-VI-VIENNA", "provinceId": "AT-VI", "countryId": "AT", "name": "维也纳", "nameEn": "Vienna", "lat": 48.2082, "lng": 16.3738, "timezone": "UTC+1", "population": 1900000, "climateType": "continental", "cityType": "capital" },
+  
+  { "id": "NL-AM-AMSTERDAM", "provinceId": "NL-NH", "countryId": "NL", "name": "阿姆斯特丹", "nameEn": "Amsterdam", "lat": 52.3676, "lng": 4.9041, "timezone": "UTC+1", "population": 850000, "climateType": "maritime", "cityType": "capital" },
+  
+  { "id": "SE-ST-STOCKHOLM", "provinceId": "SE-ST", "countryId": "SE", "name": "斯德哥尔摩", "nameEn": "Stockholm", "lat": 59.3293, "lng": 18.0686, "timezone": "UTC+1", "population": 1600000, "climateType": "continental", "cityType": "capital" },
+  
+  { "id": "DK-CP-COPENHAGEN", "provinceId": "DK-CP", "countryId": "DK", "name": "哥本哈根", "nameEn": "Copenhagen", "lat": 55.6761, "lng": 12.5683, "timezone": "UTC+1", "population": 800000, "climateType": "maritime", "cityType": "capital" },
+  
+  { "id": "NO-OS-OSLO", "provinceId": "NO-OS", "countryId": "NO", "name": "奥斯陆", "nameEn": "Oslo", "lat": 59.9139, "lng": 10.7522, "timezone": "UTC+1", "population": 700000, "climateType": "continental", "cityType": "capital" },
+  
+  { "id": "FI-HE-HELSINKI", "provinceId": "FI-HE", "countryId": "FI", "name": "赫尔辛基", "nameEn": "Helsinki", "lat": 60.1699, "lng": 24.9384, "timezone": "UTC+2", "population": 650000, "climateType": "continental", "cityType": "capital" },
+  
+  { "id": "PL-WR-WARSAW", "provinceId": "PL-MA", "countryId": "PL", "name": "华沙", "nameEn": "Warsaw", "lat": 52.2297, "lng": 21.0122, "timezone": "UTC+1", "population": 1800000, "climateType": "continental", "cityType": "capital" },
+  
+  { "id": "TR-IS-ISTANBUL", "provinceId": "TR-IS", "countryId": "TR", "name": "伊斯坦布尔", "nameEn": "Istanbul", "lat": 41.0082, "lng": 28.9784, "timezone": "UTC+3", "population": 15000000, "climateType": "continental", "cityType": "major" },
+  
+  { "id": "PK-KR-KARACHI", "provinceId": "PK-SI", "countryId": "PK", "name": "卡拉奇", "nameEn": "Karachi", "lat": 24.8607, "lng": 67.0011, "timezone": "UTC+5", "population": 15000000, "climateType": "desert", "cityType": "major" },
+  { "id": "PK-LH-LAHORE", "provinceId": "PK-PU", "countryId": "PK", "name": "拉合尔", "nameEn": "Lahore", "lat": 31.5204, "lng": 74.3587, "timezone": "UTC+5", "population": 11000000, "climateType": "continental", "cityType": "major" },
+  
+  { "id": "BD-DH-DHAKA", "provinceId": "BD-DH", "countryId": "BD", "name": "达卡", "nameEn": "Dhaka", "lat": 23.8103, "lng": 90.4125, "timezone": "UTC+6", "population": 22000000, "climateType": "tropical", "cityType": "capital" }
+]

@@ -7,6 +7,7 @@ import type { PushManager } from '../scheduler/push-manager.js';
 import type { ModeManager } from '../modes/mode-manager.js';
 import type { WorldClock } from '../world/clock.js';
 import type { TickScheduler } from '../scheduler/tick-scheduler.js';
+import type { TieredTickScheduler } from '../foundation/scheduler/tiered-tick-scheduler.js';
 import type { Repository } from '../db/repository.js';
 import { createLogger } from '../logger/index.js';
 
@@ -32,7 +33,7 @@ export function registerWebSocket(
     pushManager: PushManager;
     modeManager: ModeManager;
     worldClock: WorldClock;
-    tickScheduler: TickScheduler;
+    tickScheduler: TickScheduler | TieredTickScheduler;
     repo: Repository;
   },
 ) {

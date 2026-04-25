@@ -1,0 +1,83 @@
+[
+  {
+    "id": "tropical",
+    "name": "热带",
+    "nameEn": "Tropical",
+    "tempRange": { "summer": [25, 35], "winter": [22, 32] },
+    "precipitation": "high",
+    "seasons": "wet_dry",
+    "description": "全年高温，分为雨季和旱季"
+  },
+  {
+    "id": "subtropical",
+    "name": "亚热带",
+    "nameEn": "Subtropical",
+    "tempRange": { "summer": [28, 38], "winter": [10, 20] },
+    "precipitation": "moderate",
+    "seasons": "four",
+    "description": "四季分明，夏季炎热冬季温和"
+  },
+  {
+    "id": "temperate",
+    "name": "温带",
+    "nameEn": "Temperate",
+    "tempRange": { "summer": [20, 30], "winter": [-5, 10] },
+    "precipitation": "moderate",
+    "seasons": "four",
+    "description": "四季分明，温差适中"
+  },
+  {
+    "id": "continental",
+    "name": "大陆性",
+    "nameEn": "Continental",
+    "tempRange": { "summer": [25, 35], "winter": [-20, 5] },
+    "precipitation": "low",
+    "seasons": "four",
+    "description": "温差大，冬季寒冷夏季炎热"
+  },
+  {
+    "id": "maritime",
+    "name": "海洋性",
+    "nameEn": "Maritime",
+    "tempRange": { "summer": [18, 25], "winter": [5, 12] },
+    "precipitation": "high",
+    "seasons": "four",
+    "description": "温差小，降水均匀"
+  },
+  {
+    "id": "polar",
+    "name": "极地",
+    "nameEn": "Polar",
+    "tempRange": { "summer": [0, 10], "winter": [-40, -20] },
+    "precipitation": "very_low",
+    "seasons": "two",
+    "description": "全年低温，极昼极夜现象"
+  },
+  {
+    "id": "desert",
+    "name": "沙漠",
+    "nameEn": "Desert",
+    "tempRange": { "summer": [40, 50], "winter": [15, 25] },
+    "precipitation": "very_low",
+    "seasons": "two",
+    "description": "极度干燥，温差巨大"
+  },
+  {
+    "id": "monsoon",
+    "name": "季风",
+    "nameEn": "Monsoon",
+    "tempRange": { "summer": [25, 35], "winter": [5, 15] },
+    "precipitation": "high",
+    "seasons": "wet_dry",
+    "description": "夏季多雨，冬季干燥"
+  },
+  {
+    "id": "highland",
+    "name": "高原",
+    "nameEn": "Highland",
+    "tempRange": { "summer": [15, 25], "winter": [-10, 5] },
+    "precipitation": "low",
+    "seasons": "two",
+    "description": "海拔高，气温低，昼夜温差大"
+  }
+]

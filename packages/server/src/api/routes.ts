@@ -12,6 +12,15 @@ import type { PlatformEngine } from '../world/platform-engine.js';
 import type { EconomyEngine } from '../world/economy-engine.js';
 import type { WorldClock } from '../world/clock.js';
 import type { TickScheduler } from '../scheduler/tick-scheduler.js';
+import type { TieredTickScheduler } from '../foundation/scheduler/tiered-tick-scheduler.js';
+import type { GeographyDB } from '../foundation/geography/geography-db.js';
+import type { AstronomyEngine } from '../foundation/astronomy/astronomy-engine.js';
+import type { WeatherEngine } from '../foundation/weather/weather-engine.js';
+import type { VirtualityManager } from '../foundation/virtuality/virtuality-manager.js';
+import type { ErrorManager } from '../foundation/performance/error-manager.js';
+import type { PerformanceMonitor } from '../foundation/performance/performance-monitor.js';
+import type { OnDemandGenerator } from '../foundation/virtuality/on-demand-generator.js';
+import type { BatchLLMScheduler } from '../foundation/scheduler/batch-llm-scheduler.js';
 import type { Monitor } from '../monitor/index.js';
 import type { WorldPersistence } from '../world/persistence.js';
 import type { EventEngine } from '../world/event-engine.js';
@@ -38,7 +47,7 @@ export interface AppDeps {
   };
   world: {
     worldClock: WorldClock;
-    tickScheduler: TickScheduler;
+    tickScheduler: TickScheduler | TieredTickScheduler;
     economyEngine: EconomyEngine;
     platformEngine: PlatformEngine;
     eventEngine: EventEngine;
@@ -54,6 +63,16 @@ export interface AppDeps {
   worldState: {
     getWorldId: () => string | null;
     setWorldId: (id: string | null) => void;
+  };
+  foundation?: {
+    geographyDB: GeographyDB;
+    astronomyEngine: AstronomyEngine;
+    weatherEngine: WeatherEngine;
+    virtualityManager: VirtualityManager;
+    errorManager: ErrorManager;
+    performanceMonitor: PerformanceMonitor;
+    onDemandGenerator: OnDemandGenerator;
+    batchLLMScheduler: BatchLLMScheduler;
   };
 }
 
