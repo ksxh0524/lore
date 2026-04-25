@@ -1,16 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ShoppingBag, DollarSign, Loader2 } from 'lucide-react';
 import type { AgentInfo } from '../../lib/types';
-import { api, type ShopItem as APIShopItem } from '../../lib/api';
+import { shop, economy } from '../../services/api';
+import type { ShopItem } from '@lore/shared';
 import './shop-panel.css';
 
-interface ShopItem {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  effect: Record<string, number>;
-  description: string;
+interface ShopItemWithIcon extends ShopItem {
   icon?: string;
 }
 
@@ -38,19 +33,19 @@ const categoryIcons: Record<string, string> = {
 
 interface ShopPanelProps {
   agent?: AgentInfo;
-  onPurchase?: (item: ShopItem) => void;
+  onPurchase?: (item: ShopItemWithIcon) => void;
 }
 
 export function ShopPanel({ agent, onPurchase }: ShopPanelProps) {
   const [activeCategory, setActiveCategory] = useState('food');
-  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ShopItemWithIcon | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<ShopItem[]>([]);
+  const [items, setItems] = useState<ShopItemWithIcon[]>([]);
   const [balance, setBalance] = useState(agent?.stats?.money ?? 0);
 
   useEffect(() => {
-    api.getShopItems().then(data => {
+    shop.list().then(data => {
       setItems(data.map(item => ({
         ...item,
         icon: categoryIcons[item.category] || '📦',
@@ -60,7 +55,7 @@ export function ShopPanel({ agent, onPurchase }: ShopPanelProps) {
 
   useEffect(() => {
     if (agent?.id) {
-      api.getAgentEconomy(agent.id).then(data => {
+      economy.get(agent.id).then(data => {
         setBalance(data.balance);
       }).catch(() => {
         setBalance(agent.stats?.money ?? 0);
@@ -75,7 +70,7 @@ export function ShopPanel({ agent, onPurchase }: ShopPanelProps) {
     
     setLoading(true);
     try {
-      const result = await api.buyItem(agent.id, selectedItem.id);
+      const result = await shop.buy(agent.id, selectedItem.id);
       setBalance(result.newBalance);
       setPurchaseSuccess(true);
       onPurchase?.(selectedItem);

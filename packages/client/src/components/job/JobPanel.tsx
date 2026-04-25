@@ -1,19 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Briefcase, DollarSign, Zap, Heart, Loader2 } from 'lucide-react';
 import type { AgentInfo } from '../../lib/types';
-import { api, type Job as APIJob } from '../../lib/api';
+import { job, economy } from '../../services/api';
+import type { Job } from '@lore/shared';
 import './job-panel.css';
-
-interface Job {
-  id: string;
-  name: string;
-  category: 'fulltime' | 'parttime' | 'freelance' | 'intern';
-  salary: number;
-  salaryFrequency: 'daily' | 'weekly' | 'monthly';
-  energyCost: number;
-  moodEffect: number;
-  description?: string;
-}
 
 const jobCategories = [
   { id: 'fulltime', name: '全职', icon: '💼' },
@@ -39,14 +29,14 @@ export function JobPanel({ agent, onApply, onQuit }: JobPanelProps) {
   const hasJob = currentOccupation !== '无业' && currentOccupation !== '学生' && currentOccupation !== '退休';
 
   useEffect(() => {
-    api.getJobs().then(data => {
-      setJobs(data as Job[]);
+    job.list().then(data => {
+      setJobs(data);
     }).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (agent?.id) {
-      api.getAgentEconomy(agent.id).then(data => {
+      economy.get(agent.id).then(data => {
         setIncome(data.income ?? 0);
       }).catch(() => {});
     }
@@ -68,7 +58,7 @@ export function JobPanel({ agent, onApply, onQuit }: JobPanelProps) {
     
     setLoading(true);
     try {
-      const result = await api.applyJob(agent.id, selectedJob.id);
+      const result = await job.apply(agent.id, selectedJob.id);
       if (result.success) {
         setIncome(result.job.salary);
         onApply?.(selectedJob);
@@ -86,7 +76,7 @@ export function JobPanel({ agent, onApply, onQuit }: JobPanelProps) {
     
     setLoading(true);
     try {
-      await api.quitJob(agent.id);
+      await job.quit(agent.id);
       setIncome(0);
       onQuit?.();
     } catch (error) {

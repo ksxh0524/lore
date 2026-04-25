@@ -1,138 +1,182 @@
-import type { 
-  ProviderPreset, 
-  UserProvider, 
-  CreateProviderRequest, 
+import type {
+  ApiResponse,
+  ApiErrorBody,
+  WorldListItem,
+  InitRequest,
+  InitResult,
+  SerializedAgent,
+  ProviderPreset,
+  UserProvider,
+  CreateProviderRequest,
   UpdateProviderRequest,
-  TestProviderResponse 
+  TestProviderResponse,
+  ShopItem,
+  Job,
+  AgentEconomy,
 } from '@lore/shared';
 
 const API_BASE = '/api';
 
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+class ApiError extends Error {
+  code: number;
+  constructor(body: ApiErrorBody) {
+    super(body.message);
+    this.name = 'ApiError';
+    this.code = body.code;
+  }
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const hasBody = options?.body !== undefined;
-  const response = await fetch(`${API_BASE}${url}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
   });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    throw new ApiError(json.error);
   }
-  
-  return response.json();
+
+  return json.data as T;
 }
 
-// Provider API
-export const providerApi = {
-  // Get all presets
-  getPresets: (): Promise<{ data: ProviderPreset[] }> => 
-    fetchJson('/provider-presets'),
-  
-  // Get all user providers
-  getProviders: (): Promise<{ data: UserProvider[] }> => 
-    fetchJson('/providers'),
-  
-  // Get single provider
-  getProvider: (id: string): Promise<{ data: UserProvider }> => 
-    fetchJson(`/providers/${id}`),
-  
-  // Create new provider
-  createProvider: (data: CreateProviderRequest): Promise<{ data: { id: string } }> => 
-    fetchJson('/providers', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  
-  // Update provider
-  updateProvider: (id: string, data: UpdateProviderRequest): Promise<void> => 
-    fetchJson(`/providers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  
-  // Delete provider
-  deleteProvider: (id: string): Promise<void> => 
-    fetchJson(`/providers/${id}`, {
-      method: 'DELETE',
-    }),
-  
-  // Test provider connection
-  testProvider: (id: string): Promise<{ data: TestProviderResponse }> => 
-    fetchJson(`/providers/${id}/test`, {
-      method: 'POST',
-    }),
-  
-  // Fetch models from provider API
-  fetchModels: (presetId: string, apiKey: string): Promise<{ data: { models: string[] } }> => 
-    fetchJson(`/provider-presets/${presetId}/fetch-models`, {
-      method: 'POST',
-      body: JSON.stringify({ apiKey }),
-    }),
-};
+async function* streamRequest(path: string, body: unknown): AsyncGenerator<string> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 
-// World API
-export const api = {
-  getWorlds: async (): Promise<Array<{ id: string; name: string; type: 'random' | 'history'; status: string; createdAt: string }>> => {
-    const response = await fetch('/api/worlds');
-    if (!response.ok) throw new Error('Failed to get worlds');
-    const data = await response.json();
-    return data.data || [];
-  },
+  if (!res.ok) {
+    const json = await res.json();
+    throw new ApiError(json.error);
+  }
 
-  initWorld: async (params: { worldType: 'random' | 'history'; randomParams?: { age: number; location: string; background: string }; historyParams?: { presetName: string; targetCharacter?: string } }): Promise<{ worldId: string }> => {
-    const response = await fetch('/api/worlds/init', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
-    if (!response.ok) throw new Error('Failed to init world');
-    const data = await response.json();
-    return { worldId: data.data.worldId };
-  },
-  
-  getAgents: async (worldId: string): Promise<Array<{ id: string; profile: { name: string; age: number; occupation: string }; stats: { mood: number; health: number; energy: number; money: number }; state: { status: string; currentActivity: string } }>> => {
-    const response = await fetch(`/api/worlds/${worldId}/agents`);
-    if (!response.ok) throw new Error('Failed to get agents');
-    const data = await response.json();
-    return data.agents || [];
-  },
-  
-  pause: async (worldId: string): Promise<void> => {
-    await fetch(`/api/worlds/${worldId}/pause`, { method: 'POST' });
-  },
-  
-  resume: async (worldId: string): Promise<void> => {
-    await fetch(`/api/worlds/${worldId}/resume`, { method: 'POST' });
-  },
-  
-  streamChat: async function* (agentId: string, content: string): AsyncGenerator<string> {
-    const response = await fetch(`/api/agents/${agentId}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    });
-    
-    if (!response.ok) throw new Error('Failed to send message');
-    
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error('No response body');
-    
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      yield decoder.decode(value);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = JSON.parse(line.slice(6));
+        if (data.chunk) yield data.chunk;
+        if (data.done) return;
+      }
     }
-  },
-  
-  sendMessage: async (agentId: string, content: string): Promise<{ content: string }> => {
-    const response = await fetch(`/api/agents/${agentId}/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    });
-    if (!response.ok) throw new Error('Failed to send message');
-    return response.json();
-  },
+  }
+}
+
+export const world = {
+  list: (): Promise<WorldListItem[]> => request('/worlds'),
+  get: (id: string): Promise<WorldListItem> => request(`/worlds/${id}`),
+  init: (params: InitRequest): Promise<InitResult> => request('/worlds/init', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  }),
+  pause: (id: string): Promise<void> => request(`/worlds/${id}/pause`, { method: 'POST' }),
+  resume: (id: string): Promise<void> => request(`/worlds/${id}/resume`, { method: 'POST' }),
+  delete: (id: string): Promise<void> => request(`/worlds/${id}`, { method: 'DELETE' }),
+  save: (id: string, name?: string): Promise<{ saveId: string }> => request(`/worlds/${id}/save`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  }),
+  listSaves: (id: string): Promise<{ id: string; name: string; createdAt: string }[]> => request(`/worlds/${id}/saves`),
 };
+
+export const agent = {
+  list: (worldId: string): Promise<SerializedAgent[]> => request(`/worlds/${worldId}/agents`),
+  get: (id: string): Promise<SerializedAgent> => request(`/agents/${id}`),
+  chat: (id: string, content: string): Promise<{ content: string }> => request(`/agents/${id}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  }),
+  chatStream: (id: string, content: string): AsyncGenerator<string> => streamRequest(`/agents/${id}/chat`, { content }),
+  relationships: (id: string): Promise<{ targetId: string; type: string; intimacy: number }[]> => request(`/agents/${id}/relationships`),
+};
+
+export const economy = {
+  get: (agentId: string): Promise<AgentEconomy> => request(`/agents/${agentId}/economy`),
+  spend: (agentId: string, amount: number, reason: string): Promise<void> => request(`/agents/${agentId}/economy/spend`, {
+    method: 'POST',
+    body: JSON.stringify({ amount, reason }),
+  }),
+  earn: (agentId: string, amount: number, reason: string): Promise<void> => request(`/agents/${agentId}/economy/earn`, {
+    method: 'POST',
+    body: JSON.stringify({ amount, reason }),
+  }),
+};
+
+export const shop = {
+  list: (): Promise<ShopItem[]> => request('/shop/items'),
+  byCategory: (category: string): Promise<ShopItem[]> => request(`/shop/items/${category}`),
+  buy: (agentId: string, itemId: string): Promise<{ success: boolean; newBalance: number }> => request(`/agents/${agentId}/buy`, {
+    method: 'POST',
+    body: JSON.stringify({ itemId }),
+  }),
+};
+
+export const job = {
+  list: (): Promise<Job[]> => request('/jobs'),
+  byCategory: (category: string): Promise<Job[]> => request(`/jobs/${category}`),
+  canApply: (agentId: string, jobId: string): Promise<{ canApply: boolean }> => request(`/agents/${agentId}/can-apply/${jobId}`),
+  apply: (agentId: string, jobId: string): Promise<{ success: boolean; job: Job }> => request(`/agents/${agentId}/apply-job`, {
+    method: 'POST',
+    body: JSON.stringify({ jobId }),
+  }),
+  quit: (agentId: string): Promise<{ success: boolean }> => request(`/agents/${agentId}/quit-job`, { method: 'POST' }),
+};
+
+export const provider = {
+  listPresets: (): Promise<ProviderPreset[]> => request('/provider-presets'),
+  list: (): Promise<UserProvider[]> => request('/providers'),
+  get: (id: string): Promise<UserProvider> => request(`/providers/${id}`),
+  create: (data: CreateProviderRequest): Promise<UserProvider> => request('/providers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id: string, data: UpdateProviderRequest): Promise<UserProvider> => request(`/providers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  delete: (id: string): Promise<void> => request(`/providers/${id}`, { method: 'DELETE' }),
+  test: (id: string): Promise<TestProviderResponse> => request(`/providers/${id}/test`, { method: 'POST' }),
+  fetchModels: (presetId: string, apiKey: string): Promise<{ models: string[] }> => request(`/provider-presets/${presetId}/fetch-models`, {
+    method: 'POST',
+    body: JSON.stringify({ apiKey }),
+  }),
+};
+
+export const platform = {
+  list: (worldId: string): Promise<{ id: string; name: string; type: string }[]> => request(`/worlds/${worldId}/platforms`),
+  feed: (platformId: string): Promise<{ id: string; authorId: string; content: string; likes: number; createdAt: string }[]> => request(`/platforms/${platformId}/feed`),
+  post: (platformId: string, content: string, imageUrl?: string): Promise<{ id: string }> => request('/user/posts', {
+    method: 'POST',
+    body: JSON.stringify({ platformId, content, imageUrl }),
+  }),
+  like: (postId: string, agentId?: string): Promise<void> => request(`/posts/${postId}/like`, {
+    method: 'POST',
+    body: JSON.stringify({ agentId }),
+  }),
+  comment: (postId: string, authorId: string, content: string): Promise<void> => request(`/posts/${postId}/comment`, {
+    method: 'POST',
+    body: JSON.stringify({ authorId, content }),
+  }),
+};
+
+export const event = {
+  list: (worldId: string): Promise<{ id: string; type: string; description: string; timestamp: string }[]> => request(`/worlds/${worldId}/events`),
+};
+
+export { ApiError };

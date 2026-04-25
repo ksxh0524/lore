@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useWorldStore } from '../stores/worldStore';
 import { useMobile } from '../hooks/useMobile';
-import { api } from '../services/api';
+import { agent } from '../services/api';
 import { wsClient } from '../services/websocket';
+import type { SerializedAgent, WsWorldStateMessage, WsAgentUpdateMessage, WsInitCompleteMessage, WorldEvent } from '@lore/shared';
+import type { EventInfo } from '../lib/types';
 import { Header } from '../components/layout/Header';
 import { BottomNav } from '../components/layout/BottomNav';
 import { AgentList } from '../components/agent/AgentList';
@@ -13,11 +15,22 @@ import './world-page.css';
 
 type TabType = 'agents' | 'events' | 'chat' | 'timeline';
 
+function worldEventToEventInfo(event: WorldEvent): EventInfo {
+  return {
+    id: event.id,
+    type: event.type,
+    category: event.category,
+    description: event.description,
+    priority: event.priority,
+    timestamp: event.timestamp instanceof Date ? event.timestamp.toISOString() : String(event.timestamp),
+    processed: event.processed,
+  };
+}
+
 export function WorldPage() {
   const isMobile = useMobile();
   const [activeTab, setActiveTab] = useState<TabType>('events');
   const [sending, setSending] = useState(false);
-  const wsInitialized = useRef(false);
 
   const worldId = useWorldStore((s) => s.worldId);
   const agents = useWorldStore((s) => s.agents);
@@ -33,32 +46,29 @@ export function WorldPage() {
   const godMode = useWorldStore((s) => s.godMode);
 
   useEffect(() => {
-    if (wsInitialized.current || !worldId) return;
-    wsInitialized.current = true;
-
     wsClient.connect();
 
-    wsClient.on('world_state', (data) => {
+    wsClient.on('world_state', (data: WsWorldStateMessage) => {
       if (data.tick) setTick(data.tick);
       if (data.status === 'paused') setRunning(false);
       if (data.status === 'running') setRunning(true);
     });
 
-    wsClient.on('event', (data) => {
-      if (data.event) addEvent(data.event);
+    wsClient.on('event', (data: { event: WorldEvent }) => {
+      if (data.event) addEvent(worldEventToEventInfo(data.event));
     });
 
-    wsClient.on('agent_update', (data) => {
-      setAgents(agents.map(a => 
-        a.id === data.agentId 
-          ? { ...a, state: data.state, stats: data.stats } 
+    wsClient.on('agent_update', (data: WsAgentUpdateMessage) => {
+      setAgents(agents.map(a =>
+        a.id === data.agentId
+          ? { ...a, state: data.state, stats: data.stats }
           : a
       ));
     });
 
-    wsClient.on('init_complete', async (data) => {
+    wsClient.on('init_complete', async (data: WsInitCompleteMessage) => {
       if (data.worldId) {
-        const updatedAgents = await api.getAgents(data.worldId);
+        const updatedAgents = await agent.list(data.worldId);
         setAgents(updatedAgents);
       }
     });
@@ -67,9 +77,8 @@ export function WorldPage() {
 
     return () => {
       wsClient.disconnect();
-      wsInitialized.current = false;
     };
-  }, [worldId]);
+  }, []);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
 
@@ -82,16 +91,16 @@ export function WorldPage() {
     try {
       let fullResponse = '';
       
-      try {
-        for await (const chunk of api.streamChat(selectedAgentId, content)) {
-          fullResponse += chunk;
-          addMessage('agent_stream', chunk);
-        }
-      } catch {
-        const res = await api.sendMessage(selectedAgentId, content);
-        fullResponse = res.content;
-        addMessage('agent', fullResponse);
+try {
+      for await (const chunk of agent.chatStream(selectedAgentId, content)) {
+        fullResponse += chunk;
+        addMessage('agent_stream', chunk);
       }
+    } catch {
+      const res = await agent.chat(selectedAgentId, content);
+      fullResponse = res.content;
+      addMessage('agent', fullResponse);
+    }
     } catch (err) {
       addMessage('agent', `[错误] ${err instanceof Error ? err.message : '发送失败'}`);
     } finally {

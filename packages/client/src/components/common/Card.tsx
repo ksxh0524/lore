@@ -41,14 +41,14 @@ export function Card({
 }
 
 interface EventCardProps {
-  type: 'social' | 'work' | 'random' | 'relationship' | 'health' | 'money' | 'world';
+  type: string;
   title: string;
   description: string;
   actions?: { label: string; onClick: () => void; variant?: 'primary' | 'secondary' }[];
   timestamp?: string;
 }
 
-const eventIcons = {
+const eventIcons: Record<string, typeof MessageSquare> = {
   social: MessageSquare,
   work: Briefcase,
   random: Dice5,
@@ -69,8 +69,8 @@ const eventColors: Record<string, string> = {
 };
 
 export function EventCard({ type, title, description, actions, timestamp }: EventCardProps) {
-  const IconComponent = eventIcons[type];
-  const color = eventColors[type];
+  const IconComponent = eventIcons[type] || MessageSquare;
+  const color = eventColors[type] || 'var(--text-muted)';
 
   return (
     <Card padding="md" className={`event-card type-${type}`}>

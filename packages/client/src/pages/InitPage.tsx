@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Globe, Shuffle, History, Check, Loader2, Lightbulb } from 'lucide-react';
 import { useWorldStore } from '../stores/worldStore';
-import { api } from '../services/api';
+import { world, agent } from '../services/api';
 import './InitPage.css';
 
 const historyPresets = [
@@ -31,7 +31,7 @@ export function InitPage() {
     setInitializing(true);
 
     try {
-      const result = await api.initWorld({
+      const result = await world.init({
         worldType: mode,
         randomParams: mode === 'random'
           ? { age, location, background }
@@ -42,7 +42,7 @@ export function InitPage() {
       });
 
       setWorldId(result.worldId);
-      const agents = await api.getAgents(result.worldId);
+      const agents = await agent.list(result.worldId);
       setAgents(agents);
       setRunning(true);
       navigate('/world');

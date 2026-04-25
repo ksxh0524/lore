@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { providerApi } from '../../services/api';
+import { provider as providerApi } from '../../services/api';
 import type { ProviderPreset, UserProvider } from '@lore/shared';
 import { RefreshCw, Plus, X, Loader2 } from 'lucide-react';
 import './provider-edit-modal.css';
@@ -42,7 +42,7 @@ export function ProviderEditModal({ preset, provider, onClose, onSave }: Provide
     
     try {
       const result = await providerApi.fetchModels(currentPreset.id, apiKey);
-      setAvailableModels(result.data.models);
+      setAvailableModels(result.models);
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取模型失败');
     } finally {

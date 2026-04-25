@@ -1,17 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, Plus, Settings, ChevronRight, Loader2, Clock, Calendar } from 'lucide-react';
-import { api } from '../services/api';
+import { world } from '../services/api';
+import type { WorldListItem } from '@lore/shared';
 import { useWorldStore } from '../stores/worldStore';
 import './HomePage.css';
-
-interface World {
-  id: string;
-  name: string;
-  type: 'random' | 'history';
-  status: string;
-  createdAt: string;
-}
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -20,7 +13,7 @@ function formatDate(dateStr: string): string {
 
 export function HomePage() {
   const navigate = useNavigate();
-  const [worlds, setWorlds] = useState<World[]>([]);
+  const [worlds, setWorlds] = useState<WorldListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const setWorldId = useWorldStore((s) => s.setWorldId);
 
@@ -30,7 +23,7 @@ export function HomePage() {
 
   const loadWorlds = async () => {
     try {
-      const data = await api.getWorlds();
+      const data = await world.list();
       setWorlds(data);
     } catch (err) {
       console.error('Failed to load worlds:', err);

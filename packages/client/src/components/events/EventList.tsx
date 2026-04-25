@@ -1,23 +1,15 @@
 import { Zap } from 'lucide-react';
 import { useWorldStore } from '../../stores/worldStore';
 import { EventCard } from '../common/Card';
+import type { EventInfo } from '../../lib/types';
 import './event-list.css';
-
-interface Event {
-  id: string;
-  type: 'social' | 'work' | 'random' | 'relationship' | 'health' | 'money' | 'world';
-  title: string;
-  description: string;
-  timestamp?: string;
-  processed?: boolean;
-}
 
 interface EventListProps {
   onEventAction?: (eventId: string, action: string) => void;
 }
 
 export function EventList({ onEventAction }: EventListProps) {
-  const events = useWorldStore((s) => s.events);
+  const events = useWorldStore((s) => s.events as EventInfo[]);
 
   const displayEvents = events
     .filter((e) => !e.processed)

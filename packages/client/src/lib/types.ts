@@ -21,7 +21,7 @@ export interface EventOption {
 
 export interface EventInfo {
   id: string;
-  type: 'world' | 'social' | 'work' | 'random' | 'relationship' | 'health' | 'money';
+  type: string;
   category?: string;
   title?: string;
   description: string;

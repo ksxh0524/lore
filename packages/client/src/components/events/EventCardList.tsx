@@ -1,11 +1,10 @@
 import { useWorldStore } from '../../stores/worldStore';
 import { EventCard } from '../common/Card';
 import type { CSSProperties } from 'react';
-
-
+import type { EventInfo } from '../../lib/types';
 
 export function EventCardList() {
-  const events = useWorldStore((s) => s.events);
+  const events = useWorldStore((s) => s.events as EventInfo[]);
 
   const displayEvents = events
     .filter((e) => !e.processed)

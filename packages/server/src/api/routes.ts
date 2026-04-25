@@ -348,15 +348,21 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps) {
       Connection: 'keep-alive',
     });
 
+    let aborted = false;
+    req.raw.on('close', () => { aborted = true; });
+
     let full = '';
     for await (const chunk of agent.chat(content, llmScheduler, config)) {
+      if (aborted) break;
       full += chunk;
       reply.raw.write(`data: ${JSON.stringify({ chunk, done: false })}\n\n`);
     }
-    reply.raw.write(`data: ${JSON.stringify({ chunk: '', done: true })}\n\n`);
 
-    await repo.createMessage({ id: nanoid(), worldId: agent.worldId, fromAgentId: id, content, type: 'chat' });
-    await repo.createMessage({ id: nanoid(), worldId: agent.worldId, toAgentId: id, content: full, type: 'chat' });
+    if (!aborted) {
+      reply.raw.write(`data: ${JSON.stringify({ chunk: '', done: true })}\n\n`);
+      await repo.createMessage({ id: nanoid(), worldId: agent.worldId, fromAgentId: id, content, type: 'chat' });
+      await repo.createMessage({ id: nanoid(), worldId: agent.worldId, toAgentId: id, content: full, type: 'chat' });
+    }
 
     reply.raw.end();
   });

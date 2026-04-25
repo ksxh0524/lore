@@ -1,16 +1,14 @@
 import { create } from 'zustand';
 import type { ProviderPreset, UserProvider } from '@lore/shared';
-import { providerApi } from '../services/api';
+import { provider } from '../services/api';
 
 interface SettingsState {
-  // Provider settings
   presets: ProviderPreset[];
   providers: UserProvider[];
   selectedProviderId: string | null;
   isLoading: boolean;
   error: string | null;
-  
-  // Actions
+
   loadPresets: () => Promise<void>;
   loadProviders: () => Promise<void>;
   addProvider: (presetId: string, apiKey: string, models?: string[]) => Promise<void>;
@@ -30,7 +28,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   loadPresets: async () => {
     try {
-      const { data } = await providerApi.getPresets();
+      const data = await provider.listPresets();
       set({ presets: data });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to load presets' });
@@ -40,7 +38,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   loadProviders: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { data } = await providerApi.getProviders();
+      const data = await provider.list();
       set({ providers: data, isLoading: false });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to load providers', isLoading: false });
@@ -52,19 +50,18 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     try {
       const preset = get().presets.find(p => p.id === presetId);
       if (!preset) throw new Error('Preset not found');
-      
+
       const defaultModel = preset.models?.[0] ?? '';
       const enabledModels = models?.length ? models.filter((m): m is string => !!m) : (defaultModel ? [defaultModel] : []);
-      
-      const result = await providerApi.createProvider({
+
+      await provider.create({
         presetId,
         name: preset.name,
         apiKey,
         models: enabledModels,
         defaultModel: enabledModels[0],
       });
-      
-      if (!result.data?.id) throw new Error('Failed to create provider');
+
       await get().loadProviders();
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to add provider', isLoading: false });
@@ -75,7 +72,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   updateProvider: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      await providerApi.updateProvider(id, updates);
+      await provider.update(id, updates);
       await get().loadProviders();
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to update provider', isLoading: false });
@@ -86,7 +83,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   deleteProvider: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await providerApi.deleteProvider(id);
+      await provider.delete(id);
       await get().loadProviders();
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Failed to delete provider', isLoading: false });
@@ -96,7 +93,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   testProvider: async (id) => {
     try {
-      const { data } = await providerApi.testProvider(id);
+      const data = await provider.test(id);
       return { success: data.success, message: data.message };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Test failed';
@@ -105,6 +102,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   setSelectedProvider: (id) => set({ selectedProviderId: id }),
-  
+
   clearError: () => set({ error: null }),
 }));
