@@ -36,15 +36,17 @@ export class ProviderFactory {
     this.defaultImageProvider = new MockImageProvider();
 
     for (const pc of config.llm.providers) {
-      if (!pc.apiKey && pc.type !== 'ollama') {
-        logger.warn({ provider: pc.name }, 'Provider has no API key, skipping');
-        continue;
+      if (pc.type !== 'ollama' && pc.type !== 'mock') {
+        if (!pc.apiKey || pc.apiKey.trim() === '') {
+          logger.warn({ provider: pc.name }, 'Provider has no API key, skipping');
+          continue;
+        }
       }
 
       const providerConfig: ProviderConfigEntry = {
         name: pc.name,
         type: pc.type as ProviderType,
-        apiKey: pc.apiKey,
+        apiKey: pc.apiKey?.trim() ?? '',
         baseUrl: pc.baseUrl,
         models: pc.models,
         embeddingModel: pc.embeddingModel,
@@ -58,10 +60,16 @@ export class ProviderFactory {
       }
 
       if (pc.imageModels && pc.imageModels.length > 0) {
+        const apiKey = pc.apiKey?.trim() ?? '';
+        if (apiKey === '' && pc.type !== 'ollama' && pc.type !== 'mock') {
+          logger.warn({ provider: pc.name }, 'Image provider has no API key, skipping');
+          continue;
+        }
+
         const imageProvider = new OpenAIImageProvider({
           name: pc.name,
           baseUrl: pc.baseUrl,
-          apiKey: pc.apiKey ?? '',
+          apiKey,
           models: pc.imageModels,
         });
 

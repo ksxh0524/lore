@@ -344,17 +344,24 @@ private async getRelatedAgents(
     const existing = existingEvents.find(e => e.id === nextEventId);
     if (!existing) return null;
 
+    const validTypes = ['world', 'random', 'social', 'economic'] as const;
+    const eventType: WorldEvent['type'] = validTypes.includes(existing.type as typeof validTypes[number])
+      ? existing.type as WorldEvent['type']
+      : 'world';
+
     return {
       id: nanoid(),
       worldId,
-      type: (existing.type as WorldEvent['type']) ?? 'world',
+      type: eventType,
       category: existing.category ?? 'chain',
       description: existing.description ?? '',
-      involvedAgents: (triggerEvent.involvedAgents as string[]) ?? [],
-      consequences: triggerEvent.consequences ?? [],
+      involvedAgents: Array.isArray(triggerEvent.involvedAgents) 
+        ? triggerEvent.involvedAgents.filter((id): id is string => typeof id === 'string')
+        : [],
+      consequences: Array.isArray(triggerEvent.consequences) ? triggerEvent.consequences : [],
       timestamp: new Date(),
       processed: false,
-      priority: (triggerEvent.priority ?? 50) + 10,
+      priority: Math.max(0, Math.min(100, triggerEvent.priority ?? 50 + 10)),
     };
   }
 

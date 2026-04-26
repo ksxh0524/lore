@@ -3,9 +3,35 @@ import type { LLMScheduler } from '../llm/scheduler.js';
 import type { LoreConfig } from '../config/loader.js';
 import type { Repository } from '../db/repository.js';
 import { nanoid } from 'nanoid';
+import { z } from 'zod';
 import { createLogger } from '../logger/index.js';
 
 const logger = createLogger('world-agent');
+
+const WorldAgentDecisionSchema = z.object({
+  shouldAct: z.boolean().default(false),
+  eventType: z.enum(['disaster', 'economic', 'social', 'political', 'health', 'weather', 'none']).default('none'),
+  eventCategory: z.string().default('未知事件'),
+  description: z.string().max(200).default('发生了一些事'),
+  severity: z.enum(['minor', 'moderate', 'major', 'catastrophic']).default('minor'),
+  affectedAgentCriteria: z.object({
+    occupation: z.array(z.string()).optional(),
+    moodRange: z.tuple([z.number(), z.number()]).optional(),
+    random: z.number().min(0).max(1).optional(),
+    all: z.boolean().optional(),
+  }).default({}),
+  consequences: z.object({
+    statChanges: z.object({
+      mood: z.number().optional(),
+      health: z.number().optional(),
+      energy: z.number().optional(),
+      money: z.number().optional(),
+    }).default({}),
+    relationshipModifier: z.number().optional(),
+  }).default({ statChanges: {} }),
+  reasoning: z.string().default(''),
+  probability: z.number().min(0).max(1).default(0.5),
+});
 
 export interface WorldStateSummary {
   currentTick: number;
@@ -246,28 +272,35 @@ ${recentHistory || '（无重大事件）'}
   private validateDecision(parsed: unknown): WorldAgentDecision | null {
     if (!parsed || typeof parsed !== 'object') return null;
 
-    const d = parsed as Record<string, unknown>;
-
-    const validTypes = ['disaster', 'economic', 'social', 'political', 'health', 'weather', 'none'];
-    const validSeverities = ['minor', 'moderate', 'major', 'catastrophic'];
-
-    if (d.eventType && !validTypes.includes(d.eventType as string)) {
-      d.eventType = 'weather';
+    const result = WorldAgentDecisionSchema.safeParse(parsed);
+    if (!result.success) {
+      logger.warn({ 
+        errors: result.error.errors, 
+        parsed: JSON.stringify(parsed).slice(0, 200) 
+      }, 'World Agent decision validation failed');
+      return null;
     }
-    if (d.severity && !validSeverities.includes(d.severity as string)) {
-      d.severity = 'minor';
-    }
+
+    const d = result.data;
 
     return {
-      shouldAct: Boolean(d.shouldAct),
-      eventType: (d.eventType as WorldAgentDecision['eventType']) || 'none',
-      eventCategory: String(d.eventCategory || '未知事件'),
-      description: String(d.description || '发生了一些事'),
-      severity: (d.severity as WorldAgentDecision['severity']) || 'minor',
-      affectedAgentCriteria: (d.affectedAgentCriteria as WorldAgentDecision['affectedAgentCriteria']) || { random: 0.2 },
-      consequences: (d.consequences as WorldAgentDecision['consequences']) || { statChanges: {} },
-      reasoning: String(d.reasoning || ''),
-      probability: Math.max(0, Math.min(1, Number(d.probability || 0.5))),
+      shouldAct: d.shouldAct,
+      eventType: d.eventType,
+      eventCategory: d.eventCategory,
+      description: d.description,
+      severity: d.severity,
+      affectedAgentCriteria: {
+        occupation: d.affectedAgentCriteria.occupation,
+        moodRange: d.affectedAgentCriteria.moodRange,
+        random: d.affectedAgentCriteria.random,
+        all: d.affectedAgentCriteria.all,
+      },
+      consequences: {
+        statChanges: d.consequences.statChanges,
+        relationshipModifier: d.consequences.relationshipModifier,
+      },
+      reasoning: d.reasoning,
+      probability: d.probability,
     };
   }
 

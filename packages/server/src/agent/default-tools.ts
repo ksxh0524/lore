@@ -451,6 +451,28 @@ export function createWriteCodeTool(repo: Repository): AgentTool {
         return { success: false, message: '代码太长（限制5000字符）', result: { written: false } };
       }
 
+      const dangerousPatterns = [
+        /eval\s*\(/,
+        /exec\s*\(/,
+        /require\s*\(\s*['"]child_process/,
+        /import\s+.*child_process/,
+        /process\.env/,
+        /fs\.(read|write|unlink)/,
+        /__dirname|__filename/,
+        /os\./,
+        /system\s*\(/,
+        /subprocess/,
+      ];
+
+      const hasDangerousCode = dangerousPatterns.some(p => p.test(code));
+      if (hasDangerousCode) {
+        return {
+          success: false,
+          message: '代码包含潜在危险操作，已拒绝提交。沙盒环境不允许访问系统资源。',
+          result: { written: false, reason: 'security_check_failed' },
+        };
+      }
+
       const sandbox = await repo.createSandboxCode({
         id: nanoid(),
         worldId: context.worldId,
@@ -498,19 +520,27 @@ export function createFindJobTool(): AgentTool {
 
       const stateChanges: StateChange = { activity: `正在找${jobType}工作` };
 
-      const success = Math.random() > 0.3;
+      const baseSuccessRate = 0.5;
+      const moodModifier = Math.max(0, Math.min(0.3, (context.stats.mood - 50) / 100));
+      const energyModifier = Math.max(0, Math.min(0.2, (context.stats.energy - 30) / 100));
+      const successRate = Math.min(0.9, baseSuccessRate + moodModifier + energyModifier);
+      
+      const success = Math.random() < successRate;
+
       if (success) {
         return {
           success: true,
           message: `你成功获得了一份${company}的${jobType}面试机会！`,
-          result: { interviewScheduled: true, company, jobType },
+          result: { interviewScheduled: true, company, jobType, successRate },
+          statChanges: [{ stat: 'energy', delta: -10, reason: 'job_search' }],
           stateChanges: [stateChanges],
         };
       }
       return {
         success: false,
-        message: `很遗憾，${company}暂时没有招聘${jobType}的计划。`,
-        result: { interviewScheduled: false },
+        message: `很遗憾，${company}暂时没有招聘${jobType}的计划。继续提升能力吧！`,
+        result: { interviewScheduled: false, successRate },
+        statChanges: [{ stat: 'mood', delta: -5, reason: 'job_search_failed' }],
         stateChanges: [stateChanges],
       };
     },
@@ -583,7 +613,9 @@ export function createSocializeTool(): AgentTool {
       const action = String(args.action ?? '聊天');
       const message = args.message ? String(args.message) : '';
 
-      const moodChange = Math.floor(Math.random() * 20) - 5;
+      const baseMoodChange = Math.floor(Math.random() * 20) - 5;
+      const contextModifier = context.stats.mood > 70 ? 5 : context.stats.mood < 30 ? -5 : 0;
+      const moodChange = Math.max(-15, Math.min(15, baseMoodChange + contextModifier));
 
       return {
         success: true,

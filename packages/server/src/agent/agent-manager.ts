@@ -1,12 +1,57 @@
 import { nanoid } from 'nanoid';
-import type { AgentType, AgentProfile, AgentState, AgentStats, Relationship as RelationshipType } from '@lore/shared';
+import type { AgentType, AgentProfile, AgentState, AgentStats, SerializedAgent, SimplifiedRelationship } from '@lore/shared';
 import { AgentRuntime } from './agent-runtime.js';
 import type { Repository } from '../db/repository.js';
 import type { LLMScheduler } from '../llm/scheduler.js';
 import type { LoreConfig } from '../config/loader.js';
 import { createLogger } from '../logger/index.js';
+import { z } from 'zod';
 
 const logger = createLogger('agent-manager');
+
+const AgentProfileSchema = z.object({
+  name: z.string(),
+  age: z.number(),
+  gender: z.string(),
+  occupation: z.string(),
+  personality: z.string(),
+  background: z.string(),
+  speechStyle: z.string(),
+  likes: z.array(z.string()),
+  dislikes: z.array(z.string()),
+  avatarUrl: z.string().optional(),
+});
+
+const AgentStateSchema = z.object({
+  status: z.enum(['idle', 'active', 'sleeping', 'dead', 'traveling', 'working', 'socializing']),
+  currentActivity: z.string(),
+  currentLocation: z.string(),
+  lastActiveTick: z.number(),
+});
+
+const AgentStatsSchema = z.object({
+  mood: z.number().min(0).max(100),
+  health: z.number().min(0).max(100),
+  energy: z.number().min(0).max(100),
+  money: z.number().min(0),
+});
+
+const AgentRowSchema = z.object({
+  id: z.string(),
+  worldId: z.string(),
+  type: z.string(),
+  profile: AgentProfileSchema,
+  state: AgentStateSchema,
+  stats: AgentStatsSchema,
+});
+
+const RelationshipSchema = z.object({
+  id: z.string(),
+  agentId: z.string(),
+  targetAgentId: z.string(),
+  type: z.string(),
+  intimacy: z.number().optional(),
+});
 
 export class AgentManager {
   private agents = new Map<string, AgentRuntime>();
@@ -48,10 +93,27 @@ export class AgentManager {
     return this.agents;
   }
 
-  private async loadRelationships(agentId: string): Promise<Array<[string, RelationshipType]>> {
+  private async loadRelationships(agentId: string): Promise<Array<[string, SimplifiedRelationship]>> {
     try {
       const rels = await this.repo.getAgentRelationships(agentId);
-      return rels.map((r) => [r.targetAgentId, r as unknown as RelationshipType] as [string, RelationshipType]);
+      const validated: Array<[string, SimplifiedRelationship]> = [];
+      
+      for (const r of rels) {
+        const result = RelationshipSchema.safeParse(r);
+        if (result.success) {
+          validated.push([
+            result.data.targetAgentId,
+            {
+              type: result.data.type,
+              intimacy: result.data.intimacy ?? 0,
+            }
+          ] as [string, SimplifiedRelationship]);
+        } else {
+          logger.warn({ agentId, relId: r.id, errors: result.error.errors }, 'Invalid relationship data');
+        }
+      }
+      
+      return validated;
     } catch (err) {
       logger.warn({ agentId, err }, 'Failed to load relationships');
       return [];
@@ -68,22 +130,30 @@ export class AgentManager {
     for (const row of rows) {
       let agent = this.agents.get(row.id);
       if (!agent) {
+        const validationResult = AgentRowSchema.safeParse(row);
+        if (!validationResult.success) {
+          logger.warn({ agentId: row.id, errors: validationResult.error.errors }, 'Invalid agent row data');
+          continue;
+        }
+
+        const validated = validationResult.data;
         const relationships = await this.loadRelationships(row.id);
+        
         agent = AgentRuntime.deserialize(
           {
-            id: row.id,
-            worldId: row.worldId,
-            type: row.type as AgentType,
-            profile: row.profile as AgentProfile,
-            state: row.state as AgentState,
-            stats: row.stats as AgentStats,
+            id: validated.id,
+            worldId: validated.worldId,
+            type: validated.type as AgentType,
+            profile: validated.profile,
+            state: validated.state,
+            stats: validated.stats,
             relationships,
           },
           this.repo,
           this.llmScheduler,
           this.config,
         );
-        this.agents.set(row.id, agent);
+        this.agents.set(validated.id, agent);
         agent.setAgentManager(this);
       }
       result.push(agent);

@@ -31,6 +31,11 @@ export interface AgentStats {
 
 export type ThoughtFrequency = 'high' | 'medium' | 'low' | 'minimal';
 
+export interface SimplifiedRelationship {
+  type: string;
+  intimacy: number;
+}
+
 export interface SerializedAgent {
   id: string;
   worldId: string;
@@ -38,5 +43,5 @@ export interface SerializedAgent {
   profile: AgentProfile;
   state: AgentState;
   stats: AgentStats;
-  relationships: Array<[string, import('./relationship').Relationship]>;
+  relationships: Array<[string, SimplifiedRelationship]>;
 }

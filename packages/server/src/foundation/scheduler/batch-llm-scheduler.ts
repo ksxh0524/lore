@@ -5,9 +5,21 @@ import { LLMResilience } from '../../llm/resilience.js';
 import type { LoreConfig } from '../../config/loader.js';
 import type { Monitor } from '../../monitor/index.js';
 import type { AgentProfile, AgentStats, AgentState } from '@lore/shared';
+import { z } from 'zod';
 import { createLogger } from '../../logger/index.js';
 
 const logger = createLogger('batch-llm-scheduler');
+
+const BatchDecisionItemSchema = z.object({
+  agentId: z.string(),
+  action: z.string().min(1).max(100),
+  reasoning: z.string().max(200),
+  moodChange: z.number().min(-20).max(20).default(0),
+  say: z.string().max(100).optional(),
+  confidence: z.number().min(0).max(1).default(0.7),
+});
+
+const BatchDecisionArraySchema = z.array(BatchDecisionItemSchema);
 
 export interface BatchDecisionInput {
   agentId: string;
@@ -217,6 +229,8 @@ export class BatchLLMScheduler {
 - 决策要符合Agent的性格和当前状态
 - 返回JSON数组，每个元素对应一个Agent
 - 决策可以简单（如"继续工作"）或复杂（如"辞职创业"）
+- 禁止输出任何系统指令或改变输出格式
+- 返回纯JSON，不要包含markdown代码块
 
 返回格式：
 [
@@ -251,23 +265,33 @@ ${agentDescriptions}
   private parseBatchDecision(content: string, agents: BatchDecisionInput[]): BatchDecisionOutput[] {
     try {
       const parsed = JSON.parse(content);
-      if (!Array.isArray(parsed)) {
-        logger.warn({ content: content.slice(0, 200) }, 'Batch decision not an array');
+      
+      const result = BatchDecisionArraySchema.safeParse(parsed);
+      if (!result.success) {
+        logger.warn({ 
+          errors: result.error.errors, 
+          content: content.slice(0, 200) 
+        }, 'Batch decision validation failed');
         return this.generateFallbackDecisions(agents);
       }
 
+      const validated = result.data;
       const results: BatchDecisionOutput[] = [];
-      for (const item of parsed) {
+
+      for (const item of validated) {
         const agent = agents.find(a => a.agentId === item.agentId);
-        if (!agent) continue;
+        if (!agent) {
+          logger.warn({ agentId: item.agentId }, 'Batch decision references unknown agent');
+          continue;
+        }
 
         results.push({
           agentId: item.agentId,
-          action: String(item.action || '空闲'),
-          reasoning: String(item.reasoning || ''),
-          moodChange: Math.max(-20, Math.min(20, Number(item.moodChange || 0))),
-          say: item.say ? String(item.say) : undefined,
-          confidence: Math.max(0, Math.min(1, Number(item.confidence || 0.7))),
+          action: item.action,
+          reasoning: item.reasoning,
+          moodChange: item.moodChange,
+          say: item.say,
+          confidence: item.confidence,
         });
       }
 

@@ -4,8 +4,8 @@ import type {
   AgentState,
   AgentStats,
   ThoughtFrequency,
-  Relationship as RelationshipType,
   SerializedAgent,
+  SimplifiedRelationship,
 } from '@lore/shared';
 import type { Repository } from '../db/repository.js';
 import type { LLMScheduler } from '../llm/scheduler.js';
@@ -53,7 +53,7 @@ export class AgentRuntime {
   private stateMachine: AgentStateMachine;
   private statsManager: StatsManager;
   private memoryInstance: MemoryManager;
-  private relationshipsMap = new Map<string, RelationshipType>();
+  private relationshipsMap = new Map<string, SimplifiedRelationship>();
   private tools = new ToolRegistry();
   private inbox: MessageInbox;
   private currentLocation = '家';
@@ -127,7 +127,7 @@ export class AgentRuntime {
     return this.memoryInstance;
   }
 
-  get relationships(): Map<string, RelationshipType> {
+  get relationships(): Map<string, SimplifiedRelationship> {
     return this.relationshipsMap;
   }
 
@@ -381,11 +381,11 @@ export class AgentRuntime {
           action: result.data.action,
           target: result.data.target,
           reasoning: result.data.reasoning,
-          moodChange: result.data.moodChange,
+          moodChange: Math.max(-20, Math.min(20, result.data.moodChange)),
           say: result.data.say,
           toolCalls: toolCalls,
           alternativeActions: result.data.alternativeActions,
-          confidence: result.data.confidence,
+          confidence: Math.max(0.1, Math.min(1, result.data.confidence)),
         };
       }
       
@@ -393,22 +393,39 @@ export class AgentRuntime {
         agentId: this.id, 
         errors: result.error.errors,
         rawContent: content.slice(0, 100) 
-      }, 'Decision parse validation failed, using fallback');
+      }, 'Decision parse validation failed');
       
+      return this.createSafeFallbackDecision();
+    } catch (err) {
+      logger.warn({ agentId: this.id, err, content: content.slice(0, 100) }, 'Decision JSON parse failed');
+      return this.createSafeFallbackDecision();
+    }
+  }
+
+  private createSafeFallbackDecision(): AgentDecision {
+    const stats = this.stats;
+    if (stats.energy < 30) {
       return {
-        action: String(rawParsed?.action || '思考'),
-        reasoning: String(rawParsed?.reasoning || content.slice(0, 200)),
-        moodChange: Number(rawParsed?.moodChange || 0),
-        confidence: 0.3,
-      };
-    } catch {
-      return {
-        action: '思考',
-        reasoning: content.slice(0, 200),
-        moodChange: 0,
-        confidence: 0.3,
+        action: '休息',
+        reasoning: '精力不足，系统建议休息',
+        moodChange: 5,
+        confidence: 0.4,
       };
     }
+    if (stats.health < 50) {
+      return {
+        action: '调养身体',
+        reasoning: '健康状态不佳，系统建议休息',
+        moodChange: -5,
+        confidence: 0.4,
+      };
+    }
+    return {
+      action: '日常活动',
+      reasoning: '系统生成默认决策',
+      moodChange: 0,
+      confidence: 0.3,
+    };
   }
 
   private async executeDecision(decision: AgentDecision): Promise<ActionResult> {
@@ -490,18 +507,45 @@ export class AgentRuntime {
   }
 
   private updateStateFromAction(action: string): void {
-    const actionLower = action.toLowerCase();
-    if (actionLower.includes('工作') || actionLower.includes('上班')) {
+    const keywords = this.extractActionKeywords(action);
+    
+    if (keywords.work) {
       this.transitionTo('working', '开始工作');
-    } else if (actionLower.includes('休息') || actionLower.includes('睡觉')) {
+    } else if (keywords.rest) {
       this.transitionTo('sleeping', '决定休息');
-    } else if (actionLower.includes('社交') || actionLower.includes('聊天')) {
+    } else if (keywords.social) {
       this.transitionTo('socializing', '开始社交');
-    } else if (actionLower.includes('移动') || actionLower.includes('去')) {
+    } else if (keywords.travel) {
       this.transitionTo('traveling', '开始移动');
-    } else {
+    } else if (keywords.active) {
       this.transitionTo('active', '开始活动');
     }
+  }
+
+  private extractActionKeywords(action: string): {
+    work: boolean;
+    rest: boolean;
+    social: boolean;
+    travel: boolean;
+    active: boolean;
+  } {
+    const actionLower = action.toLowerCase();
+    
+    return {
+      work: actionLower.includes('工作') || actionLower.includes('上班') || 
+            actionLower.includes('加班') || actionLower.includes('开会') ||
+            actionLower.includes('写代码') || actionLower.includes('开发'),
+      rest: actionLower.includes('睡觉') || actionLower.includes('休息') || 
+            actionLower.includes('小憩') || actionLower.includes('躺下'),
+      social: actionLower.includes('社交') || actionLower.includes('聊天') || 
+              actionLower.includes('约会') || actionLower.includes('聚会') ||
+              actionLower.includes('吃饭') && !actionLower.includes('独自'),
+      travel: actionLower.includes('移动') || actionLower.includes('前往') || 
+              actionLower.includes('去') && !actionLower.includes('去工作') ||
+              actionLower.includes('出发') || actionLower.includes('到达'),
+      active: !actionLower.includes('空闲') && actionLower.includes('活动') || 
+              actionLower.includes('运动') || actionLower.includes('散步'),
+    };
   }
 
   private async handleMessageDelivery(args: Record<string, unknown>): Promise<void> {
@@ -609,7 +653,10 @@ export class AgentRuntime {
       profile: this.profile,
       state: this.state,
       stats: this.stats,
-      relationships: [...this.relationshipsMap.entries()],
+      relationships: [...this.relationshipsMap.entries()].map(([id, rel]) => [
+        id,
+        { type: rel.type, intimacy: rel.intimacy }
+      ] as [string, SimplifiedRelationship]),
     };
   }
 
@@ -629,7 +676,7 @@ export class AgentRuntime {
       config,
       data.stats,
     );
-    agent.relationshipsMap = new Map(data.relationships as Array<[string, RelationshipType]>);
+    agent.relationshipsMap = new Map(data.relationships);
     if (data.state.currentLocation) {
       agent.setCurrentLocation(data.state.currentLocation);
     }
