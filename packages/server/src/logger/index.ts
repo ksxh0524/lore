@@ -1,6 +1,6 @@
 import pino, { type Logger, type LoggerOptions } from 'pino';
 import { mkdirSync, existsSync, readdirSync, statSync, unlinkSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
 import { homedir } from 'os';
 
 export interface LoggerConfig {
@@ -21,6 +21,7 @@ const DEFAULT_CONFIG: LoggerConfig = {
 
 let rootLogger: Logger | null = null;
 let currentConfig: LoggerConfig = DEFAULT_CONFIG;
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 function getLogFileName(): string {
   const now = new Date();
@@ -36,23 +37,39 @@ function ensureLogDir(dir: string): void {
   }
 }
 
-function cleanOldLogs(dir: string, maxFiles: number): void {
-  if (!existsSync(dir)) return;
-  
-  const files = readdirSync(dir)
-    .filter(f => f.startsWith('lore-') && f.endsWith('.log'))
-    .map(f => ({
-      name: f,
-      path: join(dir, f),
-      time: statSync(join(dir, f)).mtime.getTime(),
-    }))
-    .sort((a, b) => b.time - a.time);
+function getLogFiles(dir: string): Array<{ name: string; path: string; time: number; size: number }> {
+  if (!existsSync(dir)) return [];
 
-  while (files.length > maxFiles) {
-    const toDelete = files.pop();
-    if (toDelete) {
+  return readdirSync(dir)
+    .filter(f => f.startsWith('lore-') && f.endsWith('.log'))
+    .map(f => {
+      const filePath = join(dir, f);
+      const stat = statSync(filePath);
+      return {
+        name: f,
+        path: filePath,
+        time: stat.mtime.getTime(),
+        size: stat.size,
+      };
+    })
+    .sort((a, b) => b.time - a.time);
+}
+
+function cleanOldLogs(dir: string, maxFiles: number, maxSizeMB: number): void {
+  const files = getLogFiles(dir);
+
+  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+  const maxBytes = maxSizeMB * 1024 * 1024;
+
+  let currentSize = totalSize;
+  for (let i = files.length - 1; i >= 0; i--) {
+    const shouldDeleteByCount = i >= maxFiles;
+    const shouldDeleteBySize = currentSize > maxBytes && i > 0;
+
+    if (shouldDeleteByCount || shouldDeleteBySize) {
       try {
-        unlinkSync(toDelete.path);
+        unlinkSync(files[i]!.path);
+        currentSize -= files[i]!.size;
       } catch {}
     }
   }
@@ -63,7 +80,12 @@ export function initLogger(config?: Partial<LoggerConfig>): Logger {
 
   currentConfig = { ...DEFAULT_CONFIG, ...config };
   ensureLogDir(currentConfig.dir);
-  cleanOldLogs(currentConfig.dir, currentConfig.maxFiles);
+  cleanOldLogs(currentConfig.dir, currentConfig.maxFiles, currentConfig.maxSizeMB);
+
+  cleanupTimer = setInterval(() => {
+    cleanOldLogs(currentConfig.dir, currentConfig.maxFiles, currentConfig.maxSizeMB);
+  }, 60 * 60 * 1000);
+  cleanupTimer.unref();
 
   const logFile = join(currentConfig.dir, getLogFileName());
   
@@ -109,11 +131,6 @@ export function getLogger(): Logger {
 export function createLogger(context: string): Logger {
   const logger = getLogger();
   return logger.child({ context });
-}
-
-export function logMetric(name: string, value: number, tags?: Record<string, string | number>): void {
-  const logger = getLogger();
-  logger.info({ metric: { name, value, tags } }, `METRIC: ${name}`);
 }
 
 export function logMonitorStats(stats: {
