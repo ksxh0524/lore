@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { Briefcase, DollarSign, Zap, Heart, Loader2 } from 'lucide-react';
 import type { AgentInfo } from '../../lib/types';
 import { job, economy } from '../../services/api';
+import { createLogger } from '../../utils/logger';
 import type { Job } from '@lore/shared';
 import './job-panel.css';
+
+const logger = createLogger('job-panel');
 
 const jobCategories = [
   { id: 'fulltime', name: '全职', icon: '💼' },
@@ -66,6 +69,7 @@ export function JobPanel({ agent, onApply, onQuit }: JobPanelProps) {
       }
     } catch (error) {
       console.error('Apply job failed:', error);
+      logger.error('Apply job failed:', error);
     } finally {
       setLoading(false);
     }
@@ -81,6 +85,7 @@ export function JobPanel({ agent, onApply, onQuit }: JobPanelProps) {
       onQuit?.();
     } catch (error) {
       console.error('Quit job failed:', error);
+      logger.error('Quit job failed:', error);
     } finally {
       setLoading(false);
     }

@@ -14,6 +14,9 @@ import type {
   Job,
   AgentEconomy,
 } from '@lore/shared';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('api');
 
 const API_BASE = '/api';
 
@@ -36,7 +39,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const json = await res.json();
 
   if (!res.ok) {
-    throw new ApiError(json.error);
+    const err = new ApiError(json.error);
+    logger.error('API request failed', { method: options?.method ?? 'GET', path, status: res.status, code: err.code });
+    throw err;
   }
 
   return json.data as T;
@@ -51,7 +56,9 @@ async function* streamRequest(path: string, body: unknown): AsyncGenerator<strin
 
   if (!res.ok) {
     const json = await res.json();
-    throw new ApiError(json.error);
+    const err = new ApiError(json.error);
+    logger.error('API stream request failed', { path, status: res.status, code: err.code });
+    throw err;
   }
 
   const reader = res.body?.getReader();

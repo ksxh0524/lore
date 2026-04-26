@@ -1,4 +1,7 @@
 import type { WsMessage, WsEventType, WsClientMessage } from '@lore/shared';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('websocket');
 
 type MessageHandler<T extends WsEventType> = (data: Extract<WsMessage, { type: T }> extends never ? Record<string, unknown> : Extract<WsMessage, { type: T }>) => void;
 
@@ -37,6 +40,7 @@ export class WebSocketClient {
           }
         } catch {
           console.warn('WebSocket message parse error');
+          logger.warn('WebSocket message parse error');
         }
       };
 

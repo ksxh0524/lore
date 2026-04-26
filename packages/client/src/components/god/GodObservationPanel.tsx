@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useWorldStore } from '../../stores/worldStore';
+import { createLogger } from '../../utils/logger';
 import './god-panel.css';
+
+const logger = createLogger('god-observation');
 
 export function GodObservationPanel() {
   const godMode = useWorldStore((s) => s.godMode);
@@ -16,7 +19,7 @@ export function GodObservationPanel() {
 
   const triggerWorldEvent = () => {
     if (!triggerDescription.trim()) return;
-    console.log('Triggering world event:', { type: triggerType, severity: triggerSeverity, description: triggerDescription });
+    logger.info('Triggering world event', { type: triggerType, severity: triggerSeverity, description: triggerDescription });
     setTriggerDescription('');
   };
 

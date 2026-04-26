@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { ShoppingBag, DollarSign, Loader2 } from 'lucide-react';
 import type { AgentInfo } from '../../lib/types';
 import { shop, economy } from '../../services/api';
+import { createLogger } from '../../utils/logger';
 import type { ShopItem } from '@lore/shared';
 import './shop-panel.css';
+
+const logger = createLogger('shop-panel');
 
 interface ShopItemWithIcon extends ShopItem {
   icon?: string;
@@ -80,6 +83,7 @@ export function ShopPanel({ agent, onPurchase }: ShopPanelProps) {
       }, 1500);
     } catch (error) {
       console.error('Purchase failed:', error);
+      logger.error('Purchase failed:', error);
     } finally {
       setLoading(false);
     }

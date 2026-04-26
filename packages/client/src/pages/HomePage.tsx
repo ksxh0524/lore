@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('home-page');
 import { useNavigate } from 'react-router-dom';
 import { Globe, Plus, Settings, ChevronRight, Loader2, Clock, Calendar } from 'lucide-react';
 import { world } from '../services/api';
@@ -26,7 +29,7 @@ export function HomePage() {
       const data = await world.list();
       setWorlds(data);
     } catch (err) {
-      console.error('Failed to load worlds:', err);
+      logger.error('Failed to load worlds:', err);
     } finally {
       setLoading(false);
     }
