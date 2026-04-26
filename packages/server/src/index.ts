@@ -25,7 +25,7 @@ import { Monitor } from './monitor/index.js';
 import { registerRoutes } from './api/routes.js';
 import { registerWebSocket } from './api/ws.js';
 import { registerProviderRoutes } from './api/provider-routes.js';
-import { initLogger, createLogger, logMonitorStats } from './logger/index.js';
+import { initLogger, createLogger } from './logger/index.js';
 import { agentEventBus } from './agent/event-bus.js';
 import { nanoid } from 'nanoid';
 

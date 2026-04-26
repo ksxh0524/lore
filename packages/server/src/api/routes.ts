@@ -32,6 +32,11 @@ import { ErrorCode, LoreError } from '../errors.js';
 import { createLogger } from '../logger/index.js';
 
 const logger = createLogger('routes');
+const clientLogger = createLogger('client');
+
+const clientLogCounts = new Map<string, { count: number; resetAt: number }>();
+const CLIENT_LOG_RATE_LIMIT = 60;
+const CLIENT_LOG_WINDOW_MS = 60_000;
 
 export interface AppDeps {
   core: {
@@ -92,6 +97,49 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps) {
     }
     logger.error(err, 'Unhandled error');
     return reply.status(500).send({ error: { code: ErrorCode.INTERNAL_ERROR, message: 'Internal server error' } });
+  });
+
+  app.addHook('onRequest', async (req) => {
+    req.startTime = Date.now();
+    req.requestId = nanoid();
+  });
+
+  app.addHook('onResponse', async (req, reply) => {
+    const duration = Date.now() - (req.startTime ?? Date.now());
+    const url = req.url;
+    const skipPaths = ['/foundation/stats', '/api/client-logs'];
+    if (skipPaths.some(p => url.startsWith(p))) return;
+    logger.debug(
+      { requestId: req.requestId, method: req.method, url, statusCode: reply.statusCode, durationMs: duration },
+      'HTTP request',
+    );
+  });
+
+  app.post('/api/client-logs', async (req, reply) => {
+    const ip = req.ip;
+    const now = Date.now();
+    const entry = clientLogCounts.get(ip);
+    if (!entry || now > entry.resetAt) {
+      clientLogCounts.set(ip, { count: 1, resetAt: now + CLIENT_LOG_WINDOW_MS });
+    } else {
+      entry.count++;
+      if (entry.count > CLIENT_LOG_RATE_LIMIT) {
+        return reply.status(429).send({ error: 'Rate limited' });
+      }
+    }
+
+    try {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const { level, context, message, data, timestamp, url, error: errMsg, stack } = body as Record<string, unknown>;
+      clientLogger.error(
+        { context, timestamp, url, error: errMsg, stack, data },
+        `[client] ${String(message)}`,
+      );
+    } catch {
+      clientLogger.warn('Failed to parse client log report');
+    }
+
+    return reply.status(200).send({ ok: true });
   });
 
   const initSchema = z.object({
