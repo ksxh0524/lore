@@ -130,9 +130,21 @@ export class PlatformEngine {
     };
   }
 
-  async likePost(agentId: string, postId: string): Promise<void> {
+  async likePost(agentId: string, postId: string, worldId?: string): Promise<void> {
     const post = await this.repo.getPlatformPost(postId);
     if (!post) return;
+
+    if (worldId && post.worldId !== worldId) {
+      logger.warn({ postId, agentId, postWorldId: post.worldId, requestWorldId: worldId }, 'Cross-world like attempt blocked');
+      return;
+    }
+
+    const agent = await this.repo.getAgent(agentId);
+    if (!agent) return;
+    if (agent.worldId !== post.worldId) {
+      logger.warn({ postId, agentId, agentWorldId: agent.worldId, postWorldId: post.worldId }, 'Agent-world mismatch on like');
+      return;
+    }
 
     await this.repo.updatePlatformPost(postId, { likes: (post.likes ?? 0) + 1 });
 
@@ -186,9 +198,21 @@ export class PlatformEngine {
     logger.debug({ postId, agentId }, 'Comment added');
   }
 
-  async sharePost(agentId: string, postId: string): Promise<PlatformPost | null> {
+  async sharePost(agentId: string, postId: string, worldId?: string): Promise<PlatformPost | null> {
     const original = await this.repo.getPlatformPost(postId);
     if (!original) return null;
+
+    if (worldId && original.worldId !== worldId) {
+      logger.warn({ postId, agentId, postWorldId: original.worldId, requestWorldId: worldId }, 'Cross-world share attempt blocked');
+      return null;
+    }
+
+    const agent = await this.repo.getAgent(agentId);
+    if (!agent) return null;
+    if (agent.worldId !== original.worldId) {
+      logger.warn({ postId, agentId, agentWorldId: agent.worldId, postWorldId: original.worldId }, 'Agent-world mismatch on share');
+      return null;
+    }
 
     const sharedPost = await this.post({
       platformId: original.platformId,

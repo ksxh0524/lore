@@ -33,15 +33,22 @@ export class RelationshipManager {
     return rels.filter(r => r.type !== 'stranger').map(r => r.targetAgentId);
   }
 
-  async update(agentId: string, targetId: string, delta: { intimacy?: number; type?: RelationshipType; historyEntry?: string }): Promise<void> {
+  async update(agentId: string, targetId: string, delta: { intimacy?: number; type?: RelationshipType; historyEntry?: string }, worldId?: string): Promise<void> {
     let rel = await this.get(agentId, targetId);
 
     if (!rel) {
+      const agent = await this.repo.getAgent(agentId);
+      const effectiveWorldId = worldId ?? agent?.worldId ?? '';
+      if (!effectiveWorldId) {
+        logger.warn({ agentId, targetId }, 'Cannot create relationship without worldId');
+        return;
+      }
+
       await this.repo.createRelationship({
         id: nanoid(),
         agentId,
         targetAgentId: targetId,
-        worldId: '',
+        worldId: effectiveWorldId,
         type: delta.type ?? 'stranger',
         intimacy: delta.intimacy ?? 0,
       });
@@ -50,7 +57,7 @@ export class RelationshipManager {
         id: nanoid(),
         agentId: targetId,
         targetAgentId: agentId,
-        worldId: '',
+        worldId: effectiveWorldId,
         type: delta.type ?? 'stranger',
         intimacy: delta.intimacy ?? 0,
       });

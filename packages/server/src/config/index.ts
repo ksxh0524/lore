@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   // 数据目录
   dataDir: join(homedir(), '.lore'),
   
-  // 加密 - SECURITY: Default key should NOT be used in production
+  // 加密 - SECURITY: Production MUST set LORE_ENCRYPTION_KEY
   encryption: {
     key: process.env.LORE_ENCRYPTION_KEY || 'lore-development-key-DO-NOT-USE-IN-PRODUCTION',
   },
@@ -80,6 +80,11 @@ let cachedConfig: LoreConfig | null = null;
 
 export function loadConfig(): LoreConfig {
   if (cachedConfig) return cachedConfig;
+  
+  // SECURITY: Production environment MUST have encryption key
+  if (process.env.NODE_ENV === 'production' && !process.env.LORE_ENCRYPTION_KEY) {
+    throw new Error('SECURITY ERROR: LORE_ENCRYPTION_KEY environment variable must be set in production. API keys will not be securely encrypted without it.');
+  }
   
   // 查找 .env 文件
   const envPaths = [

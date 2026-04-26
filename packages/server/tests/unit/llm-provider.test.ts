@@ -39,10 +39,15 @@ describe('MockLLMProvider', () => {
   });
 
   it('should embed text', async () => {
-    const embedding = await provider.embed('Hello world');
+    const result = await provider.embed({ 
+      input: 'Hello world', 
+      model: 'mock-model' 
+    });
     
-    expect(embedding.length).toBe(1536);
-    expect(embedding.every(v => v === 0)).toBe(true);
+    expect(result.embeddings[0]?.length).toBe(1536);
+    expect(result.embeddings.every(e => e.every(v => v === 0))).toBe(true);
+    expect(result.model).toBe('mock-model');
+    expect(result.usage.totalTokens).toBeGreaterThan(0);
   });
 
   it('should support any model', () => {

@@ -328,14 +328,15 @@ ${recentHistory || '（无重大事件）'}
       catastrophic: 5,
     };
 
+    const MAX_STAT_CHANGE = 50;
     const mult = severityMultiplier[decision.severity] || 1;
     const consequences = affectedIds.map((id) => ({
       agentId: id,
       statChanges: {
-        mood: Math.round((decision.consequences.statChanges.mood || 0) * mult),
-        health: Math.round((decision.consequences.statChanges.health || 0) * mult),
-        energy: Math.round((decision.consequences.statChanges.energy || 0) * mult),
-        money: Math.round((decision.consequences.statChanges.money || 0) * mult),
+        mood: Math.max(-MAX_STAT_CHANGE, Math.min(MAX_STAT_CHANGE, Math.round((decision.consequences.statChanges.mood || 0) * mult))),
+        health: Math.max(-MAX_STAT_CHANGE, Math.min(MAX_STAT_CHANGE, Math.round((decision.consequences.statChanges.health || 0) * mult))),
+        energy: Math.max(-MAX_STAT_CHANGE, Math.min(MAX_STAT_CHANGE, Math.round((decision.consequences.statChanges.energy || 0) * mult))),
+        money: Math.max(-MAX_STAT_CHANGE * 10, Math.min(MAX_STAT_CHANGE * 10, Math.round((decision.consequences.statChanges.money || 0) * mult))),
       },
     }));
 

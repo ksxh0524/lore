@@ -1,9 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { RelationshipManager } from '../../src/agent/relationships.js';
 
-function createMockRepo(relationships: any[] = []) {
+function createMockRepo(relationships: any[] = [], agents: any[] = []) {
   const relMap = new Map(relationships.map(r => [r.id, r]));
+  const agentMap = new Map(agents.map(a => [a.id, a]));
   return {
+    getAgent: vi.fn().mockImplementation((agentId: string) =>
+      Promise.resolve(agentMap.get(agentId) ?? null),
+    ),
     getAgentRelationships: vi.fn().mockImplementation((agentId: string) =>
       Promise.resolve(relationships.filter(r => r.agentId === agentId)),
     ),
@@ -51,7 +55,8 @@ describe('RelationshipManager', () => {
   });
 
   it('should create bidirectional relationship on first update', async () => {
-    const repo = createMockRepo();
+    const agents = [{ id: 'a1', worldId: 'w1' }, { id: 'a2', worldId: 'w1' }];
+    const repo = createMockRepo([], agents);
     const rm = new RelationshipManager(repo);
     await rm.update('a1', 'a2', { intimacy: 5, type: 'acquaintance' });
     expect(repo.createRelationship).toHaveBeenCalledTimes(2);

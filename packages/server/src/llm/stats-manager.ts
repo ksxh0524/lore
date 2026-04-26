@@ -140,13 +140,13 @@ export class StatsManager {
       const newPromptTokens = current.promptTokens + record.response.usage.promptTokens;
       const newCompletionTokens = current.completionTokens + record.response.usage.completionTokens;
       const newTotalTokens = current.totalTokens + totalTokens;
-      const newCacheHits = current.cacheHits ?? 0 + (isCached ? 1 : 0);
-      const newCacheMisses = current.cacheMisses ?? 0 + (isCached ? 0 : 1);
+      const newCacheHits = (current.cacheHits ?? 0) + (isCached ? 1 : 0);
+      const newCacheMisses = (current.cacheMisses ?? 0) + (isCached ? 0 : 1);
       const newAvgLatency = (current.avgLatencyMs * current.requestCount + record.response.latencyMs) / newCount;
       const newMaxLatency = Math.max(current.maxLatencyMs, record.response.latencyMs);
       const newMinLatency = Math.min(current.minLatencyMs, record.response.latencyMs);
-      const newErrorCount = current.errorCount ?? 0 + (record.success ? 0 : 1);
-      const newCost = current.estimatedCost ?? 0 + cost;
+      const newErrorCount = (current.errorCount ?? 0) + (record.success ? 0 : 1);
+      const newCost = (current.estimatedCost ?? 0) + cost;
 
       await db
         .update(llmDailyStats)

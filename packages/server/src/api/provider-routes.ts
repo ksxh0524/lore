@@ -182,20 +182,18 @@ export function registerProviderRoutes(app: FastifyInstance, repo: Repository) {
     return { data: getAllPresets() };
   });
 
+  const fetchModelsSchema = z.object({
+    apiKey: z.string().min(1).max(200),
+  });
+
   app.post('/api/provider-presets/:id/fetch-models', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { apiKey } = req.body as { apiKey?: string };
+    const { apiKey } = fetchModelsSchema.parse(req.body);
 
     const preset = getPresetById(id);
     if (!preset) {
       return reply.status(404).send({
         error: { code: ErrorCode.NOT_FOUND, message: 'Preset not found' },
-      });
-    }
-
-    if (!apiKey) {
-      return reply.status(400).send({
-        error: { code: ErrorCode.VALIDATION_ERROR, message: 'API Key required' },
       });
     }
 

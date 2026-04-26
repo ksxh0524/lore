@@ -543,7 +543,7 @@ export class AgentRuntime {
       travel: actionLower.includes('移动') || actionLower.includes('前往') || 
               actionLower.includes('去') && !actionLower.includes('去工作') ||
               actionLower.includes('出发') || actionLower.includes('到达'),
-      active: !actionLower.includes('空闲') && actionLower.includes('活动') || 
+      active: (!actionLower.includes('空闲') && actionLower.includes('活动')) || 
               actionLower.includes('运动') || actionLower.includes('散步'),
     };
   }

@@ -76,7 +76,13 @@ export class OllamaProvider implements ILLMProvider {
       throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json() as OllamaResponse;
+    let data: OllamaResponse;
+    try {
+      data = await response.json() as OllamaResponse;
+    } catch (parseErr) {
+      logger.error({ parseErr, status: response.status }, 'Failed to parse Ollama response JSON');
+      throw new Error('Ollama API returned invalid JSON response');
+    }
 
     const toolCalls = data.message?.tool_calls?.map(tc => {
       let args = {};
@@ -179,7 +185,14 @@ export class OllamaProvider implements ILLMProvider {
         continue;
       }
 
-      const data = await response.json() as { embedding?: number[] };
+      let data: { embedding?: number[] };
+      try {
+        data = await response.json() as { embedding?: number[] };
+      } catch (parseErr) {
+        logger.warn({ parseErr, text: text.slice(0, 50) }, 'Failed to parse Ollama embedding response');
+        embeddings.push([]);
+        continue;
+      }
       embeddings.push(data.embedding ?? []);
       totalTokens += text.length / 4;
     }

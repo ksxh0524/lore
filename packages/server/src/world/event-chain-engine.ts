@@ -79,6 +79,9 @@ const propagationRules: EventPropagationRule[] = [
   },
 ];
 
+const MAX_PROPAGATION_DEPTH = 3;
+const PROPAGATION_DEPTH_KEY = '_propagation_depth';
+
 export class EventChainEngine {
   private repo: Repository;
   private relationshipManager: RelationshipManager | null = null;
@@ -149,6 +152,12 @@ export class EventChainEngine {
     }
 
     const propagations: WorldEvent[] = [];
+
+    const currentDepth = (event.category.match(/_propagation/g) || []).length;
+    if (currentDepth >= MAX_PROPAGATION_DEPTH) {
+      logger.debug({ eventCategory: event.category, depth: currentDepth }, 'Propagation depth limit reached, stopping chain');
+      return [];
+    }
 
     for (const rule of propagationRules) {
       if (!this.matchesCategory(event.category, rule.sourceCategory)) continue;
